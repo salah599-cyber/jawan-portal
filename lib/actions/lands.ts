@@ -7,7 +7,7 @@ import { deleteBlobUrl } from "@/lib/blob";
 import { logAudit } from "@/lib/audit/log";
 import { canWrite, requireModuleAccess } from "@/lib/permissions/access";
 import { landEntityFilter } from "@/lib/permissions/scoped-queries";
-import type { AssetStatus, LandDocumentType } from "@/lib/generated/prisma/client";
+import type { AssetStatus, LandDocumentType, LandSaleDocumentType } from "@/lib/generated/prisma/client";
 
 function parseDecimal(value?: string | null) {
   if (!value || value.trim() === "") return undefined;
@@ -75,6 +75,58 @@ async function uploadLandFiles(
     created.push(doc);
   }
   return created;
+}
+
+async function uploadLandSaleFiles(
+  landSaleId: string,
+  landParcelId: string,
+  files: File[],
+  documentType: LandSaleDocumentType,
+  uploadedById: string,
+  labelPrefix?: string,
+) {
+  const token = process.env.BLOB_READ_WRITE_TOKEN;
+  if (!token) {
+    throw new Error(
+      "BLOB_READ_WRITE_TOKEN is not configured. Document uploads require Vercel Blob storage.",
+    );
+  }
+
+  for (let i = 0; i < files.length; i++) {
+    const file = files[i];
+    if (!(file instanceof File) || file.size === 0) continue;
+
+    const pathname =
+      "lands/" +
+      landParcelId +
+      "/sale/" +
+      documentType.toLowerCase() +
+      "/" +
+      Date.now() +
+      "-" +
+      i +
+      "-" +
+      sanitizeFileName(file.name);
+
+    const blob = await put(pathname, file, {
+      access: "public",
+      token,
+      contentType: file.type || undefined,
+    });
+
+    await db.landSaleDocument.create({
+      data: {
+        landSaleId,
+        documentType,
+        label: labelPrefix ? labelPrefix + " " + (i + 1) : file.name,
+        fileName: file.name,
+        fileUrl: blob.url,
+        mimeType: file.type || "application/octet-stream",
+        fileSize: file.size,
+        uploadedById,
+      },
+    });
+  }
 }
 
 function getFilesFromFormData(formData: FormData, field: string): File[] {
@@ -249,6 +301,7 @@ export async function listLands() {
     include: {
       entity: true,
       documents: { select: { id: true, documentType: true } },
+      sale: { select: { id: true } },
     },
     orderBy: { updatedAt: "desc" },
   });
@@ -262,6 +315,11 @@ export async function getLand(id: string) {
       entity: true,
       documents: { orderBy: { createdAt: "desc" } },
       asset: true,
+      sale: {
+        include: {
+          documents: { orderBy: { createdAt: "desc" } },
+        },
+      },
     },
   });
 }
@@ -304,12 +362,17 @@ export async function deleteLand(id: string) {
 
   const land = await db.landParcel.findFirst({
     where: { id, ...landEntityFilter(ctx) },
-    include: { documents: true },
+    include: { documents: true, sale: { include: { documents: true } } },
   });
   if (!land) throw new Error("Land parcel not found.");
 
   for (const doc of land.documents) {
     await deleteBlobUrl(doc.fileUrl);
+  }
+  if (land.sale) {
+    for (const doc of land.sale.documents) {
+      await deleteBlobUrl(doc.fileUrl);
+    }
   }
 
   const assetId = land.assetId;
@@ -440,4 +503,173 @@ export async function updateLand(id: string, formData: FormData) {
   revalidatePath("/lands/" + id + "/edit");
   revalidatePath("/assets");
   return updated;
+}
+
+export async function recordLandSale(formData: FormData) {
+  const ctx = await requireModuleAccess("LANDS");
+  if (!canWrite(ctx, "LANDS")) {
+    throw new Error("You do not have permission to record land sales.");
+  }
+
+  const landParcelId = String(formData.get("landParcelId") ?? "").trim();
+  const soldTo = String(formData.get("soldTo") ?? "").trim();
+  const saleDateRaw = String(formData.get("saleDate") ?? "").trim();
+  const saleAmount = String(formData.get("saleAmount") ?? "").trim();
+  const currency = String(formData.get("currency") ?? "OMR").trim() || "OMR";
+  const notes = String(formData.get("notes") ?? "").trim() || undefined;
+
+  if (!landParcelId) throw new Error("Land parcel is required.");
+  if (!soldTo) throw new Error("Buyer name is required.");
+  if (!saleDateRaw) throw new Error("Sale date is required.");
+  if (!saleAmount || Number.isNaN(parseFloat(saleAmount))) {
+    throw new Error("A valid sale amount is required.");
+  }
+
+  const land = await db.landParcel.findFirst({
+    where: { id: landParcelId, ...landEntityFilter(ctx) },
+    include: { sale: true, asset: true },
+  });
+  if (!land) throw new Error("Land parcel not found.");
+  if (land.sale) throw new Error("This land parcel already has a recorded sale.");
+
+  const saleDate = new Date(saleDateRaw);
+
+  const sale = await db.landSale.create({
+    data: {
+      landParcelId,
+      saleDate,
+      soldTo,
+      saleAmount,
+      currency,
+      notes,
+      recordedById: ctx.id,
+    },
+  });
+
+  await db.landParcel.update({
+    where: { id: landParcelId },
+    data: { status: "EXITED" },
+  });
+
+  if (land.assetId) {
+    await db.asset.update({
+      where: { id: land.assetId },
+      data: {
+        status: "EXITED",
+        currentValue: saleAmount,
+        currency,
+        valueUpdatedAt: new Date(),
+      },
+    });
+  }
+
+  const poaFiles = getFilesFromFormData(formData, "poaFiles");
+  const spaFiles = getFilesFromFormData(formData, "spaFiles");
+  const buyerIdFiles = getFilesFromFormData(formData, "buyerIdFiles");
+  const otherSaleFiles = getFilesFromFormData(formData, "otherSaleFiles");
+
+  if (poaFiles.length) {
+    await uploadLandSaleFiles(sale.id, landParcelId, poaFiles, "POWER_OF_ATTORNEY", ctx.id);
+  }
+  if (spaFiles.length) {
+    await uploadLandSaleFiles(sale.id, landParcelId, spaFiles, "SPA", ctx.id);
+  }
+  if (buyerIdFiles.length) {
+    await uploadLandSaleFiles(sale.id, landParcelId, buyerIdFiles, "BUYER_ID", ctx.id);
+  }
+  if (otherSaleFiles.length) {
+    await uploadLandSaleFiles(sale.id, landParcelId, otherSaleFiles, "OTHER", ctx.id, "Other document");
+  }
+
+  await logAudit({
+    userId: ctx.id,
+    action: "CREATE",
+    resource: "LandSale",
+    resourceId: sale.id,
+    metadata: { landParcelId, soldTo, saleAmount },
+  });
+
+  revalidatePath("/lands");
+  revalidatePath("/lands/" + landParcelId);
+  revalidatePath("/assets");
+  revalidatePath("/dashboard");
+  return sale;
+}
+
+export async function uploadLandSaleDocuments(formData: FormData) {
+  const ctx = await requireModuleAccess("LANDS");
+  if (!canWrite(ctx, "LANDS")) {
+    throw new Error("You do not have permission to upload sale documents.");
+  }
+
+  const landParcelId = String(formData.get("landParcelId") ?? "").trim();
+  const documentType = String(formData.get("documentType") ?? "") as LandSaleDocumentType;
+  if (!landParcelId) throw new Error("Land parcel is required.");
+  if (!documentType) throw new Error("Document type is required.");
+
+  const land = await db.landParcel.findFirst({
+    where: { id: landParcelId, ...landEntityFilter(ctx) },
+    include: { sale: true },
+  });
+  if (!land) throw new Error("Land parcel not found.");
+  if (!land.sale) throw new Error("No sale recorded for this land parcel.");
+
+  const field =
+    documentType === "POWER_OF_ATTORNEY"
+      ? "poaFiles"
+      : documentType === "SPA"
+        ? "spaFiles"
+        : documentType === "BUYER_ID"
+          ? "buyerIdFiles"
+          : "otherSaleFiles";
+
+  const files = getFilesFromFormData(formData, field);
+  if (files.length === 0) throw new Error("At least one file is required.");
+
+  await uploadLandSaleFiles(
+    land.sale.id,
+    landParcelId,
+    files,
+    documentType,
+    ctx.id,
+    documentType === "OTHER" ? "Other document" : undefined,
+  );
+
+  await logAudit({
+    userId: ctx.id,
+    action: "UPLOAD",
+    resource: "LandSaleDocument",
+    resourceId: land.sale.id,
+    metadata: { documentType, count: files.length },
+  });
+
+  revalidatePath("/lands/" + landParcelId);
+  revalidatePath("/lands");
+}
+
+export async function deleteLandSaleDocument(id: string) {
+  const ctx = await requireModuleAccess("LANDS");
+  if (!canWrite(ctx, "LANDS")) {
+    throw new Error("You do not have permission to delete sale documents.");
+  }
+
+  const document = await db.landSaleDocument.findFirst({
+    where: { id, landSale: { landParcel: landEntityFilter(ctx) } },
+    include: { landSale: true },
+  });
+  if (!document) throw new Error("Document not found.");
+
+  await deleteBlobUrl(document.fileUrl);
+  await db.landSaleDocument.delete({ where: { id } });
+
+  await logAudit({
+    userId: ctx.id,
+    action: "DELETE",
+    resource: "LandSaleDocument",
+    resourceId: id,
+    metadata: { landParcelId: document.landSale.landParcelId },
+  });
+
+  revalidatePath("/lands/" + document.landSale.landParcelId);
+  revalidatePath("/lands");
 }

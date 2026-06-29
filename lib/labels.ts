@@ -72,6 +72,13 @@ export const LAND_DOCUMENT_TYPE_LABELS: Record<string, string> = {
   OTHER: "Other",
 };
 
+export const LAND_SALE_DOCUMENT_TYPE_LABELS: Record<string, string> = {
+  POWER_OF_ATTORNEY: "Power of Attorney",
+  SPA: "Sale & Purchase Agreement (SPA)",
+  BUYER_ID: "Buyer ID",
+  OTHER: "Other",
+};
+
 export const VEHICLE_CLASS_LABELS: Record<string, string> = {
   PRIVATE: "Private",
   COMMERCIAL: "Commercial",

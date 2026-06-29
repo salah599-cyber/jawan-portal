@@ -41,6 +41,13 @@ enum LandDocumentType {
   OTHER
 }
 
+enum LandSaleDocumentType {
+  POWER_OF_ATTORNEY
+  SPA
+  BUYER_ID
+  OTHER
+}
+
 enum VehicleDocumentType {
   MULKIA
   INSURANCE
@@ -277,6 +284,7 @@ model LandParcel {
   assetId          String?        @unique
   asset            Asset?         @relation(fields: [assetId], references: [id])
   documents        LandDocument[]
+  sale             LandSale?
   createdAt        DateTime       @default(now())
   updatedAt        DateTime       @updatedAt
   @@index([entityId, governorate, wilayat, status])
@@ -295,6 +303,36 @@ model LandDocument {
   uploadedById String?
   createdAt    DateTime         @default(now())
   @@index([landParcelId, documentType])
+}
+
+model LandSale {
+  id           String             @id @default(cuid())
+  landParcelId String             @unique
+  landParcel   LandParcel         @relation(fields: [landParcelId], references: [id], onDelete: Cascade)
+  saleDate     DateTime
+  soldTo       String
+  saleAmount   Decimal            @db.Decimal(18, 2)
+  currency     String             @default("OMR")
+  notes        String?
+  recordedById String?
+  documents    LandSaleDocument[]
+  createdAt    DateTime           @default(now())
+  updatedAt    DateTime           @updatedAt
+}
+
+model LandSaleDocument {
+  id           String               @id @default(cuid())
+  landSaleId   String
+  landSale     LandSale             @relation(fields: [landSaleId], references: [id], onDelete: Cascade)
+  documentType LandSaleDocumentType
+  label        String?
+  fileName     String
+  fileUrl      String
+  mimeType     String
+  fileSize     Int
+  uploadedById String?
+  createdAt    DateTime             @default(now())
+  @@index([landSaleId, documentType])
 }
 
 model Vehicle {
