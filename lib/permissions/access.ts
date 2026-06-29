@@ -1,4 +1,5 @@
 import { auth } from "@clerk/nextjs/server";
+import { forbidden } from "next/navigation";
 import { db } from "@/lib/db";
 import { ROLE_MATRIX } from "./matrix";
 import type { ModuleName, PermissionLevel, UserContext } from "./types";
@@ -52,12 +53,12 @@ export function canWrite(ctx: UserContext, module: ModuleName): boolean {
 
 export async function requireUserContext(): Promise<UserContext> {
   const ctx = await getCurrentUserContext();
-  if (!ctx) throw new Error("Unauthorized");
+  if (!ctx) forbidden();
   return ctx;
 }
 
 export async function requireModuleAccess(module: ModuleName): Promise<UserContext> {
   const ctx = await requireUserContext();
-  if (!canAccess(ctx, module)) throw new Error("Forbidden");
+  if (!canAccess(ctx, module)) forbidden();
   return ctx;
 }
