@@ -50,6 +50,13 @@ export const EXPENSE_CATEGORY_OPTIONS = [
   "Other",
 ] as const;
 
+export const EXPENSE_ATTACHMENT_TYPE_LABELS: Record<string, string> = {
+  INVOICE: "Invoice",
+  PAYMENT_SLIP: "Payment Slip",
+  CHEQUE_COPY: "Cheque Copy",
+  OTHER: "Other",
+};
+
 export const LAND_USE_LABELS: Record<string, string> = {
   RESIDENTIAL: "Residential",
   COMMERCIAL: "Commercial",

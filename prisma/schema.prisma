@@ -108,6 +108,13 @@ enum ExpenseStatus {
   OVERDUE
 }
 
+enum ExpenseAttachmentType {
+  INVOICE
+  PAYMENT_SLIP
+  CHEQUE_COPY
+  OTHER
+}
+
 enum CashFlowType {
   INFLOW
   OUTFLOW
@@ -536,6 +543,8 @@ model Expense {
   amount         Decimal       @db.Decimal(18, 2)
   currency       String        @default("OMR")
   category       String
+  expenseTypeId  String?
+  expenseType    ExpenseType?  @relation(fields: [expenseTypeId], references: [id])
   isRecurring    Boolean       @default(false)
   recurrenceRule String?
   dueDate        DateTime?
@@ -547,9 +556,36 @@ model Expense {
   asset          Asset?        @relation(fields: [assetId], references: [id])
   assignedTo     String?
   reminderDays   Int           @default(7)
+  attachments    ExpenseAttachment[]
   createdAt      DateTime      @default(now())
   updatedAt      DateTime      @updatedAt
   @@index([status, dueDate])
+  @@index([expenseTypeId])
+}
+
+model ExpenseType {
+  id        String    @id @default(cuid())
+  name      String    @unique
+  isActive  Boolean   @default(true)
+  sortOrder Int       @default(0)
+  expenses  Expense[]
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+}
+
+model ExpenseAttachment {
+  id             String                @id @default(cuid())
+  expenseId      String
+  expense        Expense               @relation(fields: [expenseId], references: [id], onDelete: Cascade)
+  attachmentType ExpenseAttachmentType
+  label          String?
+  fileName       String
+  fileUrl        String
+  mimeType       String
+  fileSize       Int
+  uploadedById   String?
+  createdAt      DateTime              @default(now())
+  @@index([expenseId, attachmentType])
 }
 
 model ExpenseReminderConfig {
