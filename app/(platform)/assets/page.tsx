@@ -1,6 +1,7 @@
 import { PlatformHeader } from "@/components/platform/platform-header";
 import { AddLinkButton } from "@/components/platform/add-link-button";
-import { listAssets } from "@/lib/actions/assets";
+import { DeleteEntryButton } from "@/components/platform/delete-entry-button";
+import { listAssets, deleteAsset } from "@/lib/actions/assets";
 import { canWrite, requireModuleAccess } from "@/lib/permissions/access";
 import { ASSET_CATEGORY_LABELS, ASSET_STATUS_LABELS } from "@/lib/labels";
 import { formatMoney, formatDate } from "@/lib/format";
@@ -47,6 +48,7 @@ export default async function AssetsPage() {
                     <TableHead>Status</TableHead>
                     <TableHead className="text-right">Current Value</TableHead>
                     <TableHead>Updated</TableHead>
+                    {showAdd ? <TableHead className="w-[60px]">Actions</TableHead> : null}
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -64,6 +66,17 @@ export default async function AssetsPage() {
                         {formatMoney(asset.currentValue, asset.currency)}
                       </TableCell>
                       <TableCell>{formatDate(asset.updatedAt)}</TableCell>
+                      {showAdd ? (
+                        <TableCell>
+                          <DeleteEntryButton
+                            itemId={asset.id}
+                            itemLabel={asset.name}
+                            deleteAction={deleteAsset}
+                            disabled={!!asset.landParcel}
+                            disabledReason="Linked to a land parcel. Delete from Lands instead."
+                          />
+                        </TableCell>
+                      ) : null}
                     </TableRow>
                   ))}
                 </TableBody>

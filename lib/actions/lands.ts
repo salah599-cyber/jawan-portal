@@ -3,6 +3,7 @@
 import { put } from "@vercel/blob";
 import { revalidatePath } from "next/cache";
 import { db } from "@/lib/db";
+import { deleteBlobUrl } from "@/lib/blob";
 import { logAudit } from "@/lib/audit/log";
 import { canWrite, requireModuleAccess } from "@/lib/permissions/access";
 import { landEntityFilter } from "@/lib/permissions/scoped-queries";
@@ -263,4 +264,69 @@ export async function getLand(id: string) {
       asset: true,
     },
   });
+}
+
+export async function deleteLandDocument(id: string) {
+  const ctx = await requireModuleAccess("LANDS");
+  if (!canWrite(ctx, "LANDS")) {
+    throw new Error("You do not have permission to delete land documents.");
+  }
+
+  const document = await db.landDocument.findFirst({
+    where: {
+      id,
+      landParcel: landEntityFilter(ctx),
+    },
+    include: { landParcel: true },
+  });
+  if (!document) throw new Error("Document not found.");
+
+  await deleteBlobUrl(document.fileUrl);
+  await db.landDocument.delete({ where: { id } });
+
+  await logAudit({
+    userId: ctx.id,
+    action: "DELETE",
+    resource: "LandDocument",
+    resourceId: id,
+    metadata: { landParcelId: document.landParcelId, fileName: document.fileName },
+  });
+
+  revalidatePath("/lands/" + document.landParcelId);
+  revalidatePath("/lands");
+}
+
+export async function deleteLand(id: string) {
+  const ctx = await requireModuleAccess("LANDS");
+  if (!canWrite(ctx, "LANDS")) {
+    throw new Error("You do not have permission to delete land.");
+  }
+
+  const land = await db.landParcel.findFirst({
+    where: { id, ...landEntityFilter(ctx) },
+    include: { documents: true },
+  });
+  if (!land) throw new Error("Land parcel not found.");
+
+  for (const doc of land.documents) {
+    await deleteBlobUrl(doc.fileUrl);
+  }
+
+  const assetId = land.assetId;
+  await db.landParcel.delete({ where: { id } });
+
+  if (assetId) {
+    await db.asset.delete({ where: { id: assetId } });
+  }
+
+  await logAudit({
+    userId: ctx.id,
+    action: "DELETE",
+    resource: "LandParcel",
+    resourceId: id,
+    metadata: { name: land.name },
+  });
+
+  revalidatePath("/lands");
+  revalidatePath("/assets");
 }

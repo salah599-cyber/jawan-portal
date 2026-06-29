@@ -1,20 +1,22 @@
 import { PlatformHeader } from "@/components/platform/platform-header";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { UsersManagement } from "@/components/admin/users-management";
+import { listEntities } from "@/lib/data/entities";
+import { listPendingInvites, listUsers } from "@/lib/actions/users";
+import { requireSuperAdmin } from "@/lib/permissions/access";
 
-export default function Page() {
+export default async function AdminUsersPage() {
+  await requireSuperAdmin();
+  const [users, pendingInvites, entities] = await Promise.all([
+    listUsers(),
+    listPendingInvites(),
+    listEntities(),
+  ]);
+
   return (
     <>
       <PlatformHeader title="User Management" />
       <main className="flex flex-1 flex-col gap-4 p-4 md:p-6">
-        <Card>
-          <CardHeader>
-            <CardTitle>User Management</CardTitle>
-            <CardDescription>Invite users and assign roles.</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <p className="text-sm text-muted-foreground">Module scaffold ready. Implementation in progress.</p>
-          </CardContent>
-        </Card>
+        <UsersManagement users={users} pendingInvites={pendingInvites} entities={entities} />
       </main>
     </>
   );

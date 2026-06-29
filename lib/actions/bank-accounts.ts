@@ -73,3 +73,27 @@ export async function listBankAccounts() {
     orderBy: { updatedAt: "desc" },
   });
 }
+
+export async function deleteBankAccount(id: string) {
+  const ctx = await requireModuleAccess("ASSETS");
+  if (!canWrite(ctx, "ASSETS")) {
+    throw new Error("You do not have permission to delete bank accounts.");
+  }
+
+  const account = await db.bankAccount.findFirst({
+    where: { id, ...bankAccountFilter(ctx) },
+  });
+  if (!account) throw new Error("Bank account not found.");
+
+  await db.bankAccount.delete({ where: { id } });
+
+  await logAudit({
+    userId: ctx.id,
+    action: "DELETE",
+    resource: "BankAccount",
+    resourceId: id,
+    metadata: { accountName: account.accountName },
+  });
+
+  revalidatePath("/assets/bank-details");
+}

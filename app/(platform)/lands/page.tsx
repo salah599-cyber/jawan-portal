@@ -1,7 +1,8 @@
 ﻿import Link from "next/link";
 import { PlatformHeader } from "@/components/platform/platform-header";
 import { AddLinkButton } from "@/components/platform/add-link-button";
-import { listLands } from "@/lib/actions/lands";
+import { DeleteEntryButton } from "@/components/platform/delete-entry-button";
+import { listLands, deleteLand } from "@/lib/actions/lands";
 import { canWrite, requireModuleAccess } from "@/lib/permissions/access";
 import { ASSET_STATUS_LABELS } from "@/lib/labels";
 import { formatMoney, formatDate } from "@/lib/format";
@@ -41,6 +42,7 @@ export default async function LandsPage() {
                     <TableHead className="text-right">Value</TableHead>
                     <TableHead>Docs</TableHead>
                     <TableHead>Updated</TableHead>
+                    {showAdd ? <TableHead className="w-[60px]">Actions</TableHead> : null}
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -58,6 +60,15 @@ export default async function LandsPage() {
                       <TableCell className="text-right">{formatMoney(land.currentValue, land.currency)}</TableCell>
                       <TableCell>{land.documents.length}</TableCell>
                       <TableCell>{formatDate(land.updatedAt)}</TableCell>
+                      {showAdd ? (
+                        <TableCell>
+                          <DeleteEntryButton
+                            itemId={land.id}
+                            itemLabel={land.name}
+                            deleteAction={deleteLand}
+                          />
+                        </TableCell>
+                      ) : null}
                     </TableRow>
                   ))}
                 </TableBody>

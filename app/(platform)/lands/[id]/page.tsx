@@ -1,8 +1,9 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { PlatformHeader } from "@/components/platform/platform-header";
+import { DeleteEntryButton } from "@/components/platform/delete-entry-button";
 import { UploadLandDocumentsForm } from "@/components/lands/upload-land-documents-form";
-import { getLand } from "@/lib/actions/lands";
+import { getLand, deleteLand, deleteLandDocument } from "@/lib/actions/lands";
 import { canWrite, requireModuleAccess } from "@/lib/permissions/access";
 import { ASSET_STATUS_LABELS, LAND_DOCUMENT_TYPE_LABELS, LAND_USE_LABELS } from "@/lib/labels";
 import { formatMoney, formatDate } from "@/lib/format";
@@ -30,6 +31,16 @@ export default async function LandDetailPage({ params }: { params: Promise<{ id:
         <div className="flex items-center gap-2">
           <Button variant="outline" size="sm" asChild><Link href="/lands">Back to Lands</Link></Button>
           {land.assetId ? <Button variant="outline" size="sm" asChild><Link href="/assets">View in Assets</Link></Button> : null}
+          {showUpload ? (
+            <DeleteEntryButton
+              itemId={land.id}
+              itemLabel={land.name}
+              deleteAction={deleteLand}
+              redirectTo="/lands"
+              title="Delete land parcel?"
+              description="This will permanently delete the land parcel, linked asset, and all uploaded documents."
+            />
+          ) : null}
         </div>
         <div className="grid gap-4 lg:grid-cols-3">
           <Card className="lg:col-span-2">
@@ -76,6 +87,14 @@ export default async function LandDetailPage({ params }: { params: Promise<{ id:
                       <Button variant="outline" size="sm" asChild>
                         <a href={doc.fileUrl} target="_blank" rel="noopener noreferrer">Open</a>
                       </Button>
+                      {showUpload ? (
+                        <DeleteEntryButton
+                          itemId={doc.id}
+                          itemLabel={doc.label ?? doc.fileName}
+                          deleteAction={deleteLandDocument}
+                          title="Delete document?"
+                        />
+                      ) : null}
                     </li>
                   ))}
                 </ul>

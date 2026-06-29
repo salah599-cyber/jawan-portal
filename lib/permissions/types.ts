@@ -22,6 +22,7 @@ export interface UserContext {
   clerkId: string;
   email: string;
   role: UserRole;
+  isSuperAdmin: boolean;
   entityIds: string[];
   documentCategories: string[];
   overrides: Partial<Record<ModuleName, PermissionLevel>>;

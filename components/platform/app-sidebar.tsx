@@ -25,7 +25,7 @@ import {
   SidebarMenuItem,
 } from "@/components/ui/sidebar";
 
-const nav = [
+const platformNav = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
   { href: "/assets", label: "Assets", icon: Building2 },
   { href: "/lands", label: "Lands", icon: Map },
@@ -33,12 +33,16 @@ const nav = [
   { href: "/documents", label: "Documents", icon: FileText },
   { href: "/expenses", label: "Expenses", icon: Receipt },
   { href: "/reports", label: "Reports", icon: BarChart3 },
+];
+
+const adminNav = [
   { href: "/admin/users", label: "Users", icon: Users },
   { href: "/admin/audit-log", label: "Audit Log", icon: ScrollText },
 ];
 
-export function AppSidebar() {
+export function AppSidebar({ showAdmin = false }: { showAdmin?: boolean }) {
   const pathname = usePathname();
+  const nav = showAdmin ? [...platformNav, ...adminNav] : platformNav;
 
   return (
     <Sidebar>

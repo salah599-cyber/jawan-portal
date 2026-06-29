@@ -1,6 +1,7 @@
 import { PlatformHeader } from "@/components/platform/platform-header";
 import { AddLinkButton } from "@/components/platform/add-link-button";
-import { listBankAccounts } from "@/lib/actions/bank-accounts";
+import { DeleteEntryButton } from "@/components/platform/delete-entry-button";
+import { listBankAccounts, deleteBankAccount } from "@/lib/actions/bank-accounts";
 import { canWrite, requireModuleAccess } from "@/lib/permissions/access";
 import { formatDate } from "@/lib/format";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -46,6 +47,7 @@ export default async function BankDetailsPage() {
                     <TableHead>Currency</TableHead>
                     <TableHead>Entity</TableHead>
                     <TableHead>Updated</TableHead>
+                    {showAdd ? <TableHead className="w-[60px]">Actions</TableHead> : null}
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -58,6 +60,15 @@ export default async function BankDetailsPage() {
                       <TableCell>{account.currency}</TableCell>
                       <TableCell>{account.entity?.name ?? "—"}</TableCell>
                       <TableCell>{formatDate(account.updatedAt)}</TableCell>
+                      {showAdd ? (
+                        <TableCell>
+                          <DeleteEntryButton
+                            itemId={account.id}
+                            itemLabel={account.accountName}
+                            deleteAction={deleteBankAccount}
+                          />
+                        </TableCell>
+                      ) : null}
                     </TableRow>
                   ))}
                 </TableBody>

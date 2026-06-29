@@ -1,6 +1,7 @@
 import { PlatformHeader } from "@/components/platform/platform-header";
 import { UploadDocumentForm } from "@/components/documents/upload-document-form";
-import { listDocuments } from "@/lib/actions/documents";
+import { DeleteEntryButton } from "@/components/platform/delete-entry-button";
+import { listDocuments, deleteDocument } from "@/lib/actions/documents";
 import { listEntities } from "@/lib/data/entities";
 import { canWrite, requireModuleAccess } from "@/lib/permissions/access";
 import { DOCUMENT_CATEGORY_LABELS, DOCUMENT_STATUS_LABELS } from "@/lib/labels";
@@ -45,6 +46,7 @@ export default async function DocumentsPage() {
                     <TableHead>Entity</TableHead>
                     <TableHead>Expiry</TableHead>
                     <TableHead>Uploaded</TableHead>
+                    {showUpload ? <TableHead className="w-[60px]">Actions</TableHead> : null}
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -69,6 +71,15 @@ export default async function DocumentsPage() {
                       <TableCell>{doc.entity?.name ?? "—"}</TableCell>
                       <TableCell>{formatDate(doc.expiryDate)}</TableCell>
                       <TableCell>{formatDate(doc.createdAt)}</TableCell>
+                      {showUpload ? (
+                        <TableCell>
+                          <DeleteEntryButton
+                            itemId={doc.id}
+                            itemLabel={doc.name}
+                            deleteAction={deleteDocument}
+                          />
+                        </TableCell>
+                      ) : null}
                     </TableRow>
                   ))}
                 </TableBody>

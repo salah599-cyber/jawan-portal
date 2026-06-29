@@ -3,6 +3,7 @@
 import { put } from "@vercel/blob";
 import { revalidatePath } from "next/cache";
 import { db } from "@/lib/db";
+import { deleteBlobUrl } from "@/lib/blob";
 import { logAudit } from "@/lib/audit/log";
 import { canWrite, requireModuleAccess } from "@/lib/permissions/access";
 import { documentFilter } from "@/lib/permissions/scoped-queries";
@@ -80,4 +81,29 @@ export async function listDocuments() {
     include: { entity: true },
     orderBy: { updatedAt: "desc" },
   });
+}
+
+export async function deleteDocument(id: string) {
+  const ctx = await requireModuleAccess("DOCUMENTS");
+  if (!canWrite(ctx, "DOCUMENTS")) {
+    throw new Error("You do not have permission to delete documents.");
+  }
+
+  const document = await db.document.findFirst({
+    where: { id, ...documentFilter(ctx) },
+  });
+  if (!document) throw new Error("Document not found.");
+
+  await deleteBlobUrl(document.fileUrl);
+  await db.document.delete({ where: { id } });
+
+  await logAudit({
+    userId: ctx.id,
+    action: "DELETE",
+    resource: "Document",
+    resourceId: id,
+    metadata: { name: document.name },
+  });
+
+  revalidatePath("/documents");
 }

@@ -1,6 +1,7 @@
 import { PlatformHeader } from "@/components/platform/platform-header";
 import { CreateExpenseForm } from "@/components/expenses/create-expense-form";
-import { listExpenses } from "@/lib/actions/expenses";
+import { DeleteEntryButton } from "@/components/platform/delete-entry-button";
+import { listExpenses, deleteExpense } from "@/lib/actions/expenses";
 import { listEntities } from "@/lib/data/entities";
 import { canWrite, requireModuleAccess } from "@/lib/permissions/access";
 import { EXPENSE_STATUS_LABELS } from "@/lib/labels";
@@ -46,6 +47,7 @@ export default async function ExpensesPage() {
                     <TableHead>Due Date</TableHead>
                     <TableHead>Recurring</TableHead>
                     <TableHead>Entity</TableHead>
+                    {showCreate ? <TableHead className="w-[60px]">Actions</TableHead> : null}
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -64,6 +66,15 @@ export default async function ExpensesPage() {
                       <TableCell>{formatDate(expense.dueDate)}</TableCell>
                       <TableCell>{expense.isRecurring ? "Yes" : "No"}</TableCell>
                       <TableCell>{expense.entity?.name ?? "—"}</TableCell>
+                      {showCreate ? (
+                        <TableCell>
+                          <DeleteEntryButton
+                            itemId={expense.id}
+                            itemLabel={expense.title}
+                            deleteAction={deleteExpense}
+                          />
+                        </TableCell>
+                      ) : null}
                     </TableRow>
                   ))}
                 </TableBody>

@@ -70,3 +70,27 @@ export async function listExpenses() {
     orderBy: { dueDate: "desc" },
   });
 }
+
+export async function deleteExpense(id: string) {
+  const ctx = await requireModuleAccess("EXPENSES");
+  if (!canWrite(ctx, "EXPENSES")) {
+    throw new Error("You do not have permission to delete expenses.");
+  }
+
+  const expense = await db.expense.findFirst({
+    where: { id, ...expenseEntityFilter(ctx) },
+  });
+  if (!expense) throw new Error("Expense not found.");
+
+  await db.expense.delete({ where: { id } });
+
+  await logAudit({
+    userId: ctx.id,
+    action: "DELETE",
+    resource: "Expense",
+    resourceId: id,
+    metadata: { title: expense.title },
+  });
+
+  revalidatePath("/expenses");
+}
