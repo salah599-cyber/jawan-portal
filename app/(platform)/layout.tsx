@@ -7,7 +7,7 @@ export default async function PlatformLayout({ children }: { children: React.Rea
   return (
     <SidebarProvider>
       <AppSidebar />
-      <SidebarInset>{children}</SidebarInset>
+      <SidebarInset className="flex min-h-svh flex-col">{children}</SidebarInset>
     </SidebarProvider>
   );
 }
