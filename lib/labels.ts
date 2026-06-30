@@ -110,3 +110,10 @@ export const VEHICLE_DOCUMENT_TYPE_LABELS: Record<string, string> = {
   INSURANCE: "Insurance",
   OTHER: "Other",
 };
+
+export const COMPANY_DOCUMENT_TYPE_LABELS: Record<string, string> = {
+  REGISTRATION_COPY: "Registration Copy",
+  CHAMBER_COPY: "Chamber of Commerce Copy",
+  FINANCIALS: "Financial Statements",
+  OTHER: "Other",
+};

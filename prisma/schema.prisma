@@ -28,6 +28,7 @@ enum ModuleName {
   ASSETS
   LANDS
   CARS
+  COMPANIES
   DOCUMENTS
   EXPENSES
   REPORTS
@@ -51,6 +52,13 @@ enum LandSaleDocumentType {
 enum VehicleDocumentType {
   MULKIA
   INSURANCE
+  OTHER
+}
+
+enum CompanyDocumentType {
+  REGISTRATION_COPY
+  CHAMBER_COPY
+  FINANCIALS
   OTHER
 }
 
@@ -195,6 +203,7 @@ model Entity {
   expenses     Expense[]
   landParcels  LandParcel[]
   vehicles     Vehicle[]
+  registeredCompanies RegisteredCompany[]
   userAccess   UserEntityAccess[]
   createdAt    DateTime           @default(now())
   updatedAt    DateTime           @updatedAt
@@ -243,6 +252,7 @@ model Asset {
   liabilities     Liability[]
   landParcel      LandParcel?
   vehicle         Vehicle?
+  registeredCompany RegisteredCompany?
   createdAt       DateTime              @default(now())
   updatedAt       DateTime              @updatedAt
   @@index([entityId, category, status])
@@ -389,6 +399,68 @@ model VehicleDocument {
   uploadedById String?
   createdAt    DateTime            @default(now())
   @@index([vehicleId, documentType])
+}
+
+model RegisteredCompany {
+  id                     String              @id @default(cuid())
+  name                   String
+  registrationNumber     String
+  registrationDate       DateTime?
+  registrationExpiryDate DateTime?
+  ceoName                String?
+  ceoEmail               String?
+  ceoPhone               String?
+  managementContactName  String?
+  managementEmail        String?
+  managementPhone        String?
+  managementNotes        String?
+  status                 AssetStatus         @default(ACTIVE)
+  notes                  String?
+  entityId               String
+  entity                 Entity              @relation(fields: [entityId], references: [id])
+  assetId                String?             @unique
+  asset                  Asset?              @relation(fields: [assetId], references: [id])
+  owners                 CompanyOwner[]
+  documents              CompanyDocument[]
+  createdAt              DateTime            @default(now())
+  updatedAt              DateTime            @updatedAt
+
+  @@index([entityId, status])
+  @@index([registrationNumber])
+  @@index([registrationExpiryDate])
+}
+
+model CompanyOwner {
+  id           String            @id @default(cuid())
+  companyId    String
+  company      RegisteredCompany @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  name         String
+  ownershipPct Decimal?          @db.Decimal(5, 2)
+  email        String?
+  phone        String?
+  address      String?
+  notes        String?
+  sortOrder    Int               @default(0)
+  createdAt    DateTime          @default(now())
+  updatedAt    DateTime          @updatedAt
+
+  @@index([companyId])
+}
+
+model CompanyDocument {
+  id           String              @id @default(cuid())
+  companyId    String
+  company      RegisteredCompany   @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  documentType CompanyDocumentType
+  label        String?
+  fileName     String
+  fileUrl      String
+  mimeType     String
+  fileSize     Int
+  uploadedById String?
+  createdAt    DateTime            @default(now())
+
+  @@index([companyId, documentType])
 }
 
 model PrivateEquityDetail {

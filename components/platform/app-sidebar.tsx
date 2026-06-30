@@ -13,6 +13,7 @@ import {
   Landmark,
   Map,
   Car,
+  Factory,
 } from "lucide-react";
 import {
   Sidebar,
@@ -31,6 +32,7 @@ const platformNav = [
   { href: "/assets", label: "Assets", icon: Building2 },
   { href: "/lands", label: "Lands", icon: Map },
   { href: "/cars", label: "Cars", icon: Car },
+  { href: "/companies", label: "Companies", icon: Factory },
   { href: "/assets/bank-details", label: "Bank Details", icon: Landmark },
   { href: "/documents", label: "Documents", icon: FileText },
   { href: "/expenses", label: "Expenses", icon: Receipt },

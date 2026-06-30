@@ -23,6 +23,13 @@ export function carEntityFilter(ctx: UserContext) {
   return { id: "__none__" };
 }
 
+export function companyEntityFilter(ctx: UserContext) {
+  const level = getModulePermission(ctx, "COMPANIES");
+  if (level === "FULL" || level === "READ") return {};
+  if (level === "FILTERED") return { entityId: { in: ctx.entityIds } };
+  return { id: "__none__" };
+}
+
 export function documentFilter(ctx: UserContext) {
   const level = getModulePermission(ctx, "DOCUMENTS");
   if (level === "FULL" || level === "READ") return {};

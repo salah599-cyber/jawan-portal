@@ -3,6 +3,7 @@ import { canAccess, getModulePermission } from "@/lib/permissions/access";
 import {
   assetEntityFilter,
   carEntityFilter,
+  companyEntityFilter,
   documentFilter,
   expenseEntityFilter,
   landEntityFilter,
@@ -240,6 +241,44 @@ export async function getDashboardSummary(ctx: UserContext): Promise<DashboardSu
           severity: date < now ? "danger" : "warning",
         });
       }
+    }
+  }
+
+  if (canAccess(ctx, "COMPANIES")) {
+    const companies = await db.registeredCompany.findMany({
+      where: companyEntityFilter(ctx),
+      select: {
+        id: true,
+        name: true,
+        registrationNumber: true,
+        registrationExpiryDate: true,
+      },
+    });
+
+    moduleSummaries.push({
+      module: "COMPANIES",
+      label: "Companies",
+      href: "/companies",
+      count: companies.length,
+    });
+
+    const now = new Date();
+    const horizon = new Date(now);
+    horizon.setDate(horizon.getDate() + 30);
+
+    for (const company of companies) {
+      if (!company.registrationExpiryDate) continue;
+      if (company.registrationExpiryDate > horizon) continue;
+
+      reminders.push({
+        id: company.id + "-registration-expiry",
+        kind: "document",
+        title: company.name,
+        subtitle: "Registration expiry · " + company.registrationNumber,
+        date: company.registrationExpiryDate,
+        href: "/companies/" + company.id,
+        severity: company.registrationExpiryDate < now ? "danger" : "warning",
+      });
     }
   }
 

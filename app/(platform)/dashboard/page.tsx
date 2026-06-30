@@ -10,6 +10,7 @@ import {
   ArrowRight,
   Building2,
   Car,
+  Factory,
   FileText,
   Landmark,
   Map,
@@ -23,6 +24,7 @@ const MODULE_ICONS: Record<string, typeof Building2> = {
   LIABILITIES: Wallet,
   LANDS: Map,
   CARS: Car,
+  COMPANIES: Factory,
   DOCUMENTS: FileText,
   EXPENSES: Receipt,
 };

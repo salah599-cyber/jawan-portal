@@ -3,6 +3,7 @@ export type ModuleName =
   | "ASSETS"
   | "LANDS"
   | "CARS"
+  | "COMPANIES"
   | "DOCUMENTS"
   | "EXPENSES"
   | "REPORTS"
