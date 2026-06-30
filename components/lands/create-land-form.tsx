@@ -13,6 +13,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { EntitySelect } from "@/components/platform/entity-select";
 import { LandLocationFields, initialLandLocationValues } from "@/components/lands/land-location-fields";
+import { LandRegisteredHoldersFields } from "@/components/lands/land-registered-holders-fields";
 
 function FileSection({
   id,
@@ -95,7 +96,7 @@ export function CreateLandForm({ entities }: { entities: { id: string; name: str
             <Label>Entity</Label>
             <EntitySelect entities={entities} value={entityId} onValueChange={setEntityId} />
           </div>
-          <div className="space-y-2"><Label htmlFor="registeredHolder">Registered Holder</Label><Input id="registeredHolder" name="registeredHolder" /></div>
+          <LandRegisteredHoldersFields />
           <div className="space-y-2">
             <Label>Status</Label>
             <Select value={status} onValueChange={setStatus}>

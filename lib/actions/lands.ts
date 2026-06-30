@@ -11,6 +11,14 @@ import { canWrite, requireModuleAccess } from "@/lib/permissions/access";
 import { landEntityFilter } from "@/lib/permissions/scoped-queries";
 import type { AssetStatus, LandDocumentType, LandLocationType, LandSaleDocumentType } from "@/lib/generated/prisma/client";
 
+export type LandRegisteredHolderInput = {
+  name: string;
+  ownershipPct?: string;
+  email?: string;
+  phone?: string;
+  notes?: string;
+};
+
 function parseDecimal(value?: string | null) {
   if (!value || value.trim() === "") return undefined;
   return value.trim();
@@ -154,6 +162,54 @@ function buildLocation(
   return [village, location.wilayat, location.governorate].filter(Boolean).join(", ");
 }
 
+function parseHoldersJson(raw: string): LandRegisteredHolderInput[] {
+  if (!raw.trim()) return [];
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(raw);
+  } catch {
+    throw new Error("Invalid registered holders data.");
+  }
+  if (!Array.isArray(parsed)) throw new Error("Registered holders must be a list.");
+
+  const holders: LandRegisteredHolderInput[] = [];
+  for (const item of parsed) {
+    if (!item || typeof item !== "object") continue;
+    const record = item as Record<string, unknown>;
+    const name = String(record.name ?? "").trim();
+    if (!name) continue;
+    holders.push({
+      name,
+      ownershipPct: String(record.ownershipPct ?? "").trim() || undefined,
+      email: String(record.email ?? "").trim() || undefined,
+      phone: String(record.phone ?? "").trim() || undefined,
+      notes: String(record.notes ?? "").trim() || undefined,
+    });
+  }
+  return holders;
+}
+
+function formatRegisteredHolderSummary(holders: LandRegisteredHolderInput[]) {
+  return holders.map((holder) => holder.name).join(", ") || undefined;
+}
+
+async function replaceLandHolders(landParcelId: string, holders: LandRegisteredHolderInput[]) {
+  await db.landRegisteredHolder.deleteMany({ where: { landParcelId } });
+  if (holders.length === 0) return;
+
+  await db.landRegisteredHolder.createMany({
+    data: holders.map((holder, index) => ({
+      landParcelId,
+      name: holder.name,
+      ownershipPct: holder.ownershipPct || undefined,
+      email: holder.email,
+      phone: holder.phone,
+      notes: holder.notes,
+      sortOrder: index,
+    })),
+  });
+}
+
 function readLandLocationFromForm(formData: FormData) {
   const locationType = String(formData.get("locationType") ?? "OMAN") as LandLocationType;
 
@@ -221,7 +277,8 @@ export async function createLand(formData: FormData) {
   const mulkiaNumber = String(formData.get("mulkiaNumber") ?? "").trim() || undefined;
   const landUse = String(formData.get("landUse") ?? "").trim() || undefined;
   const coordinates = String(formData.get("coordinates") ?? "").trim() || undefined;
-  const registeredHolder = String(formData.get("registeredHolder") ?? "").trim() || undefined;
+  const holders = parseHoldersJson(String(formData.get("holdersJson") ?? ""));
+  const registeredHolder = formatRegisteredHolderSummary(holders);
   const notes = String(formData.get("notes") ?? "").trim() || undefined;
   const currency = String(formData.get("currency") ?? "OMR").trim() || "OMR";
   const ownershipPct = parseDecimal(String(formData.get("ownershipPct") ?? "100")) ?? "100";
@@ -295,6 +352,8 @@ export async function createLand(formData: FormData) {
     if (otherFiles.length) await uploadLandFiles(land.id, otherFiles, "OTHER", ctx.id, "Other document");
   }
 
+  await replaceLandHolders(land.id, holders);
+
   await logAudit({
     userId: ctx.id,
     action: "CREATE",
@@ -362,6 +421,7 @@ export async function listLands() {
     include: {
       entity: true,
       documents: { select: { id: true, documentType: true } },
+      registeredHolders: { orderBy: { sortOrder: "asc" } },
       sale: { select: { id: true } },
     },
     orderBy: { updatedAt: "desc" },
@@ -375,6 +435,7 @@ export async function getLand(id: string) {
     include: {
       entity: true,
       documents: { orderBy: { createdAt: "desc" } },
+      registeredHolders: { orderBy: { sortOrder: "asc" } },
       asset: { include: { exit: { include: { documents: { orderBy: { createdAt: "desc" } } } } } },
       sale: {
         include: {
@@ -489,7 +550,8 @@ export async function updateLand(id: string, formData: FormData) {
   const mulkiaNumber = String(formData.get("mulkiaNumber") ?? "").trim() || undefined;
   const landUse = String(formData.get("landUse") ?? "").trim() || undefined;
   const coordinates = String(formData.get("coordinates") ?? "").trim() || undefined;
-  const registeredHolder = String(formData.get("registeredHolder") ?? "").trim() || undefined;
+  const holders = parseHoldersJson(String(formData.get("holdersJson") ?? ""));
+  const registeredHolder = formatRegisteredHolderSummary(holders);
   const notes = String(formData.get("notes") ?? "").trim() || undefined;
   const currency = String(formData.get("currency") ?? "OMR").trim() || "OMR";
   const ownershipPct = parseDecimal(String(formData.get("ownershipPct") ?? "100")) ?? "100";
@@ -553,6 +615,8 @@ export async function updateLand(id: string, formData: FormData) {
       },
     });
   }
+
+  await replaceLandHolders(id, holders);
 
   await logAudit({
     userId: ctx.id,

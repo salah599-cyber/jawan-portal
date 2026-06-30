@@ -42,6 +42,14 @@ export type LandDetailData = {
   areaSqm: { toString(): string } | null;
   coordinates: string | null;
   registeredHolder: string | null;
+  registeredHolders: {
+    id: string;
+    name: string;
+    ownershipPct: { toString(): string } | null;
+    email: string | null;
+    phone: string | null;
+    notes: string | null;
+  }[];
   ownershipPct: { toString(): string };
   status: string;
   acquisitionDate: Date | string | null;
@@ -162,7 +170,6 @@ export function LandDetailContent({
           <Detail label="Area" value={land.areaSqm ? land.areaSqm.toString() + " sqm" : null} />
           <Detail label="Coordinates" value={land.coordinates} />
           <Detail label="Entity" value={land.entity.name} />
-          <Detail label="Registered Holder" value={land.registeredHolder} />
           <Detail label="Ownership" value={land.ownershipPct.toString() + "%"} />
           <Detail
             label="Status"
@@ -178,6 +185,42 @@ export function LandDetailContent({
               <Detail label="Notes" value={land.notes} />
             </div>
           ) : null}
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader className={compact ? "pb-3" : undefined}>
+          <CardTitle>Registered Holders</CardTitle>
+          <CardDescription>
+            {land.registeredHolders.length > 0
+              ? land.registeredHolders.length + " holder" + (land.registeredHolders.length === 1 ? "" : "s") + " on title"
+              : land.registeredHolder
+                ? "Legacy record — edit to add structured holder details"
+                : "No registered holders recorded"}
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          {land.registeredHolders.length > 0 ? (
+            <div className="space-y-3">
+              {land.registeredHolders.map((holder) => (
+                <div key={holder.id} className="rounded-lg border p-4">
+                  <p className="font-medium">{holder.name}</p>
+                  {holder.ownershipPct != null ? (
+                    <p className="text-sm text-muted-foreground">
+                      Title share: {holder.ownershipPct.toString()}%
+                    </p>
+                  ) : null}
+                  {holder.email ? <p className="text-sm">{holder.email}</p> : null}
+                  {holder.phone ? <p className="text-sm">{holder.phone}</p> : null}
+                  {holder.notes ? <p className="mt-2 text-sm">{holder.notes}</p> : null}
+                </div>
+              ))}
+            </div>
+          ) : land.registeredHolder ? (
+            <p className="text-sm">{land.registeredHolder}</p>
+          ) : (
+            <p className="text-sm text-muted-foreground">No registered holders recorded.</p>
+          )}
         </CardContent>
       </Card>
 

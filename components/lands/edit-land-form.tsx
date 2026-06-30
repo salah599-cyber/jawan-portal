@@ -13,6 +13,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { EntitySelect } from "@/components/platform/entity-select";
 import { LandLocationFields, initialLandLocationValues } from "@/components/lands/land-location-fields";
+import type { LandRegisteredHolderInput } from "@/lib/actions/lands";
+import { LandRegisteredHoldersFields } from "@/components/lands/land-registered-holders-fields";
 
 type LandRecord = {
   id: string;
@@ -32,6 +34,13 @@ type LandRecord = {
   coordinates: string | null;
   entityId: string;
   registeredHolder: string | null;
+  registeredHolders: Array<{
+    name: string;
+    ownershipPct: { toString(): string } | null;
+    email: string | null;
+    phone: string | null;
+    notes: string | null;
+  }>;
   status: string;
   currency: string;
   ownershipPct: { toString(): string };
@@ -50,6 +59,23 @@ export function EditLandForm({ land, entities }: { land: LandRecord; entities: {
   const [entityId, setEntityId] = useState(land.entityId);
   const [landUse, setLandUse] = useState(land.landUse ?? "RESIDENTIAL");
   const [currency, setCurrency] = useState(land.currency);
+
+  const initialHolders: LandRegisteredHolderInput[] =
+    land.registeredHolders.length > 0
+      ? land.registeredHolders.map((holder) => ({
+          name: holder.name,
+          ownershipPct: holder.ownershipPct?.toString() ?? "",
+          email: holder.email ?? "",
+          phone: holder.phone ?? "",
+          notes: holder.notes ?? "",
+        }))
+      : land.registeredHolder
+        ? land.registeredHolder
+            .split(/[,;]+/)
+            .map((name) => name.trim())
+            .filter(Boolean)
+            .map((name) => ({ name, ownershipPct: "", email: "", phone: "", notes: "" }))
+        : [];
 
   function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -107,7 +133,7 @@ export function EditLandForm({ land, entities }: { land: LandRecord; entities: {
             <Label>Entity</Label>
             <EntitySelect entities={entities} value={entityId} onValueChange={setEntityId} />
           </div>
-          <div className="space-y-2"><Label htmlFor="registeredHolder">Registered Holder</Label><Input id="registeredHolder" name="registeredHolder" defaultValue={land.registeredHolder ?? ""} /></div>
+          <LandRegisteredHoldersFields initialHolders={initialHolders} />
           <div className="space-y-2">
             <Label>Status</Label>
             <Select value={status} onValueChange={setStatus}>
