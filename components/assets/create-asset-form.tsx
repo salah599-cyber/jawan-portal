@@ -20,6 +20,7 @@ import {
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { EntitySelect } from "@/components/platform/entity-select";
+import { AssetAcquisitionFields } from "@/components/assets/asset-acquisition-fields";
 
 export function CreateAssetForm({ entities }: { entities: { id: string; name: string }[] }) {
   const router = useRouter();
@@ -123,20 +124,7 @@ export function CreateAssetForm({ entities }: { entities: { id: string; name: st
             </Select>
           </div>
 
-          <div className="space-y-2">
-            <Label htmlFor="acquisitionDate">Acquisition Date</Label>
-            <Input id="acquisitionDate" name="acquisitionDate" type="date" />
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="acquisitionCost">Acquisition Cost</Label>
-            <Input id="acquisitionCost" name="acquisitionCost" type="number" step="0.01" min="0" />
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="currentValue">Current Value</Label>
-            <Input id="currentValue" name="currentValue" type="number" step="0.01" min="0" />
-          </div>
+          <AssetAcquisitionFields />
 
           <div className="space-y-2 md:col-span-2">
             <Label htmlFor="description">Description</Label>

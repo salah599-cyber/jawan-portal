@@ -18,6 +18,7 @@ import {
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { EntitySelect, type EntityOption } from "@/components/platform/entity-select";
+import { AssetAcquisitionFields } from "@/components/assets/asset-acquisition-fields";
 
 type AssetRecord = {
   id: string;
@@ -132,25 +133,11 @@ export function EditAssetForm({
             </Select>
           </div>
 
-          <div className="space-y-2">
-            <Label htmlFor="acquisitionDate">Acquisition Date</Label>
-            <Input
-              id="acquisitionDate"
-              name="acquisitionDate"
-              type="date"
-              defaultValue={formatDateInput(asset.acquisitionDate)}
-            />
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="acquisitionCost">Acquisition Cost</Label>
-            <Input id="acquisitionCost" name="acquisitionCost" type="number" step="0.01" min="0" defaultValue={formatDecimalInput(asset.acquisitionCost)} />
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="currentValue">Current Value</Label>
-            <Input id="currentValue" name="currentValue" type="number" step="0.01" min="0" defaultValue={formatDecimalInput(asset.currentValue)} />
-          </div>
+          <AssetAcquisitionFields
+            acquisitionDateDefault={formatDateInput(asset.acquisitionDate)}
+            acquisitionCostDefault={formatDecimalInput(asset.acquisitionCost)}
+            currentValueDefault={formatDecimalInput(asset.currentValue)}
+          />
 
           <div className="space-y-2 md:col-span-2">
             <Label htmlFor="description">Description</Label>
