@@ -64,6 +64,7 @@ export default async function AssetsPage({
                     <TableHead>Category</TableHead>
                     <TableHead>Entity</TableHead>
                     <TableHead>Status</TableHead>
+                    <TableHead>Acquired</TableHead>
                     <TableHead className="text-right">Current Value</TableHead>
                     <TableHead>Updated</TableHead>
                     {showAdd ? <TableHead className="w-[60px]">Actions</TableHead> : null}
@@ -93,6 +94,7 @@ export default async function AssetsPage({
                             {ASSET_STATUS_LABELS[asset.status] ?? asset.status}
                           </Badge>
                         </TableCell>
+                        <TableCell>{formatDate(asset.acquisitionDate)}</TableCell>
                         <TableCell className="text-right">
                           {formatMoney(asset.currentValue, asset.currency)}
                         </TableCell>
