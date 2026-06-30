@@ -1,9 +1,8 @@
 "use client";
 
-import { useMemo, useState, useTransition } from "react";
+import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { updateLand } from "@/lib/actions/lands";
-import { OMAN_GOVERNORATES, getWilayatsForGovernorate } from "@/lib/data/oman-locations";
 import { ASSET_STATUS_LABELS, LAND_USE_LABELS } from "@/lib/labels";
 import { formatDateInput, formatDecimalInput } from "@/lib/format";
 import { Button } from "@/components/ui/button";
@@ -13,12 +12,17 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { EntitySelect } from "@/components/platform/entity-select";
+import { LandLocationFields, initialLandLocationValues } from "@/components/lands/land-location-fields";
 
 type LandRecord = {
   id: string;
   name: string;
-  governorate: string;
-  wilayat: string;
+  locationType: string;
+  country: string;
+  governorate: string | null;
+  wilayat: string | null;
+  region: string | null;
+  city: string | null;
   village: string | null;
   plotNumber: string | null;
   krookiNumber: string | null;
@@ -41,27 +45,16 @@ export function EditLandForm({ land, entities }: { land: LandRecord; entities: {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
-  const [governorate, setGovernorate] = useState(land.governorate);
-  const [wilayat, setWilayat] = useState(land.wilayat);
+  const [locationValues, setLocationValues] = useState(initialLandLocationValues(land));
   const [status, setStatus] = useState(land.status);
   const [entityId, setEntityId] = useState(land.entityId);
   const [landUse, setLandUse] = useState(land.landUse ?? "RESIDENTIAL");
   const [currency, setCurrency] = useState(land.currency);
 
-  const wilayats = useMemo(() => getWilayatsForGovernorate(governorate), [governorate]);
-
-  function handleGovernorateChange(value: string) {
-    setGovernorate(value);
-    const next = getWilayatsForGovernorate(value);
-    if (!next.includes(wilayat)) setWilayat(next[0] ?? "");
-  }
-
   function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     setError(null);
     const formData = new FormData(e.currentTarget);
-    formData.set("governorate", governorate);
-    formData.set("wilayat", wilayat);
     formData.set("status", status);
     formData.set("entityId", entityId);
     formData.set("landUse", landUse);
@@ -87,28 +80,18 @@ export function EditLandForm({ land, entities }: { land: LandRecord; entities: {
             <Label htmlFor="name">Land Name</Label>
             <Input id="name" name="name" required defaultValue={land.name} />
           </div>
-          <div className="space-y-2">
-            <Label>Governorate</Label>
-            <Select value={governorate} onValueChange={handleGovernorateChange}>
-              <SelectTrigger><SelectValue /></SelectTrigger>
-              <SelectContent>
-                {OMAN_GOVERNORATES.map((g) => (<SelectItem key={g} value={g}>{g}</SelectItem>))}
-              </SelectContent>
-            </Select>
-          </div>
-          <div className="space-y-2">
-            <Label>Wilayat</Label>
-            <Select value={wilayat} onValueChange={setWilayat}>
-              <SelectTrigger><SelectValue /></SelectTrigger>
-              <SelectContent>
-                {wilayats.map((w) => (<SelectItem key={w} value={w}>{w}</SelectItem>))}
-              </SelectContent>
-            </Select>
-          </div>
-          <div className="space-y-2"><Label htmlFor="village">Village / Area</Label><Input id="village" name="village" defaultValue={land.village ?? ""} /></div>
+
+          <LandLocationFields
+            values={locationValues}
+            onChange={setLocationValues}
+            villageDefaultValue={land.village ?? ""}
+            referenceDefaults={{
+              krooki: land.krookiNumber ?? "",
+              mulkia: land.mulkiaNumber ?? "",
+            }}
+          />
+
           <div className="space-y-2"><Label htmlFor="plotNumber">Plot Number</Label><Input id="plotNumber" name="plotNumber" defaultValue={land.plotNumber ?? ""} /></div>
-          <div className="space-y-2"><Label htmlFor="krookiNumber">Krooki Number</Label><Input id="krookiNumber" name="krookiNumber" defaultValue={land.krookiNumber ?? ""} /></div>
-          <div className="space-y-2"><Label htmlFor="mulkiaNumber">Mulkia Number</Label><Input id="mulkiaNumber" name="mulkiaNumber" defaultValue={land.mulkiaNumber ?? ""} /></div>
           <div className="space-y-2">
             <Label>Land Use</Label>
             <Select value={landUse} onValueChange={setLandUse}>

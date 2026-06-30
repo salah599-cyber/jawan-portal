@@ -1,10 +1,10 @@
 ﻿"use client";
 
-import { useMemo, useState, useTransition } from "react";
+import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { createLand } from "@/lib/actions/lands";
-import { OMAN_GOVERNORATES, getWilayatsForGovernorate } from "@/lib/data/oman-locations";
 import { ASSET_STATUS_LABELS, LAND_USE_LABELS } from "@/lib/labels";
+import { getLandDocumentTypeLabels } from "@/lib/lands/location";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -12,8 +12,19 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { EntitySelect } from "@/components/platform/entity-select";
+import { LandLocationFields, initialLandLocationValues } from "@/components/lands/land-location-fields";
 
-function FileSection({ id, name, label, description }: { id: string; name: string; label: string; description: string }) {
+function FileSection({
+  id,
+  name,
+  label,
+  description,
+}: {
+  id: string;
+  name: string;
+  label: string;
+  description: string;
+}) {
   return (
     <div className="space-y-2 md:col-span-2">
       <Label htmlFor={id}>{label}</Label>
@@ -27,26 +38,19 @@ export function CreateLandForm({ entities }: { entities: { id: string; name: str
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
-  const [governorate, setGovernorate] = useState<string>(OMAN_GOVERNORATES[0]);
-  const [wilayat, setWilayat] = useState<string>(getWilayatsForGovernorate(OMAN_GOVERNORATES[0])[0] ?? "");
+  const [locationValues, setLocationValues] = useState(initialLandLocationValues());
   const [status, setStatus] = useState("ACTIVE");
   const [entityId, setEntityId] = useState(entities[0]?.id ?? "");
   const [landUse, setLandUse] = useState("RESIDENTIAL");
   const [currency, setCurrency] = useState("OMR");
 
-  const wilayats = useMemo(() => getWilayatsForGovernorate(governorate), [governorate]);
-
-  function handleGovernorateChange(value: string) {
-    setGovernorate(value);
-    setWilayat(getWilayatsForGovernorate(value)[0] ?? "");
-  }
+  const isInternational = locationValues.locationType === "INTERNATIONAL";
+  const docLabels = getLandDocumentTypeLabels(isInternational);
 
   function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     setError(null);
     const formData = new FormData(e.currentTarget);
-    formData.set("governorate", governorate);
-    formData.set("wilayat", wilayat);
     formData.set("status", status);
     formData.set("entityId", entityId);
     formData.set("landUse", landUse);
@@ -65,35 +69,17 @@ export function CreateLandForm({ entities }: { entities: { id: string; name: str
 
   return (
     <Card>
-      <CardHeader><CardTitle>Register Oman Land</CardTitle></CardHeader>
+      <CardHeader><CardTitle>Register Land</CardTitle></CardHeader>
       <CardContent>
         <form onSubmit={handleSubmit} className="grid gap-4 md:grid-cols-2">
           <div className="space-y-2 md:col-span-2">
             <Label htmlFor="name">Land Name</Label>
-            <Input id="name" name="name" required placeholder="e.g. Seeb Plot 1234" />
+            <Input id="name" name="name" required placeholder="e.g. Seeb Plot 1234 or Dubai Marina Plot" />
           </div>
-          <div className="space-y-2">
-            <Label>Governorate</Label>
-            <Select value={governorate} onValueChange={handleGovernorateChange}>
-              <SelectTrigger><SelectValue placeholder="Select governorate" /></SelectTrigger>
-              <SelectContent>
-                {OMAN_GOVERNORATES.map((g) => (<SelectItem key={g} value={g}>{g}</SelectItem>))}
-              </SelectContent>
-            </Select>
-          </div>
-          <div className="space-y-2">
-            <Label>Wilayat</Label>
-            <Select value={wilayat} onValueChange={setWilayat}>
-              <SelectTrigger><SelectValue placeholder="Select wilayat" /></SelectTrigger>
-              <SelectContent>
-                {wilayats.map((w) => (<SelectItem key={w} value={w}>{w}</SelectItem>))}
-              </SelectContent>
-            </Select>
-          </div>
-          <div className="space-y-2"><Label htmlFor="village">Village / Area</Label><Input id="village" name="village" /></div>
+
+          <LandLocationFields values={locationValues} onChange={setLocationValues} />
+
           <div className="space-y-2"><Label htmlFor="plotNumber">Plot Number</Label><Input id="plotNumber" name="plotNumber" /></div>
-          <div className="space-y-2"><Label htmlFor="krookiNumber">Krooki Number</Label><Input id="krookiNumber" name="krookiNumber" /></div>
-          <div className="space-y-2"><Label htmlFor="mulkiaNumber">Mulkia Number</Label><Input id="mulkiaNumber" name="mulkiaNumber" /></div>
           <div className="space-y-2">
             <Label>Land Use</Label>
             <Select value={landUse} onValueChange={setLandUse}>
@@ -134,9 +120,9 @@ export function CreateLandForm({ entities }: { entities: { id: string; name: str
           <div className="space-y-2"><Label htmlFor="currentValue">Current Value</Label><Input id="currentValue" name="currentValue" type="number" step="0.01" min="0" /></div>
           <div className="space-y-2 md:col-span-2"><Label htmlFor="notes">Notes</Label><Textarea id="notes" name="notes" rows={3} /></div>
           <div className="md:col-span-2"><p className="mb-3 text-sm font-medium">Documents (optional — upload now or later)</p></div>
-          <FileSection id="krookiFiles" name="krookiFiles" label="Krooki Documents" description="Survey maps and Krooki certificates. Multiple files allowed." />
-          <FileSection id="mulkiaFiles" name="mulkiaFiles" label="Mulkia Documents" description="Title deed (Mulkia). Multiple files allowed." />
-          <FileSection id="otherFiles" name="otherFiles" label="Other Documents" description="Supporting documents. Multiple files allowed." />
+          <FileSection id="krookiFiles" name="krookiFiles" label={docLabels.KROOKI} description={isInternational ? "Survey maps and plot plans." : "Survey maps and Krooki certificates."} />
+          <FileSection id="mulkiaFiles" name="mulkiaFiles" label={docLabels.MULKIA} description={isInternational ? "Title deed or registration documents." : "Title deed (Mulkia)."} />
+          <FileSection id="otherFiles" name="otherFiles" label={docLabels.OTHER} description="Supporting documents. Multiple files allowed." />
           {error ? <p className="text-sm text-destructive md:col-span-2">{error}</p> : null}
           <div className="flex gap-2 md:col-span-2">
             <Button type="submit" disabled={pending}>{pending ? "Registering..." : "Register Land"}</Button>

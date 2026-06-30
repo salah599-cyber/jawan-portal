@@ -66,6 +66,11 @@ export const LAND_USE_LABELS: Record<string, string> = {
   OTHER: "Other",
 };
 
+export const LAND_LOCATION_TYPE_LABELS: Record<string, string> = {
+  OMAN: "Oman",
+  INTERNATIONAL: "Outside Oman",
+};
+
 export const LAND_DOCUMENT_TYPE_LABELS: Record<string, string> = {
   KROOKI: "Krooki",
   MULKIA: "Mulkia",

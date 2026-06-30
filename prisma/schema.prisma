@@ -44,6 +44,11 @@ enum LandDocumentType {
   OTHER
 }
 
+enum LandLocationType {
+  OMAN
+  INTERNATIONAL
+}
+
 enum LandSaleDocumentType {
   POWER_OF_ATTORNEY
   SPA
@@ -310,10 +315,14 @@ model RealEstateDetail {
 }
 
 model LandParcel {
-  id               String         @id @default(cuid())
+  id               String            @id @default(cuid())
   name             String
-  governorate      String
-  wilayat          String
+  locationType     LandLocationType  @default(OMAN)
+  country          String            @default("Oman")
+  governorate      String?
+  wilayat          String?
+  region           String?
+  city             String?
   village          String?
   plotNumber       String?
   krookiNumber     String?
@@ -337,6 +346,7 @@ model LandParcel {
   sale             LandSale?
   createdAt        DateTime       @default(now())
   updatedAt        DateTime       @updatedAt
+  @@index([entityId, country, status])
   @@index([entityId, governorate, wilayat, status])
 }
 

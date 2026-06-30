@@ -3,18 +3,25 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { uploadLandDocuments } from "@/lib/actions/lands";
-import { LAND_DOCUMENT_TYPE_LABELS } from "@/lib/labels";
+import { getLandDocumentTypeLabels } from "@/lib/lands/location";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
-export function UploadLandDocumentsForm({ landParcelId }: { landParcelId: string }) {
+export function UploadLandDocumentsForm({
+  landParcelId,
+  international = false,
+}: {
+  landParcelId: string;
+  international?: boolean;
+}) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
   const [documentType, setDocumentType] = useState("KROOKI");
+  const docLabels = getLandDocumentTypeLabels(international);
   const fileField = documentType === "KROOKI" ? "krookiFiles" : documentType === "MULKIA" ? "mulkiaFiles" : "otherFiles";
 
   function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
@@ -46,7 +53,7 @@ export function UploadLandDocumentsForm({ landParcelId }: { landParcelId: string
             <Select value={documentType} onValueChange={setDocumentType}>
               <SelectTrigger><SelectValue /></SelectTrigger>
               <SelectContent>
-                {Object.entries(LAND_DOCUMENT_TYPE_LABELS).map(([value, label]) => (
+                {Object.entries(docLabels).map(([value, label]) => (
                   <SelectItem key={value} value={value}>{label}</SelectItem>
                 ))}
               </SelectContent>

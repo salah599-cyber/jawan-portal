@@ -7,7 +7,7 @@ import { deleteBlobUrl } from "@/lib/blob";
 import { logAudit } from "@/lib/audit/log";
 import { canWrite, requireModuleAccess } from "@/lib/permissions/access";
 import { landEntityFilter } from "@/lib/permissions/scoped-queries";
-import type { AssetStatus, LandDocumentType, LandSaleDocumentType } from "@/lib/generated/prisma/client";
+import type { AssetStatus, LandDocumentType, LandLocationType, LandSaleDocumentType } from "@/lib/generated/prisma/client";
 
 function parseDecimal(value?: string | null) {
   if (!value || value.trim() === "") return undefined;
@@ -135,8 +135,60 @@ function getFilesFromFormData(formData: FormData, field: string): File[] {
     .filter((item): item is File => item instanceof File && item.size > 0);
 }
 
-function buildLocation(governorate: string, wilayat: string, village?: string) {
-  return [village, wilayat, governorate].filter(Boolean).join(", ");
+function buildLocation(
+  location: {
+    locationType: LandLocationType;
+    country: string;
+    governorate?: string | null;
+    wilayat?: string | null;
+    region?: string | null;
+    city?: string | null;
+  },
+  village?: string,
+) {
+  if (location.locationType === "INTERNATIONAL") {
+    return [village, location.city, location.region, location.country].filter(Boolean).join(", ");
+  }
+  return [village, location.wilayat, location.governorate].filter(Boolean).join(", ");
+}
+
+function readLandLocationFromForm(formData: FormData) {
+  const locationType = String(formData.get("locationType") ?? "OMAN") as LandLocationType;
+
+  if (locationType === "INTERNATIONAL") {
+    const countrySelect = String(formData.get("country") ?? "").trim();
+    const countryOther = String(formData.get("countryOther") ?? "").trim();
+    const country = countrySelect === "OTHER" ? countryOther : countrySelect;
+    const city = String(formData.get("city") ?? "").trim();
+    const region = String(formData.get("region") ?? "").trim() || undefined;
+
+    if (!country) throw new Error("Country is required.");
+    if (!city) throw new Error("City is required.");
+
+    return {
+      locationType: "INTERNATIONAL" as const,
+      country,
+      governorate: null,
+      wilayat: null,
+      region: region ?? null,
+      city,
+    };
+  }
+
+  const governorate = String(formData.get("governorate") ?? "").trim();
+  const wilayat = String(formData.get("wilayat") ?? "").trim();
+
+  if (!governorate) throw new Error("Governorate is required.");
+  if (!wilayat) throw new Error("Wilayat is required.");
+
+  return {
+    locationType: "OMAN" as const,
+    country: "Oman",
+    governorate,
+    wilayat,
+    region: null,
+    city: null,
+  };
 }
 
 export async function createLand(formData: FormData) {
@@ -146,14 +198,11 @@ export async function createLand(formData: FormData) {
   }
 
   const name = String(formData.get("name") ?? "").trim();
-  const governorate = String(formData.get("governorate") ?? "").trim();
-  const wilayat = String(formData.get("wilayat") ?? "").trim();
+  const locationFields = readLandLocationFromForm(formData);
   const entityId = String(formData.get("entityId") ?? "").trim();
   const status = String(formData.get("status") ?? "ACTIVE") as AssetStatus;
 
   if (!name) throw new Error("Land name is required.");
-  if (!governorate) throw new Error("Governorate is required.");
-  if (!wilayat) throw new Error("Wilayat is required.");
   if (!entityId) throw new Error("Entity is required.");
 
   if (ctx.entityIds.length > 0 && !ctx.entityIds.includes(entityId)) {
@@ -177,7 +226,7 @@ export async function createLand(formData: FormData) {
   const currentValue = parseDecimal(String(formData.get("currentValue") ?? ""));
   const acquisitionDate = parseDate(String(formData.get("acquisitionDate") ?? ""));
 
-  const location = buildLocation(governorate, wilayat, village);
+  const location = buildLocation(locationFields, village);
 
   const asset = await db.asset.create({
     data: {
@@ -206,8 +255,12 @@ export async function createLand(formData: FormData) {
   const land = await db.landParcel.create({
     data: {
       name,
-      governorate,
-      wilayat,
+      locationType: locationFields.locationType,
+      country: locationFields.country,
+      governorate: locationFields.governorate,
+      wilayat: locationFields.wilayat,
+      region: locationFields.region,
+      city: locationFields.city,
       village,
       plotNumber,
       krookiNumber,
@@ -243,7 +296,11 @@ export async function createLand(formData: FormData) {
     action: "CREATE",
     resource: "LandParcel",
     resourceId: land.id,
-    metadata: { name: land.name, governorate, wilayat },
+    metadata: {
+      name: land.name,
+      locationType: land.locationType,
+      country: land.country,
+    },
   });
 
   revalidatePath("/lands");
@@ -407,14 +464,11 @@ export async function updateLand(id: string, formData: FormData) {
   if (!land) throw new Error("Land parcel not found.");
 
   const name = String(formData.get("name") ?? "").trim();
-  const governorate = String(formData.get("governorate") ?? "").trim();
-  const wilayat = String(formData.get("wilayat") ?? "").trim();
+  const locationFields = readLandLocationFromForm(formData);
   const entityId = String(formData.get("entityId") ?? "").trim();
   const status = String(formData.get("status") ?? "ACTIVE") as AssetStatus;
 
   if (!name) throw new Error("Land name is required.");
-  if (!governorate) throw new Error("Governorate is required.");
-  if (!wilayat) throw new Error("Wilayat is required.");
   if (!entityId) throw new Error("Entity is required.");
 
   if (ctx.entityIds.length > 0 && !ctx.entityIds.includes(entityId)) {
@@ -438,14 +492,18 @@ export async function updateLand(id: string, formData: FormData) {
   const currentValue = parseDecimal(String(formData.get("currentValue") ?? ""));
   const acquisitionDate = parseDate(String(formData.get("acquisitionDate") ?? ""));
 
-  const location = buildLocation(governorate, wilayat, village);
+  const location = buildLocation(locationFields, village);
 
   const updated = await db.landParcel.update({
     where: { id },
     data: {
       name,
-      governorate,
-      wilayat,
+      locationType: locationFields.locationType,
+      country: locationFields.country,
+      governorate: locationFields.governorate,
+      wilayat: locationFields.wilayat,
+      region: locationFields.region,
+      city: locationFields.city,
       village,
       plotNumber,
       krookiNumber,

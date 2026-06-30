@@ -8,10 +8,16 @@ import { UploadLandSaleDocumentsForm } from "@/components/lands/upload-land-sale
 import { deleteLandDocument, deleteLandSaleDocument } from "@/lib/actions/lands";
 import {
   ASSET_STATUS_LABELS,
-  LAND_DOCUMENT_TYPE_LABELS,
+  LAND_LOCATION_TYPE_LABELS,
   LAND_SALE_DOCUMENT_TYPE_LABELS,
   LAND_USE_LABELS,
 } from "@/lib/labels";
+import {
+  formatLandLocation,
+  getLandDocumentTypeLabels,
+  getLandReferenceFieldLabels,
+  isInternationalLand,
+} from "@/lib/lands/location";
 import { formatMoney, formatDate } from "@/lib/format";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -21,8 +27,12 @@ import { Separator } from "@/components/ui/separator";
 export type LandDetailData = {
   id: string;
   name: string;
-  governorate: string;
-  wilayat: string;
+  locationType: string;
+  country: string;
+  governorate: string | null;
+  wilayat: string | null;
+  region: string | null;
+  city: string | null;
   village: string | null;
   plotNumber: string | null;
   krookiNumber: string | null;
@@ -75,6 +85,9 @@ export function LandDetailContent({
   showActions?: boolean;
   compact?: boolean;
 }) {
+  const international = isInternationalLand(land);
+  const docLabels = getLandDocumentTypeLabels(international);
+  const refLabels = getLandReferenceFieldLabels(international);
   const docsByType = {
     KROOKI: land.documents.filter((d) => d.documentType === "KROOKI"),
     MULKIA: land.documents.filter((d) => d.documentType === "MULKIA"),
@@ -96,14 +109,27 @@ export function LandDetailContent({
         <CardHeader className={compact ? "pb-3" : undefined}>
           <CardTitle>Parcel Details</CardTitle>
           <CardDescription>
-            {land.wilayat}, {land.governorate}
-            {land.village ? " · " + land.village : ""}
+            {formatLandLocation(land)}
+            {international ? " · " + LAND_LOCATION_TYPE_LABELS.INTERNATIONAL : ""}
           </CardDescription>
         </CardHeader>
         <CardContent className="grid gap-4 sm:grid-cols-2">
+          <Detail label="Country" value={land.country} />
+          {international ? (
+            <>
+              <Detail label="City" value={land.city} />
+              <Detail label="State / Region" value={land.region} />
+            </>
+          ) : (
+            <>
+              <Detail label="Governorate" value={land.governorate} />
+              <Detail label="Wilayat" value={land.wilayat} />
+            </>
+          )}
+          <Detail label="Area / Village" value={land.village} />
           <Detail label="Plot Number" value={land.plotNumber} />
-          <Detail label="Krooki Number" value={land.krookiNumber} />
-          <Detail label="Mulkia Number" value={land.mulkiaNumber} />
+          <Detail label={refLabels.krooki} value={land.krookiNumber} />
+          <Detail label={refLabels.mulkia} value={land.mulkiaNumber} />
           <Detail
             label="Land Use"
             value={land.landUse ? LAND_USE_LABELS[land.landUse] ?? land.landUse : null}
@@ -152,7 +178,7 @@ export function LandDetailContent({
       ) : null}
 
       {showActions && !land.sale ? (
-        <UploadLandDocumentsForm landParcelId={land.id} />
+        <UploadLandDocumentsForm landParcelId={land.id} international={international} />
       ) : null}
 
       {showActions && land.sale ? (
@@ -164,7 +190,7 @@ export function LandDetailContent({
       {(["KROOKI", "MULKIA", "OTHER"] as const).map((type) => (
         <DocumentSection
           key={type}
-          title={LAND_DOCUMENT_TYPE_LABELS[type]}
+          title={docLabels[type]}
           documents={docsByType[type]}
           showActions={showActions}
           deleteAction={deleteLandDocument}

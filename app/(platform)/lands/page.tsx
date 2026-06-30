@@ -17,9 +17,9 @@ export default async function LandsPage() {
         <Card>
           <CardHeader className="flex flex-row items-start justify-between gap-4">
             <div>
-              <CardTitle>Oman Lands</CardTitle>
+              <CardTitle>Land Portfolio</CardTitle>
               <CardDescription>
-                Empty land parcels in Oman — click a row to view full details, record a sale, and manage documents.
+                Land parcels in Oman and abroad — click a row to view full details, record a sale, and manage documents.
               </CardDescription>
             </div>
             {showAdd ? <AddLinkButton href="/lands/new" label="Register Land" /> : null}

@@ -3,6 +3,7 @@
 import { useEffect, useState, useTransition } from "react";
 import Link from "next/link";
 import { getLand } from "@/lib/actions/lands";
+import { formatLandLocation } from "@/lib/lands/location";
 import { LandDetailContent, type LandDetailData } from "@/components/lands/land-detail-content";
 import { Button } from "@/components/ui/button";
 import {
@@ -59,7 +60,7 @@ export function LandDetailSheet({
           <SheetTitle>{land?.name ?? "Land Details"}</SheetTitle>
           <SheetDescription>
             {land
-              ? land.wilayat + ", " + land.governorate
+              ? formatLandLocation(land)
               : pending
                 ? "Loading parcel information..."
                 : "Full land parcel information and documents"}
