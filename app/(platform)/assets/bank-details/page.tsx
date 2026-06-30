@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { PlatformHeader } from "@/components/platform/platform-header";
 import { AddLinkButton } from "@/components/platform/add-link-button";
 import { RowActions } from "@/components/platform/row-actions";
@@ -53,7 +54,11 @@ export default async function BankDetailsPage() {
                 <TableBody>
                   {accounts.map((account) => (
                     <TableRow key={account.id}>
-                      <TableCell className="font-medium">{account.accountName}</TableCell>
+                      <TableCell className="font-medium">
+                        <Link href={"/assets/bank-details/" + account.id} className="hover:underline">
+                          {account.accountName}
+                        </Link>
+                      </TableCell>
                       <TableCell>{account.bankName}</TableCell>
                       <TableCell>{account.accountNumber}</TableCell>
                       <TableCell>{account.iban ?? "—"}</TableCell>

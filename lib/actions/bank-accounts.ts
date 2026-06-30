@@ -62,6 +62,7 @@ export async function createBankAccount(input: CreateBankAccountInput) {
   });
 
   revalidatePath("/assets/bank-details");
+  revalidatePath("/assets/bank-details/" + account.id);
   return account;
 }
 
@@ -102,7 +103,25 @@ export async function getBankAccount(id: string) {
   const ctx = await requireModuleAccess("ASSETS");
   return db.bankAccount.findFirst({
     where: { id, ...bankAccountFilter(ctx) },
-    include: { entity: true },
+    include: {
+      entity: true,
+      cheques: {
+        where: { deletedAt: null },
+        select: {
+          id: true,
+          chequeNumber: true,
+          amount: true,
+          currency: true,
+          status: true,
+          direction: true,
+          payee: true,
+          issueDate: true,
+          dueDate: true,
+        },
+        orderBy: { issueDate: "desc" },
+        take: 25,
+      },
+    },
   });
 }
 
@@ -149,5 +168,7 @@ export async function updateBankAccount(id: string, input: CreateBankAccountInpu
   });
 
   revalidatePath("/assets/bank-details");
+  revalidatePath("/assets/bank-details/" + id);
+  revalidatePath("/assets/bank-details/" + id + "/edit");
   return updated;
 }

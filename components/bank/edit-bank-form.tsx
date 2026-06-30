@@ -51,7 +51,7 @@ export function EditBankForm({ account, entities }: { account: BankRecord; entit
     startTransition(async () => {
       try {
         await updateBankAccount(account.id, input);
-        router.push("/assets/bank-details");
+        router.push("/assets/bank-details/" + account.id);
         router.refresh();
       } catch (err) {
         setError(err instanceof Error ? err.message : "Failed to update bank account.");

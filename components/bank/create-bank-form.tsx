@@ -31,7 +31,7 @@ export function CreateBankForm({ entities }: { entities: EntityOption[] }) {
 
     startTransition(async () => {
       try {
-        await createBankAccount({
+        const account = await createBankAccount({
           accountName: String(form.get("accountName") ?? ""),
           bankName: String(form.get("bankName") ?? ""),
           accountNumber: String(form.get("accountNumber") ?? ""),
@@ -42,7 +42,7 @@ export function CreateBankForm({ entities }: { entities: EntityOption[] }) {
           entityId: entityId === "none" ? undefined : entityId,
           notes: String(form.get("notes") ?? ""),
         });
-        router.push("/assets/bank-details");
+        router.push("/assets/bank-details/" + account.id);
         router.refresh();
       } catch (err) {
         setError(err instanceof Error ? err.message : "Failed to create bank account.");
