@@ -114,6 +114,14 @@ enum LoanDocumentType {
   OTHER
 }
 
+enum LoanPaymentMethod {
+  BANK_TRANSFER
+  CHEQUE
+  CASH
+  DIRECT_DEBIT
+  OTHER
+}
+
 enum ChequeDirection {
   ISSUED
   RECEIVED
@@ -678,6 +686,8 @@ model Liability {
   assetId            String?
   asset              Asset?             @relation(fields: [assetId], references: [id])
   documents          LoanDocument[]
+  payments           LoanPayment[]
+  lastPaymentAt      DateTime?
   createdAt          DateTime           @default(now())
   updatedAt          DateTime           @updatedAt
 
@@ -699,6 +709,41 @@ model LoanDocument {
   createdAt    DateTime         @default(now())
 
   @@index([liabilityId, documentType])
+}
+
+model LoanPayment {
+  id               String            @id @default(cuid())
+  liabilityId      String
+  liability        Liability         @relation(fields: [liabilityId], references: [id], onDelete: Cascade)
+  paymentDate      DateTime
+  amount           Decimal           @db.Decimal(18, 2)
+  currency         String            @default("OMR")
+  principalPortion Decimal?          @db.Decimal(18, 2)
+  interestPortion  Decimal?          @db.Decimal(18, 2)
+  paymentMethod    LoanPaymentMethod @default(BANK_TRANSFER)
+  reference        String?
+  notes            String?
+  balanceAfter     Decimal           @db.Decimal(18, 2)
+  recordedById     String?
+  documents        LoanPaymentDocument[]
+  createdAt        DateTime          @default(now())
+
+  @@index([liabilityId, paymentDate])
+}
+
+model LoanPaymentDocument {
+  id           String      @id @default(cuid())
+  paymentId    String
+  payment      LoanPayment @relation(fields: [paymentId], references: [id], onDelete: Cascade)
+  label        String?
+  fileName     String
+  fileUrl      String
+  mimeType     String
+  fileSize     Int
+  uploadedById String?
+  createdAt    DateTime    @default(now())
+
+  @@index([paymentId])
 }
 
 model Cheque {

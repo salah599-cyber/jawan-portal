@@ -4,6 +4,8 @@ import { PlatformHeader } from "@/components/platform/platform-header";
 import { DeleteEntryButton } from "@/components/platform/delete-entry-button";
 import { EditLinkButton } from "@/components/platform/edit-link-button";
 import { UploadLoanDocumentsForm } from "@/components/loans/upload-loan-documents-form";
+import { RecordLoanPaymentForm } from "@/components/loans/record-loan-payment-form";
+import { LoanPaymentHistory } from "@/components/loans/loan-payment-history";
 import { getLoan, deleteLoan, deleteLoanDocument } from "@/lib/actions/loans";
 import { canWrite, requireModuleAccess } from "@/lib/permissions/access";
 import {
@@ -12,7 +14,7 @@ import {
   LOAN_DOCUMENT_TYPE_LABELS,
   PAYMENT_FREQUENCY_LABELS,
 } from "@/lib/labels";
-import { formatMoney, formatDate } from "@/lib/format";
+import { formatMoney, formatDate, formatDecimalInput } from "@/lib/format";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -89,7 +91,22 @@ export default async function LoanDetailPage({ params }: { params: Promise<{ id:
             </CardContent>
           </Card>
           {showUpload ? <UploadLoanDocumentsForm liabilityId={loan.id} /> : null}
+          {showUpload && loan.status === "ACTIVE" ? (
+            <RecordLoanPaymentForm
+              liabilityId={loan.id}
+              currency={loan.currency}
+              outstandingBalance={formatDecimalInput(balance) ?? "0"}
+              defaultPaymentAmount={loan.paymentAmount ? formatDecimalInput(loan.paymentAmount) : null}
+            />
+          ) : null}
         </div>
+
+        <LoanPaymentHistory
+          payments={loan.payments}
+          currency={loan.currency}
+          principalAmount={loan.amount}
+          showActions={showUpload}
+        />
 
         <Card>
           <CardHeader>

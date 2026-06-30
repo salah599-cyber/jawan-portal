@@ -39,6 +39,7 @@ type LoanRecord = {
   notes: string | null;
   entityId: string;
   assetId: string | null;
+  paymentCount?: number;
 };
 
 export function EditLoanForm({
@@ -61,6 +62,7 @@ export function EditLoanForm({
   const [paymentFrequency, setPaymentFrequency] = useState(loan.paymentFrequency ?? "MONTHLY");
 
   const entityAssets = assets.filter((a) => a.entityId === entityId);
+  const hasPayments = (loan.paymentCount ?? 0) > 0;
 
   function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -159,7 +161,21 @@ export function EditLoanForm({
 
           <div className="space-y-2">
             <Label htmlFor="outstandingBalance">Outstanding Balance</Label>
-            <Input id="outstandingBalance" name="outstandingBalance" type="number" step="0.01" min="0" defaultValue={formatDecimalInput(loan.outstandingBalance)} />
+            {hasPayments ? (
+              <>
+                <Input
+                  id="outstandingBalance"
+                  value={formatDecimalInput(loan.outstandingBalance) ?? formatDecimalInput(loan.amount) ?? ""}
+                  disabled
+                  className="bg-muted"
+                />
+                <p className="text-xs text-muted-foreground">
+                  Updated automatically from recorded payments. Delete payments on the loan detail page to adjust.
+                </p>
+              </>
+            ) : (
+              <Input id="outstandingBalance" name="outstandingBalance" type="number" step="0.01" min="0" defaultValue={formatDecimalInput(loan.outstandingBalance)} />
+            )}
           </div>
 
           <div className="space-y-2">

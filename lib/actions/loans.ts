@@ -207,11 +207,15 @@ export async function updateLoan(id: string, formData: FormData) {
     if (!asset) throw new Error("Linked asset not found.");
   }
 
+  const hasPayments = (await db.loanPayment.count({ where: { liabilityId: id } })) > 0;
+
   const loan = await db.liability.update({
     where: { id },
     data: {
       ...data,
-      outstandingBalance: data.outstandingBalance ?? data.amount,
+      outstandingBalance: hasPayments
+        ? undefined
+        : data.outstandingBalance ?? data.amount,
       paymentFrequency: data.paymentFrequency ?? null,
       assetId: data.assetId ?? null,
     },
@@ -301,6 +305,10 @@ export async function getLoan(id: string) {
       entity: true,
       asset: true,
       documents: { orderBy: { createdAt: "desc" } },
+      payments: {
+        include: { documents: { orderBy: { createdAt: "desc" } } },
+        orderBy: [{ paymentDate: "desc" }, { createdAt: "desc" }],
+      },
     },
   });
 }

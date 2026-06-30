@@ -55,6 +55,7 @@ export default async function LoansPage() {
                     <TableHead className="text-right">Outstanding</TableHead>
                     <TableHead>Rate</TableHead>
                     <TableHead>Maturity</TableHead>
+                    <TableHead>Last Payment</TableHead>
                     <TableHead>Payment</TableHead>
                     <TableHead>Docs</TableHead>
                     {showAdd ? <TableHead className="w-[60px]">Actions</TableHead> : null}
@@ -77,6 +78,7 @@ export default async function LoansPage() {
                       <TableCell className="text-right">{formatMoney(loanBalance(loan), loan.currency)}</TableCell>
                       <TableCell>{loan.interestRate ? loan.interestRate.toString() + "%" : "-"}</TableCell>
                       <TableCell>{formatDate(loan.maturityDate)}</TableCell>
+                      <TableCell>{formatDate(loan.lastPaymentAt)}</TableCell>
                       <TableCell>
                         {loan.paymentAmount
                           ? formatMoney(loan.paymentAmount, loan.currency) +

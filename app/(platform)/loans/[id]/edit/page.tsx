@@ -21,7 +21,11 @@ export default async function EditLoanPage({ params }: { params: Promise<{ id: s
     <>
       <PlatformHeader title="Edit Loan" />
       <main className="flex flex-1 flex-col gap-4 p-4 md:p-6">
-        <EditLoanForm loan={loan} entities={entities} assets={assets} />
+        <EditLoanForm
+          loan={{ ...loan, paymentCount: loan.payments.length }}
+          entities={entities}
+          assets={assets}
+        />
       </main>
     </>
   );

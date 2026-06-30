@@ -171,6 +171,14 @@ export const LOAN_DOCUMENT_TYPE_LABELS: Record<string, string> = {
   OTHER: "Other",
 };
 
+export const LOAN_PAYMENT_METHOD_LABELS: Record<string, string> = {
+  BANK_TRANSFER: "Bank Transfer",
+  CHEQUE: "Cheque",
+  CASH: "Cash",
+  DIRECT_DEBIT: "Direct Debit",
+  OTHER: "Other",
+};
+
 export const CHEQUE_DIRECTION_LABELS: Record<string, string> = {
   ISSUED: "Issued (outgoing)",
   RECEIVED: "Received (incoming)",
