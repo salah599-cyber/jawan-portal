@@ -4,6 +4,7 @@ export type ModuleName =
   | "LANDS"
   | "CARS"
   | "COMPANIES"
+  | "LOANS"
   | "DOCUMENTS"
   | "EXPENSES"
   | "REPORTS"

@@ -117,3 +117,32 @@ export const COMPANY_DOCUMENT_TYPE_LABELS: Record<string, string> = {
   FINANCIALS: "Financial Statements",
   OTHER: "Other",
 };
+
+export const LIABILITY_TYPE_LABELS: Record<string, string> = {
+  MORTGAGE: "Mortgage",
+  LOAN: "Term Loan",
+  CREDIT: "Credit Facility",
+  OTHER: "Other",
+};
+
+export const LIABILITY_STATUS_LABELS: Record<string, string> = {
+  ACTIVE: "Active",
+  PAID_OFF: "Paid Off",
+  DEFAULTED: "Defaulted",
+};
+
+export const PAYMENT_FREQUENCY_LABELS: Record<string, string> = {
+  MONTHLY: "Monthly",
+  QUARTERLY: "Quarterly",
+  SEMI_ANNUAL: "Semi-Annual",
+  ANNUAL: "Annual",
+  BULLET: "Bullet (lump sum)",
+  OTHER: "Other",
+};
+
+export const LOAN_DOCUMENT_TYPE_LABELS: Record<string, string> = {
+  LOAN_AGREEMENT: "Loan Agreement",
+  PAYMENT_SCHEDULE: "Payment Schedule",
+  STATEMENT: "Statement",
+  OTHER: "Other",
+};

@@ -6,6 +6,7 @@ import {
   companyEntityFilter,
   documentFilter,
   expenseEntityFilter,
+  loanEntityFilter,
   landEntityFilter,
 } from "@/lib/permissions/scoped-queries";
 import type { UserContext } from "@/lib/permissions/types";
@@ -146,12 +147,7 @@ export async function getDashboardSummary(ctx: UserContext): Promise<DashboardSu
       categoryMap.set(asset.category, entry);
     }
 
-    const [bankAccountCount, liabilityCount] = await Promise.all([
-      db.bankAccount.count({ where: bankAccountFilter(ctx) }),
-      db.liability.count({
-        where: { ...liabilityEntityFilter(ctx), status: "ACTIVE" },
-      }),
-    ]);
+    const bankAccountCount = await db.bankAccount.count({ where: bankAccountFilter(ctx) });
 
     moduleSummaries.push({
       module: "ASSETS",
@@ -170,20 +166,54 @@ export async function getDashboardSummary(ctx: UserContext): Promise<DashboardSu
 
     const liabilities = await db.liability.findMany({
       where: { ...liabilityEntityFilter(ctx), status: "ACTIVE" },
-      select: { amount: true, currency: true },
+      select: { amount: true, outstandingBalance: true, currency: true },
     });
 
     for (const liability of liabilities) {
-      addToCurrencyMap(liabilityMap, liability.currency, parseFloat(liability.amount.toString()));
+      const balance = liability.outstandingBalance ?? liability.amount;
+      addToCurrencyMap(liabilityMap, liability.currency, parseFloat(balance.toString()));
     }
+  }
 
-    if (liabilityCount > 0) {
-      moduleSummaries.push({
-        module: "LIABILITIES",
-        label: "Liabilities",
-        href: "/assets",
-        count: liabilityCount,
-        detail: "Active obligations",
+  if (canAccess(ctx, "LOANS")) {
+    const loanCount = await db.liability.count({
+      where: { ...loanEntityFilter(ctx), status: "ACTIVE" },
+    });
+
+    moduleSummaries.push({
+      module: "LOANS",
+      label: "Loan Management",
+      href: "/loans",
+      count: loanCount,
+      detail: loanCount > 0 ? "Active facilities" : undefined,
+    });
+
+    const loans = await db.liability.findMany({
+      where: { ...loanEntityFilter(ctx), status: "ACTIVE" },
+      select: {
+        id: true,
+        name: true,
+        lender: true,
+        maturityDate: true,
+      },
+    });
+
+    const now = new Date();
+    const horizon = new Date(now);
+    horizon.setDate(horizon.getDate() + 30);
+
+    for (const loan of loans) {
+      if (!loan.maturityDate) continue;
+      if (loan.maturityDate > horizon) continue;
+
+      reminders.push({
+        id: loan.id + "-maturity",
+        kind: "document",
+        title: loan.name,
+        subtitle: "Maturity" + (loan.lender ? " · " + loan.lender : ""),
+        date: loan.maturityDate,
+        href: "/loans/" + loan.id,
+        severity: loan.maturityDate < now ? "danger" : "warning",
       });
     }
   }

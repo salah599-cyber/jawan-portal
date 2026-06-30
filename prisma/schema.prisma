@@ -29,6 +29,7 @@ enum ModuleName {
   LANDS
   CARS
   COMPANIES
+  LOANS
   DOCUMENTS
   EXPENSES
   REPORTS
@@ -97,6 +98,22 @@ enum LiabilityStatus {
   ACTIVE
   PAID_OFF
   DEFAULTED
+}
+
+enum LoanDocumentType {
+  LOAN_AGREEMENT
+  PAYMENT_SCHEDULE
+  STATEMENT
+  OTHER
+}
+
+enum PaymentFrequency {
+  MONTHLY
+  QUARTERLY
+  SEMI_ANNUAL
+  ANNUAL
+  BULLET
+  OTHER
 }
 
 enum DocumentCategory {
@@ -554,20 +571,50 @@ model BankAccount {
 }
 
 model Liability {
-  id           String          @id @default(cuid())
-  name         String
-  type         LiabilityType
-  status       LiabilityStatus @default(ACTIVE)
-  amount       Decimal         @db.Decimal(18, 2)
-  currency     String          @default("OMR")
-  interestRate Decimal?        @db.Decimal(8, 4)
-  maturityDate DateTime?
-  entityId     String
-  entity       Entity          @relation(fields: [entityId], references: [id])
-  assetId      String?
-  asset        Asset?          @relation(fields: [assetId], references: [id])
-  createdAt    DateTime        @default(now())
-  updatedAt    DateTime        @updatedAt
+  id                 String             @id @default(cuid())
+  name               String
+  type               LiabilityType
+  status             LiabilityStatus    @default(ACTIVE)
+  amount             Decimal            @db.Decimal(18, 2)
+  outstandingBalance Decimal?           @db.Decimal(18, 2)
+  currency           String             @default("OMR")
+  interestRate       Decimal?           @db.Decimal(8, 4)
+  startDate          DateTime?
+  maturityDate       DateTime?
+  paymentAmount      Decimal?           @db.Decimal(18, 2)
+  paymentFrequency   PaymentFrequency?
+  lender             String?
+  accountReference   String?
+  contactName        String?
+  contactEmail       String?
+  contactPhone       String?
+  notes              String?
+  entityId           String
+  entity             Entity             @relation(fields: [entityId], references: [id])
+  assetId            String?
+  asset              Asset?             @relation(fields: [assetId], references: [id])
+  documents          LoanDocument[]
+  createdAt          DateTime           @default(now())
+  updatedAt          DateTime           @updatedAt
+
+  @@index([entityId, status, type])
+  @@index([maturityDate])
+}
+
+model LoanDocument {
+  id           String           @id @default(cuid())
+  liabilityId  String
+  liability    Liability        @relation(fields: [liabilityId], references: [id], onDelete: Cascade)
+  documentType LoanDocumentType
+  label        String?
+  fileName     String
+  fileUrl      String
+  mimeType     String
+  fileSize     Int
+  uploadedById String?
+  createdAt    DateTime         @default(now())
+
+  @@index([liabilityId, documentType])
 }
 
 model AssetValuation {
