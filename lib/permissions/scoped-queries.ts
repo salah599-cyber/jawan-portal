@@ -45,6 +45,13 @@ export function chequeEntityFilter(ctx: UserContext) {
   return { id: "__none__" };
 }
 
+export function peCompanyEntityFilter(ctx: UserContext) {
+  const level = getModulePermission(ctx, "PRIVATE_EQUITY");
+  if (level === "FULL" || level === "READ") return {};
+  if (level === "FILTERED") return { entityId: { in: ctx.entityIds } };
+  return { id: "__none__" };
+}
+
 export function proposalEntityFilter(ctx: UserContext) {
   const level = getModulePermission(ctx, "PROPOSALS");
   if (level === "FULL" || level === "READ") return {};

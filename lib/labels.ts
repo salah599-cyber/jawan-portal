@@ -221,3 +221,109 @@ export const PROPOSAL_COMMENT_KIND_LABELS: Record<string, string> = {
   APPROVE: "Approve",
   RESUBMIT: "Resubmit",
 };
+
+export const PE_STAGE_LABELS: Record<string, string> = {
+  IDEA: "Idea",
+  PRE_SEED: "Pre-Seed",
+  SEED: "Seed",
+  SERIES_A: "Series A",
+  GROWTH: "Growth",
+  MATURE: "Mature",
+};
+
+export const PE_STATUS_LABELS: Record<string, string> = {
+  ACTIVE: "Active",
+  FOLLOW_ON_PENDING: "Follow-on Pending",
+  WATCHLIST: "Watchlist",
+  EXITED: "Exited",
+  WRITTEN_OFF: "Written Off",
+};
+
+export const PE_INSTRUMENT_LABELS: Record<string, string> = {
+  ORDINARY_SHARES: "Ordinary Shares",
+  PREFERENCE_SHARES: "Preference Shares",
+  CONVERTIBLE_NOTE: "Convertible Note",
+  SAFE: "SAFE",
+  WARRANT: "Warrant",
+  DIRECT_LOAN: "Direct Loan",
+  OTHER: "Other",
+};
+
+export const PE_SHAREHOLDER_TYPE_LABELS: Record<string, string> = {
+  FOUNDER: "Founder",
+  FAMILY_OFFICE: "Family Office",
+  ANGEL: "Angel",
+  VC_FUND: "VC Fund",
+  CORPORATE: "Corporate",
+  ESOP_POOL: "ESOP Pool",
+  OTHER: "Other",
+};
+
+export const PE_DILUTION_EVENT_LABELS: Record<string, string> = {
+  NEW_ROUND: "New Round",
+  ESOP_GRANT: "ESOP Grant",
+  WARRANT_EXERCISE: "Warrant Exercise",
+  CONVERTIBLE_CONVERSION: "Convertible Conversion",
+  SECONDARY_SALE: "Secondary Sale",
+  SPLIT: "Split",
+  OTHER: "Other",
+};
+
+export const PE_VALUATION_METHOD_LABELS: Record<string, string> = {
+  LAST_ROUND: "Last Round",
+  REVENUE_MULTIPLE: "Revenue Multiple",
+  DCF: "DCF",
+  BOOK_VALUE: "Book Value",
+  WRITE_OFF: "Write-off",
+  OTHER: "Other",
+};
+
+export const PE_DISTRIBUTION_TYPE_LABELS: Record<string, string> = {
+  DIVIDEND: "Dividend",
+  RETURN_OF_CAPITAL: "Return of Capital",
+  EXIT_PROCEEDS: "Exit Proceeds",
+  INTEREST: "Interest",
+};
+
+export const PE_EXIT_TYPE_LABELS: Record<string, string> = {
+  TRADE_SALE: "Trade Sale",
+  IPO: "IPO",
+  SECONDARY: "Secondary",
+  BUYBACK: "Buyback",
+  WRITE_OFF: "Write-off",
+};
+
+export const PE_CONTACT_ROLE_LABELS: Record<string, string> = {
+  FOUNDER: "Founder",
+  CEO: "CEO",
+  CFO: "CFO",
+  BOARD_MEMBER: "Board Member",
+  LEAD_INVESTOR: "Lead Investor",
+  LEGAL_COUNSEL: "Legal Counsel",
+  OTHER: "Other",
+};
+
+export const PE_ANTI_DILUTION_LABELS: Record<string, string> = {
+  NONE: "None",
+  BROAD_BASED: "Broad-Based Weighted Average",
+  FULL_RATCHET: "Full Ratchet",
+};
+
+export const PE_REPORT_TYPE_LABELS: Record<string, string> = {
+  MONTHLY: "Monthly",
+  QUARTERLY: "Quarterly",
+  ANNUAL: "Annual",
+  AD_HOC: "Ad Hoc",
+};
+
+export const PE_DOCUMENT_TYPE_LABELS: Record<string, string> = {
+  SHA: "Shareholders Agreement",
+  TERM_SHEET: "Term Sheet",
+  CAP_TABLE_SNAPSHOT: "Cap Table Snapshot",
+  BOARD_RESOLUTION: "Board Resolution",
+  FINANCIAL_STATEMENTS: "Financial Statements",
+  IC_MEMO: "IC Memo",
+  WARRANT_AGREEMENT: "Warrant Agreement",
+  CONVERTIBLE_NOTE: "Convertible Note",
+  OTHER: "Other",
+};

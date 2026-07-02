@@ -1,4 +1,5 @@
 import { db } from "@/lib/db";
+import { ensurePeSchema } from "@/lib/db/ensure-pe-schema";
 import { canAccess, getModulePermission } from "@/lib/permissions/access";
 import {
   assetEntityFilter,
@@ -8,6 +9,7 @@ import {
   expenseEntityFilter,
   loanEntityFilter,
   chequeEntityFilter,
+  peCompanyEntityFilter,
   proposalEntityFilter,
   landEntityFilter,
 } from "@/lib/permissions/scoped-queries";
@@ -442,6 +444,35 @@ export async function getDashboardSummary(ctx: UserContext): Promise<DashboardSu
         date: company.registrationExpiryDate,
         href: "/companies/" + company.id,
         severity: company.registrationExpiryDate < now ? "danger" : "warning",
+      });
+    }
+  }
+
+  if (canAccess(ctx, "PRIVATE_EQUITY")) {
+    try {
+      await ensurePeSchema();
+      const peCompanies = await db.peCompany.findMany({
+        where: {
+          ...peCompanyEntityFilter(ctx),
+          status: { in: ["ACTIVE", "FOLLOW_ON_PENDING", "WATCHLIST"] },
+        },
+        select: { id: true },
+      });
+
+      moduleSummaries.push({
+        module: "PRIVATE_EQUITY",
+        label: "PE / VC Portfolio",
+        href: "/portfolio/pe",
+        count: peCompanies.length,
+      });
+    } catch (error) {
+      console.error("PE portfolio summary unavailable:", error);
+      moduleSummaries.push({
+        module: "PRIVATE_EQUITY",
+        label: "PE / VC Portfolio",
+        href: "/portfolio/pe",
+        count: 0,
+        detail: "Database migration pending",
       });
     }
   }

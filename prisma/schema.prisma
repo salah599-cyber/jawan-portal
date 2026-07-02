@@ -35,6 +35,7 @@ enum ModuleName {
   DOCUMENTS
   EXPENSES
   REPORTS
+  PRIVATE_EQUITY
   USERS
   AUDIT
 }
@@ -295,6 +296,7 @@ model Entity {
   registeredCompanies RegisteredCompany[]
   cheques      Cheque[]
   investmentProposals InvestmentProposal[]
+  peCompanies         PeCompany[]
   userAccess   UserEntityAccess[]
   createdAt    DateTime           @default(now())
   updatedAt    DateTime           @updatedAt
@@ -345,6 +347,7 @@ model Asset {
   landParcel      LandParcel?
   vehicle         Vehicle?
   registeredCompany RegisteredCompany?
+  peCompany         PeCompany?
   exit            AssetExit?
   createdAt       DateTime              @default(now())
   updatedAt       DateTime              @updatedAt
@@ -1074,4 +1077,334 @@ model ProposalComment {
   createdAt  DateTime            @default(now())
 
   @@index([proposalId, createdAt])
+}
+
+// ─── Private Equity & Venture Capital ───────────────────────────────────────
+
+enum PeStage {
+  IDEA
+  PRE_SEED
+  SEED
+  SERIES_A
+  GROWTH
+  MATURE
+}
+
+enum PeCompanyStatus {
+  ACTIVE
+  FOLLOW_ON_PENDING
+  WATCHLIST
+  EXITED
+  WRITTEN_OFF
+}
+
+enum PeInstrument {
+  ORDINARY_SHARES
+  PREFERENCE_SHARES
+  CONVERTIBLE_NOTE
+  SAFE
+  WARRANT
+  DIRECT_LOAN
+  OTHER
+}
+
+enum PeShareholderType {
+  FOUNDER
+  FAMILY_OFFICE
+  ANGEL
+  VC_FUND
+  CORPORATE
+  ESOP_POOL
+  OTHER
+}
+
+enum PeDilutionEventType {
+  NEW_ROUND
+  ESOP_GRANT
+  WARRANT_EXERCISE
+  CONVERTIBLE_CONVERSION
+  SECONDARY_SALE
+  SPLIT
+  OTHER
+}
+
+enum PeValuationMethod {
+  LAST_ROUND
+  REVENUE_MULTIPLE
+  DCF
+  BOOK_VALUE
+  WRITE_OFF
+  OTHER
+}
+
+enum PeDistributionType {
+  DIVIDEND
+  RETURN_OF_CAPITAL
+  EXIT_PROCEEDS
+  INTEREST
+}
+
+enum PeExitType {
+  TRADE_SALE
+  IPO
+  SECONDARY
+  BUYBACK
+  WRITE_OFF
+}
+
+enum PeContactRole {
+  FOUNDER
+  CEO
+  CFO
+  BOARD_MEMBER
+  LEAD_INVESTOR
+  LEGAL_COUNSEL
+  OTHER
+}
+
+enum PeAntiDilution {
+  NONE
+  BROAD_BASED
+  FULL_RATCHET
+}
+
+enum PeReportType {
+  MONTHLY
+  QUARTERLY
+  ANNUAL
+  AD_HOC
+}
+
+enum PeDocumentType {
+  SHA
+  TERM_SHEET
+  CAP_TABLE_SNAPSHOT
+  BOARD_RESOLUTION
+  FINANCIAL_STATEMENTS
+  IC_MEMO
+  WARRANT_AGREEMENT
+  CONVERTIBLE_NOTE
+  OTHER
+}
+
+model PeCompany {
+  id              String          @id @default(cuid())
+  name            String
+  tradingName     String?
+  country         String?
+  legalEntityType String?
+  sector          String?
+  stage           PeStage         @default(SEED)
+  status          PeCompanyStatus @default(ACTIVE)
+  riskRating      Int?
+  notes           String?
+  entityId        String
+  entity          Entity          @relation(fields: [entityId], references: [id])
+  assetId         String?         @unique
+  asset           Asset?          @relation(fields: [assetId], references: [id])
+  reportingCurrency String        @default("USD")
+  investments     PeInvestment[]
+  shareholders    PeCapTableShareholder[]
+  capTableRounds  PeCapTableRound[]
+  dilutionEvents  PeCapTableDilutionEvent[]
+  valuations      PeValuation[]
+  distributions   PeDistribution[]
+  exit            PeExit?
+  contacts        PeContact[]
+  governance      PeGovernanceRights?
+  monitoringReports PeMonitoringReport[]
+  documents       PeCompanyDocument[]
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+
+  @@index([entityId, status])
+  @@index([entityId, stage])
+  @@index([sector])
+}
+
+model PeInvestment {
+  id                    String       @id @default(cuid())
+  companyId             String
+  company               PeCompany    @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  investmentDate        DateTime
+  roundName             String?
+  instrument            PeInstrument @default(ORDINARY_SHARES)
+  amountReporting       Decimal?     @db.Decimal(18, 2)
+  amountOriginal        Decimal?     @db.Decimal(18, 2)
+  currencyOriginal      String?
+  sharesAcquired        Decimal?     @db.Decimal(18, 6)
+  pricePerShare         Decimal?     @db.Decimal(18, 4)
+  preMoneyValuation     Decimal?     @db.Decimal(18, 2)
+  postMoneyValuation    Decimal?     @db.Decimal(18, 2)
+  ownershipPctAtEntry   Decimal?     @db.Decimal(5, 2)
+  reservedAmount        Decimal?     @db.Decimal(18, 2)
+  notes                 String?
+  createdAt             DateTime     @default(now())
+  updatedAt             DateTime     @updatedAt
+
+  @@index([companyId, investmentDate])
+}
+
+model PeCapTableShareholder {
+  id               String            @id @default(cuid())
+  companyId        String
+  company          PeCompany         @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  shareholderName  String
+  shareholderType  PeShareholderType @default(OTHER)
+  isOurStake       Boolean           @default(false)
+  roundEntered     String?
+  sharesHeld       Decimal?          @db.Decimal(18, 6)
+  shareClass       String?
+  ownershipPct     Decimal?          @db.Decimal(5, 2)
+  notes            String?
+  createdAt        DateTime          @default(now())
+  updatedAt        DateTime          @updatedAt
+
+  @@index([companyId, isOurStake])
+}
+
+model PeCapTableRound {
+  id                     String       @id @default(cuid())
+  companyId              String
+  company                PeCompany    @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  roundName              String
+  roundDate              DateTime?
+  instrument             PeInstrument @default(ORDINARY_SHARES)
+  preMoneyValuation      Decimal?     @db.Decimal(18, 2)
+  postMoneyValuation     Decimal?     @db.Decimal(18, 2)
+  amountRaised           Decimal?     @db.Decimal(18, 2)
+  newSharesIssued        Decimal?     @db.Decimal(18, 6)
+  pricePerShare          Decimal?     @db.Decimal(18, 4)
+  leadInvestor           String?
+  notes                  String?
+  createdAt              DateTime     @default(now())
+  updatedAt              DateTime     @updatedAt
+
+  @@index([companyId, roundDate])
+}
+
+model PeCapTableDilutionEvent {
+  id           String              @id @default(cuid())
+  companyId    String
+  company      PeCompany           @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  eventType    PeDilutionEventType @default(OTHER)
+  eventDate    DateTime?
+  sharesIssued Decimal?            @db.Decimal(18, 6)
+  description  String?
+  createdAt    DateTime            @default(now())
+  updatedAt    DateTime            @updatedAt
+
+  @@index([companyId, eventDate])
+}
+
+model PeValuation {
+  id                  String            @id @default(cuid())
+  companyId           String
+  company               PeCompany         @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  valuationDate       DateTime
+  postMoneyReporting    Decimal?          @db.Decimal(18, 2)
+  stakeFairValueReporting Decimal?        @db.Decimal(18, 2)
+  method              PeValuationMethod @default(LAST_ROUND)
+  notes               String?
+  createdAt           DateTime          @default(now())
+  updatedAt           DateTime          @updatedAt
+
+  @@index([companyId, valuationDate])
+}
+
+model PeDistribution {
+  id               String             @id @default(cuid())
+  companyId        String
+  company          PeCompany          @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  distributionDate DateTime
+  amountReporting  Decimal            @db.Decimal(18, 2)
+  distributionType PeDistributionType @default(DIVIDEND)
+  notes            String?
+  createdAt        DateTime           @default(now())
+  updatedAt        DateTime           @updatedAt
+
+  @@index([companyId, distributionDate])
+}
+
+model PeExit {
+  id                   String     @id @default(cuid())
+  companyId            String     @unique
+  company              PeCompany  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  exitDate             DateTime
+  exitType             PeExitType @default(TRADE_SALE)
+  exitProceedsReporting Decimal?  @db.Decimal(18, 2)
+  realisedGainLossReporting Decimal? @db.Decimal(18, 2)
+  notes                String?
+  createdAt            DateTime   @default(now())
+  updatedAt            DateTime   @updatedAt
+}
+
+model PeContact {
+  id          String        @id @default(cuid())
+  companyId   String
+  company     PeCompany     @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  name        String
+  role        PeContactRole @default(OTHER)
+  email       String?
+  phone       String?
+  isBoardRep  Boolean       @default(false)
+  notes       String?
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+
+  @@index([companyId])
+}
+
+model PeGovernanceRights {
+  id                  String         @id @default(cuid())
+  companyId           String         @unique
+  company             PeCompany      @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  boardSeat           Boolean        @default(false)
+  boardRepName        String?
+  observerRights      Boolean        @default(false)
+  informationRights   Boolean        @default(false)
+  reportingFrequency  String?
+  proRataRights       Boolean        @default(false)
+  dragAlong           Boolean        @default(false)
+  tagAlong            Boolean        @default(false)
+  antiDilution        PeAntiDilution @default(NONE)
+  nextRoundTrigger    String?
+  createdAt           DateTime       @default(now())
+  updatedAt           DateTime       @updatedAt
+}
+
+model PeMonitoringReport {
+  id            String    @id @default(cuid())
+  companyId     String
+  company       PeCompany @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  reportDate    DateTime
+  reportType    PeReportType @default(QUARTERLY)
+  revenueReporting Decimal? @db.Decimal(18, 2)
+  burnRateReporting Decimal? @db.Decimal(18, 2)
+  runwayMonths  Decimal?  @db.Decimal(6, 1)
+  customKpis    Json?
+  notes         String?
+  documentId    String?
+  document      PeCompanyDocument? @relation(fields: [documentId], references: [id], onDelete: SetNull)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  @@index([companyId, reportDate])
+}
+
+model PeCompanyDocument {
+  id           String         @id @default(cuid())
+  companyId    String
+  company      PeCompany      @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  documentType PeDocumentType @default(OTHER)
+  fileName     String
+  fileUrl      String
+  mimeType     String
+  fileSize     Int
+  notes        String?
+  uploadedById String?
+  monitoringReports PeMonitoringReport[]
+  createdAt    DateTime       @default(now())
+
+  @@index([companyId, documentType])
 }
