@@ -8,11 +8,10 @@ export default async function PlatformLayout({ children }: { children: React.Rea
   const ctx = await getCurrentUserContext();
   const showAdmin = ctx ? isSuperAdmin(ctx) : false;
   const showReports = ctx ? canAccess(ctx, "REPORTS") : false;
-  const showRealEstate = ctx ? canAccess(ctx, "REAL_ESTATE") : false;
 
   return (
     <SidebarProvider>
-      <AppSidebar showAdmin={showAdmin} showReports={showReports} showRealEstate={showRealEstate} />
+      <AppSidebar showAdmin={showAdmin} showReports={showReports} />
       <SidebarInset className="flex min-h-svh flex-col">{children}</SidebarInset>
     </SidebarProvider>
   );

@@ -59,16 +59,13 @@ const adminNav = [
 export function AppSidebar({
   showAdmin = false,
   showReports = true,
-  showRealEstate = true,
 }: {
   showAdmin?: boolean;
   showReports?: boolean;
-  showRealEstate?: boolean;
 }) {
   const pathname = usePathname();
   let items = platformNav;
   if (!showReports) items = items.filter((item) => item.href !== "/reports");
-  if (!showRealEstate) items = items.filter((item) => item.href !== "/real-estate");
   const nav = showAdmin ? [...items, ...adminNav] : items;
 
   return (
