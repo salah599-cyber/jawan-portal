@@ -3,10 +3,7 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { createAsset } from "@/lib/actions/assets";
-import {
-  ASSET_CATEGORY_LABELS,
-  EDITABLE_ASSET_STATUS_ENTRIES,
-} from "@/lib/labels";
+import { EDITABLE_ASSET_STATUS_ENTRIES } from "@/lib/labels";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -20,12 +17,23 @@ import {
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { EntitySelect } from "@/components/platform/entity-select";
+import {
+  AssetCategorySelect,
+} from "@/components/assets/asset-category-select";
+import type { AssetCategoryOption } from "@/lib/data/asset-categories";
 
-export function CreateAssetForm({ entities }: { entities: { id: string; name: string }[] }) {
+export function CreateAssetForm({
+  entities,
+  categories: initialCategories,
+}: {
+  entities: { id: string; name: string }[];
+  categories: AssetCategoryOption[];
+}) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
-  const [category, setCategory] = useState("REAL_ESTATE");
+  const [categories, setCategories] = useState(initialCategories);
+  const [categoryId, setCategoryId] = useState(initialCategories[0]?.id ?? "");
   const [status, setStatus] = useState("ACTIVE");
   const [entityId, setEntityId] = useState(entities[0]?.id ?? "");
   const [currency, setCurrency] = useState("OMR");
@@ -37,9 +45,9 @@ export function CreateAssetForm({ entities }: { entities: { id: string; name: st
 
     startTransition(async () => {
       try {
-        await createAsset({
+        const asset = await createAsset({
           name: String(form.get("name") ?? ""),
-          category: category as never,
+          categoryId,
           entityId: entityId || String(form.get("entityId") ?? ""),
           status: status as never,
           currency,
@@ -50,7 +58,7 @@ export function CreateAssetForm({ entities }: { entities: { id: string; name: st
           managerName: String(form.get("managerName") ?? ""),
           managerEmail: String(form.get("managerEmail") ?? ""),
         });
-        router.push("/assets");
+        router.push("/assets/" + asset.id);
         router.refresh();
       } catch (err) {
         setError(err instanceof Error ? err.message : "Failed to create asset.");
@@ -72,18 +80,12 @@ export function CreateAssetForm({ entities }: { entities: { id: string; name: st
 
           <div className="space-y-2">
             <Label>Category</Label>
-            <Select value={category} onValueChange={setCategory}>
-              <SelectTrigger>
-                <SelectValue placeholder="Select category" />
-              </SelectTrigger>
-              <SelectContent>
-                {Object.entries(ASSET_CATEGORY_LABELS).map(([value, label]) => (
-                  <SelectItem key={value} value={value}>
-                    {label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <AssetCategorySelect
+              categories={categories}
+              value={categoryId}
+              onValueChange={setCategoryId}
+              onCategoryAdded={(category) => setCategories((prev) => [...prev, category])}
+            />
           </div>
 
           <div className="space-y-2">
@@ -123,14 +125,9 @@ export function CreateAssetForm({ entities }: { entities: { id: string; name: st
             </Select>
           </div>
 
-          <div className="space-y-2 md:col-span-2">
+          <div className="space-y-2">
             <Label htmlFor="acquisitionDate">Acquisition Date</Label>
-            <Input
-              id="acquisitionDate"
-              name="acquisitionDate"
-              type="date"
-              className="w-full max-w-sm"
-            />
+            <Input id="acquisitionDate" name="acquisitionDate" type="date" />
           </div>
 
           <div className="space-y-2">
@@ -158,12 +155,10 @@ export function CreateAssetForm({ entities }: { entities: { id: string; name: st
             <Input id="managerEmail" name="managerEmail" type="email" />
           </div>
 
-          {error ? (
-            <p className="text-sm text-destructive md:col-span-2">{error}</p>
-          ) : null}
+          {error ? <p className="text-sm text-destructive md:col-span-2">{error}</p> : null}
 
           <div className="flex gap-2 md:col-span-2">
-            <Button type="submit" disabled={pending}>
+            <Button type="submit" disabled={pending || !categoryId}>
               {pending ? "Creating..." : "Create Asset"}
             </Button>
             <Button type="button" variant="outline" onClick={() => router.back()}>

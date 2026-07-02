@@ -7,7 +7,10 @@ import { AssetExitSummary } from "@/components/assets/asset-exit-summary";
 import { RecordAssetExitForm } from "@/components/assets/record-asset-exit-form";
 import { getAsset, deleteAsset } from "@/lib/actions/assets";
 import { canWrite, requireModuleAccess } from "@/lib/permissions/access";
-import { ASSET_CATEGORY_LABELS, ASSET_STATUS_LABELS } from "@/lib/labels";
+import { AssetDocumentsSection } from "@/components/assets/asset-documents-section";
+import { UploadAssetDocumentsForm } from "@/components/assets/upload-asset-documents-form";
+import { getAssetCategoryDisplayName } from "@/lib/data/asset-categories";
+import { ASSET_STATUS_LABELS } from "@/lib/labels";
 import { formatMoney, formatDate, formatDecimalInput } from "@/lib/format";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -73,7 +76,7 @@ export default async function AssetDetailPage({ params }: { params: Promise<{ id
           <Card className="lg:col-span-2">
             <CardHeader>
               <CardTitle>Asset Details</CardTitle>
-              <CardDescription>{ASSET_CATEGORY_LABELS[asset.category] ?? asset.category}</CardDescription>
+              <CardDescription>{getAssetCategoryDisplayName(asset)}</CardDescription>
             </CardHeader>
             <CardContent className="grid gap-4 sm:grid-cols-2">
               <Detail label="Entity" value={asset.entity.name} />
@@ -127,6 +130,11 @@ export default async function AssetDetailPage({ params }: { params: Promise<{ id
         {asset.exit ? (
           <AssetExitSummary exit={asset.exit} assetId={asset.id} showActions={showWrite || showExit} />
         ) : null}
+
+        <div className="grid gap-4 lg:grid-cols-[2fr_1fr]">
+          <AssetDocumentsSection documents={asset.assetDocuments} canEdit={showWrite} />
+          {showWrite ? <UploadAssetDocumentsForm assetId={asset.id} /> : null}
+        </div>
       </main>
     </>
   );

@@ -21,6 +21,10 @@ const nextConfig: NextConfig = {
     "/portfolio/pe/[id]": ["./lib/db/pe-schema.sql"],
     "/portfolio/pe/new": ["./lib/db/pe-schema.sql"],
     "/portfolio/pe/[id]/edit": ["./lib/db/pe-schema.sql"],
+    "/assets": ["./lib/db/asset-schema.sql"],
+    "/assets/[id]": ["./lib/db/asset-schema.sql"],
+    "/assets/new": ["./lib/db/asset-schema.sql"],
+    "/assets/[id]/edit": ["./lib/db/asset-schema.sql"],
     "/api/cron/sync-schema": ["./lib/db/pe-schema.sql", "./scripts/sync-pe-schema.cjs"],
   },
   experimental: {

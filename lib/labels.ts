@@ -34,6 +34,15 @@ export const ASSET_EXIT_DOCUMENT_TYPE_LABELS: Record<string, string> = {
   OTHER: "Other",
 };
 
+export const ASSET_DOCUMENT_TYPE_LABELS: Record<string, string> = {
+  PHOTO: "Photo",
+  WARRANTY: "Warranty Card",
+  INVOICE: "Invoice",
+  RECEIPT: "Receipt",
+  MANUAL: "Manual / Spec Sheet",
+  OTHER: "Other Document",
+};
+
 export const DOCUMENT_CATEGORY_LABELS: Record<string, string> = {
   KYC: "KYC",
   LEGAL: "Legal",

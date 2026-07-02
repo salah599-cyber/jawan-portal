@@ -3,7 +3,7 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { updateAsset, type CreateAssetInput } from "@/lib/actions/assets";
-import { ASSET_CATEGORY_LABELS, EDITABLE_ASSET_STATUS_ENTRIES } from "@/lib/labels";
+import { EDITABLE_ASSET_STATUS_ENTRIES } from "@/lib/labels";
 import { formatDecimalInput, formatDateInput } from "@/lib/format";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -19,11 +19,13 @@ import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { EntitySelect, type EntityOption } from "@/components/platform/entity-select";
 import { AssetAcquisitionFields } from "@/components/assets/asset-acquisition-fields";
+import { AssetCategorySelect } from "@/components/assets/asset-category-select";
+import type { AssetCategoryOption } from "@/lib/data/asset-categories";
 
 type AssetRecord = {
   id: string;
   name: string;
-  category: string;
+  categoryId: string | null;
   status: string;
   entityId: string;
   currency: string;
@@ -38,16 +40,22 @@ type AssetRecord = {
 export function EditAssetForm({
   asset,
   entities,
+  categories: initialCategories,
 }: {
   asset: AssetRecord;
   entities: EntityOption[];
+  categories: AssetCategoryOption[];
 }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
+  const [categories, setCategories] = useState(initialCategories);
+  const [categoryId, setCategoryId] = useState(asset.categoryId ?? initialCategories[0]?.id ?? "");
   const [status, setStatus] = useState(asset.status);
   const [entityId, setEntityId] = useState(asset.entityId);
   const [currency, setCurrency] = useState(asset.currency);
+
+  const resolvedCategoryId = categoryId || initialCategories[0]?.id || "";
 
   function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -56,7 +64,7 @@ export function EditAssetForm({
 
     const input: CreateAssetInput = {
       name: String(form.get("name") ?? ""),
-      category: asset.category as CreateAssetInput["category"],
+      categoryId: resolvedCategoryId,
       entityId: entityId || String(form.get("entityId") ?? ""),
       status: status as CreateAssetInput["status"],
       currency,
@@ -71,7 +79,7 @@ export function EditAssetForm({
     startTransition(async () => {
       try {
         await updateAsset(asset.id, input);
-        router.push("/assets");
+        router.push("/assets/" + asset.id);
         router.refresh();
       } catch (err) {
         setError(err instanceof Error ? err.message : "Failed to update asset.");
@@ -93,10 +101,11 @@ export function EditAssetForm({
 
           <div className="space-y-2">
             <Label>Category</Label>
-            <Input
-              value={ASSET_CATEGORY_LABELS[asset.category] ?? asset.category}
-              disabled
-              className="bg-muted"
+            <AssetCategorySelect
+              categories={categories}
+              value={resolvedCategoryId}
+              onValueChange={setCategoryId}
+              onCategoryAdded={(category) => setCategories((prev) => [...prev, category])}
             />
           </div>
 
@@ -157,7 +166,9 @@ export function EditAssetForm({
           {error ? <p className="text-sm text-destructive md:col-span-2">{error}</p> : null}
 
           <div className="flex gap-2 md:col-span-2">
-            <Button type="submit" disabled={pending}>{pending ? "Saving..." : "Save Changes"}</Button>
+            <Button type="submit" disabled={pending || !resolvedCategoryId}>
+              {pending ? "Saving..." : "Save Changes"}
+            </Button>
             <Button type="button" variant="outline" onClick={() => router.back()}>Cancel</Button>
           </div>
         </form>
