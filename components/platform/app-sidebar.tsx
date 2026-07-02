@@ -17,6 +17,7 @@ import {
   HandCoins,
   Banknote,
   Lightbulb,
+  TrendingUp,
 } from "lucide-react";
 import {
   Sidebar,
@@ -33,6 +34,7 @@ import {
 const platformNav = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
   { href: "/assets", label: "Assets", icon: Building2 },
+  { href: "/portfolio/msx", label: "MSX Portfolio", icon: TrendingUp },
   { href: "/lands", label: "Lands", icon: Map },
   { href: "/cars", label: "Cars", icon: Car },
   { href: "/companies", label: "Companies", icon: Factory },
