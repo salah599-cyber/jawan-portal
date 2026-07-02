@@ -1,15 +1,9 @@
-import { SignIn } from "@clerk/nextjs";
+import { SignInPanel } from "@/components/auth/sign-in-panel";
 
 export default function SignInPage() {
   return (
-    <div className="flex min-h-screen items-center justify-center bg-muted/30">
-      <SignIn
-        routing="path"
-        path="/sign-in"
-        signUpUrl="/sign-in"
-        fallbackRedirectUrl="/dashboard"
-        forceRedirectUrl="/dashboard"
-      />
+    <div className="flex min-h-screen items-center justify-center bg-muted/30 p-4">
+      <SignInPanel />
     </div>
   );
 }
