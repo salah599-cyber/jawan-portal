@@ -77,3 +77,10 @@ export function expenseEntityFilter(ctx: UserContext) {
   if (level === "FULL") return {};
   return { id: "__none__" };
 }
+
+export function reportsEntityFilter(ctx: UserContext) {
+  const level = getModulePermission(ctx, "REPORTS");
+  if (level === "FULL" || level === "READ") return {};
+  if (level === "FILTERED") return { id: { in: ctx.entityIds } };
+  return { id: "__none__" };
+}

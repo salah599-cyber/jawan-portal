@@ -54,9 +54,16 @@ const adminNav = [
   { href: "/admin/audit-log", label: "Audit Log", icon: ScrollText },
 ];
 
-export function AppSidebar({ showAdmin = false }: { showAdmin?: boolean }) {
+export function AppSidebar({
+  showAdmin = false,
+  showReports = true,
+}: {
+  showAdmin?: boolean;
+  showReports?: boolean;
+}) {
   const pathname = usePathname();
-  const nav = showAdmin ? [...platformNav, ...adminNav] : platformNav;
+  const items = showReports ? platformNav : platformNav.filter((item) => item.href !== "/reports");
+  const nav = showAdmin ? [...items, ...adminNav] : items;
 
   return (
     <Sidebar>

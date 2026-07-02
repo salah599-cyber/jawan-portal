@@ -327,3 +327,11 @@ export const PE_DOCUMENT_TYPE_LABELS: Record<string, string> = {
   CONVERTIBLE_NOTE: "Convertible Note",
   OTHER: "Other",
 };
+
+export const REPORT_CATEGORY_LABELS: Record<string, string> = {
+  "balance-sheet": "Balance Sheet",
+  portfolio: "Portfolio",
+  operations: "Operations",
+  registers: "Registers",
+  advanced: "Advanced",
+};
