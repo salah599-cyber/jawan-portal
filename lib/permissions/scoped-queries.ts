@@ -52,6 +52,13 @@ export function peCompanyEntityFilter(ctx: UserContext) {
   return { id: "__none__" };
 }
 
+export function rePropertyEntityFilter(ctx: UserContext) {
+  const level = getModulePermission(ctx, "REAL_ESTATE");
+  if (level === "FULL" || level === "READ") return {};
+  if (level === "FILTERED") return { entityId: { in: ctx.entityIds } };
+  return { id: "__none__" };
+}
+
 export function proposalEntityFilter(ctx: UserContext) {
   const level = getModulePermission(ctx, "PROPOSALS");
   if (level === "FULL" || level === "READ") return {};

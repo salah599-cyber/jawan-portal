@@ -5,6 +5,7 @@ export const MANAGEABLE_MODULES: { module: ModuleName; label: string }[] = [
   { module: "DASHBOARD", label: "Dashboard" },
   { module: "ASSETS", label: "Assets" },
   { module: "LANDS", label: "Lands" },
+  { module: "REAL_ESTATE", label: "Real Estate" },
   { module: "CARS", label: "Cars" },
   { module: "COMPANIES", label: "Companies" },
   { module: "LOANS", label: "Loans" },

@@ -327,3 +327,163 @@ export const PE_DOCUMENT_TYPE_LABELS: Record<string, string> = {
   CONVERTIBLE_NOTE: "Convertible Note",
   OTHER: "Other",
 };
+
+export const RE_PROPERTY_TYPE_LABELS: Record<string, string> = {
+  VILLA: "Villa",
+  APARTMENT_BUILDING: "Apartment Building",
+  COMMERCIAL_BUILDING: "Commercial Building",
+  MIXED_USE: "Mixed Use",
+  LAND: "Land",
+  WAREHOUSE: "Warehouse",
+  OTHER: "Other",
+};
+
+export const RE_OWNERSHIP_STATUS_LABELS: Record<string, string> = {
+  OWNED: "Owned",
+  JOINTLY_OWNED: "Jointly Owned",
+  MORTGAGED: "Mortgaged",
+};
+
+export const RE_PROPERTY_STATUS_LABELS: Record<string, string> = {
+  DRAFT: "Draft",
+  ACTIVE: "Active",
+  UNDER_RENOVATION: "Under Renovation",
+  FOR_SALE: "For Sale",
+  SOLD: "Sold",
+};
+
+export const RE_UNIT_TYPE_LABELS: Record<string, string> = {
+  FLAT: "Flat",
+  APARTMENT: "Apartment",
+  OFFICE: "Office",
+  SHOWROOM: "Showroom",
+  SHOP: "Shop",
+  WAREHOUSE: "Warehouse",
+  VILLA: "Villa",
+  STUDIO: "Studio",
+  PENTHOUSE: "Penthouse",
+  PARKING: "Parking",
+  STORAGE: "Storage",
+  OTHER: "Other",
+};
+
+export const RE_OCCUPANCY_STATUS_LABELS: Record<string, string> = {
+  RENTED: "Rented",
+  VACANT: "Vacant",
+  OWNER_OCCUPIED: "Owner Occupied",
+  UNDER_RENOVATION: "Under Renovation",
+  RESERVED: "Reserved",
+};
+
+export const RE_FURNISHING_STATUS_LABELS: Record<string, string> = {
+  FURNISHED: "Furnished",
+  SEMI_FURNISHED: "Semi-Furnished",
+  UNFURNISHED: "Unfurnished",
+};
+
+export const RE_LEASE_STATUS_LABELS: Record<string, string> = {
+  ACTIVE: "Active",
+  EXPIRED: "Expired",
+  TERMINATED: "Terminated",
+  PENDING: "Pending",
+  RENEWED: "Renewed",
+};
+
+export const RE_PAYMENT_FREQUENCY_LABELS: Record<string, string> = {
+  MONTHLY: "Monthly",
+  QUARTERLY: "Quarterly",
+  SEMI_ANNUAL: "Semi-Annual",
+  ANNUAL: "Annual",
+};
+
+export const RE_PAYMENT_METHOD_LABELS: Record<string, string> = {
+  BANK_TRANSFER: "Bank Transfer",
+  CHEQUE: "Cheque",
+  CASH: "Cash",
+  PDC: "Post-Dated Cheque (PDC)",
+};
+
+export const RE_RENT_PAYMENT_STATUS_LABELS: Record<string, string> = {
+  PENDING: "Pending",
+  PAID: "Paid",
+  OVERDUE: "Overdue",
+  PARTIALLY_PAID: "Partially Paid",
+  WAIVED: "Waived",
+};
+
+export const RE_PDC_STATUS_LABELS: Record<string, string> = {
+  PENDING: "Pending",
+  CLEARED: "Cleared",
+  BOUNCED: "Bounced",
+  REPLACED: "Replaced",
+};
+
+export const RE_MAINTENANCE_CATEGORY_LABELS: Record<string, string> = {
+  PLUMBING: "Plumbing",
+  ELECTRICAL: "Electrical",
+  AC_HVAC: "AC / HVAC",
+  PAINTING: "Painting",
+  FLOORING: "Flooring",
+  STRUCTURE: "Structure",
+  PEST_CONTROL: "Pest Control",
+  CLEANING: "Cleaning",
+  APPLIANCE: "Appliance",
+  DOOR_WINDOW: "Door / Window",
+  ELEVATOR: "Elevator",
+  COMMON_AREA: "Common Area",
+  OTHER: "Other",
+};
+
+export const RE_MAINTENANCE_PRIORITY_LABELS: Record<string, string> = {
+  URGENT: "Urgent",
+  HIGH: "High",
+  MEDIUM: "Medium",
+  LOW: "Low",
+};
+
+export const RE_MAINTENANCE_STATUS_LABELS: Record<string, string> = {
+  OPEN: "Open",
+  IN_PROGRESS: "In Progress",
+  PENDING_PARTS: "Pending Parts",
+  COMPLETED: "Completed",
+  CANCELLED: "Cancelled",
+};
+
+export const RE_PROPERTY_EXPENSE_CATEGORY_LABELS: Record<string, string> = {
+  MAINTENANCE: "Maintenance",
+  INSURANCE: "Insurance",
+  MUNICIPALITY_FEE: "Municipality Fee",
+  SERVICE_CHARGE: "Service Charge",
+  MANAGEMENT_FEE: "Management Fee",
+  LEGAL: "Legal",
+  MORTGAGE: "Mortgage",
+  RENOVATION: "Renovation",
+  LANDSCAPING: "Landscaping",
+  SECURITY: "Security",
+  CLEANING: "Cleaning",
+  UTILITY: "Utility",
+  OTHER: "Other",
+};
+
+export const RE_PROPERTY_DOCUMENT_TYPE_LABELS: Record<string, string> = {
+  TITLE_DEED: "Title Deed",
+  LEASE_CONTRACT: "Lease Contract",
+  NOC: "NOC",
+  MUNICIPALITY_CERTIFICATE: "Municipality Certificate",
+  INSURANCE_POLICY: "Insurance Policy",
+  MORTGAGE_DOCUMENT: "Mortgage Document",
+  VALUATION_REPORT: "Valuation Report",
+  MAINTENANCE_INVOICE: "Maintenance Invoice",
+  UTILITY_BILL: "Utility Bill",
+  TENANT_ID: "Tenant ID",
+  FLOOR_PLAN: "Floor Plan",
+  PHOTO: "Photo",
+  OTHER: "Other",
+};
+
+export const RE_VALUATION_METHOD_LABELS: Record<string, string> = {
+  MARKET_APPRAISAL: "Market Appraisal",
+  COST: "Cost",
+  INCOME: "Income",
+  SELF_ASSESSED: "Self-Assessed",
+};

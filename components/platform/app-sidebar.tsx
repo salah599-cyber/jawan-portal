@@ -19,6 +19,7 @@ import {
   Lightbulb,
   TrendingUp,
   Briefcase,
+  Home,
 } from "lucide-react";
 import {
   Sidebar,
@@ -38,6 +39,7 @@ const platformNav = [
   { href: "/portfolio/msx", label: "MSX Portfolio", icon: TrendingUp },
   { href: "/portfolio/pe", label: "PE / VC Portfolio", icon: Briefcase },
   { href: "/lands", label: "Lands", icon: Map },
+  { href: "/real-estate", label: "Real Estate", icon: Home },
   { href: "/cars", label: "Cars", icon: Car },
   { href: "/companies", label: "Companies", icon: Factory },
   { href: "/loans", label: "Loans", icon: HandCoins },

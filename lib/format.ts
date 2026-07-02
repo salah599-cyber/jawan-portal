@@ -1,3 +1,17 @@
+export function formatOmr(
+  amount: number | string | { toString(): string } | null | undefined,
+): string {
+  if (amount == null || amount === "") return "—";
+  const value = typeof amount === "number" ? amount : parseFloat(amount.toString());
+  if (Number.isNaN(value)) return "—";
+  return new Intl.NumberFormat("en-OM", {
+    style: "currency",
+    currency: "OMR",
+    minimumFractionDigits: 3,
+    maximumFractionDigits: 3,
+  }).format(value);
+}
+
 export function formatMoney(
   amount: number | string | { toString(): string } | null | undefined,
   currency = "OMR",

@@ -21,7 +21,16 @@ const nextConfig: NextConfig = {
     "/portfolio/pe/[id]": ["./lib/db/pe-schema.sql"],
     "/portfolio/pe/new": ["./lib/db/pe-schema.sql"],
     "/portfolio/pe/[id]/edit": ["./lib/db/pe-schema.sql"],
-    "/api/cron/sync-schema": ["./lib/db/pe-schema.sql", "./scripts/sync-pe-schema.cjs"],
+    "/real-estate": ["./lib/db/real-estate-schema.sql"],
+    "/real-estate/[id]": ["./lib/db/real-estate-schema.sql"],
+    "/real-estate/new": ["./lib/db/real-estate-schema.sql"],
+    "/real-estate/rent": ["./lib/db/real-estate-schema.sql"],
+    "/api/cron/sync-schema": [
+      "./lib/db/pe-schema.sql",
+      "./lib/db/real-estate-schema.sql",
+      "./scripts/sync-pe-schema.cjs",
+      "./scripts/sync-real-estate-schema.cjs",
+    ],
   },
   experimental: {
     serverActions: {
