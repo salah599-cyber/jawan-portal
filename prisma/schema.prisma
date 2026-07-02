@@ -27,6 +27,7 @@ enum ModuleName {
   DASHBOARD
   ASSETS
   LANDS
+  REAL_ESTATE
   CARS
   COMPANIES
   LOANS
@@ -312,6 +313,7 @@ model Entity {
   cheques      Cheque[]
   investmentProposals InvestmentProposal[]
   peCompanies         PeCompany[]
+  reProperties        ReProperty[]
   userAccess   UserEntityAccess[]
   createdAt    DateTime           @default(now())
   updatedAt    DateTime           @updatedAt
@@ -363,6 +365,7 @@ model Asset {
   vehicle         Vehicle?
   registeredCompany RegisteredCompany?
   peCompany         PeCompany?
+  reProperty        ReProperty?
   exit            AssetExit?
   createdAt       DateTime              @default(now())
   updatedAt       DateTime              @updatedAt
@@ -411,6 +414,7 @@ model LandParcel {
   documents        LandDocument[]
   registeredHolders LandRegisteredHolder[]
   sale             LandSale?
+  reProperty       ReProperty?
   createdAt        DateTime       @default(now())
   updatedAt        DateTime       @updatedAt
   @@index([entityId, country, status])
@@ -1436,4 +1440,495 @@ model PeCompanyDocument {
   createdAt    DateTime       @default(now())
 
   @@index([companyId, documentType])
+}
+enum RePropertyType {
+  VILLA
+  APARTMENT_BUILDING
+  COMMERCIAL_BUILDING
+  MIXED_USE
+  LAND
+  WAREHOUSE
+  OTHER
+}
+
+enum ReOwnershipStatus {
+  OWNED
+  JOINTLY_OWNED
+  MORTGAGED
+}
+
+enum ReValuationMethod {
+  MARKET_APPRAISAL
+  COST
+  INCOME
+  SELF_ASSESSED
+}
+
+enum RePropertyStatus {
+  DRAFT
+  ACTIVE
+  UNDER_RENOVATION
+  FOR_SALE
+  SOLD
+}
+
+enum ReUnitType {
+  FLAT
+  APARTMENT
+  OFFICE
+  SHOWROOM
+  SHOP
+  WAREHOUSE
+  VILLA
+  STUDIO
+  PENTHOUSE
+  PARKING
+  STORAGE
+  OTHER
+}
+
+enum ReOccupancyStatus {
+  RENTED
+  VACANT
+  OWNER_OCCUPIED
+  UNDER_RENOVATION
+  RESERVED
+}
+
+enum ReFurnishingStatus {
+  FURNISHED
+  SEMI_FURNISHED
+  UNFURNISHED
+}
+
+enum ReTenantIdType {
+  OMANI_ID
+  PASSPORT
+  RESIDENCE_CARD
+}
+
+enum ReLeaseStatus {
+  ACTIVE
+  EXPIRED
+  TERMINATED
+  PENDING
+  RENEWED
+}
+
+enum RePaymentFrequency {
+  MONTHLY
+  QUARTERLY
+  SEMI_ANNUAL
+  ANNUAL
+}
+
+enum RePaymentMethod {
+  BANK_TRANSFER
+  CHEQUE
+  CASH
+  PDC
+}
+
+enum ReRentPaymentStatus {
+  PENDING
+  PAID
+  OVERDUE
+  PARTIALLY_PAID
+  WAIVED
+}
+
+enum RePdcStatus {
+  PENDING
+  CLEARED
+  BOUNCED
+  REPLACED
+}
+
+enum ReMaintenanceReportedBy {
+  TENANT
+  OWNER
+  PROPERTY_MANAGER
+  INSPECTION
+}
+
+enum ReMaintenanceCategory {
+  PLUMBING
+  ELECTRICAL
+  AC_HVAC
+  PAINTING
+  FLOORING
+  STRUCTURE
+  PEST_CONTROL
+  CLEANING
+  APPLIANCE
+  DOOR_WINDOW
+  ELEVATOR
+  COMMON_AREA
+  OTHER
+}
+
+enum ReMaintenancePriority {
+  URGENT
+  HIGH
+  MEDIUM
+  LOW
+}
+
+enum ReMaintenanceStatus {
+  OPEN
+  IN_PROGRESS
+  PENDING_PARTS
+  COMPLETED
+  CANCELLED
+}
+
+enum ReMaintenanceChargedTo {
+  OWNER
+  TENANT
+}
+
+enum ReUtilityType {
+  ELECTRICITY
+  WATER
+}
+
+enum ReUtilityPaymentStatus {
+  PAID
+  UNPAID
+  TENANT_RESPONSIBLE
+}
+
+enum RePropertyExpenseCategory {
+  MAINTENANCE
+  INSURANCE
+  MUNICIPALITY_FEE
+  SERVICE_CHARGE
+  MANAGEMENT_FEE
+  LEGAL
+  MORTGAGE
+  RENOVATION
+  LANDSCAPING
+  SECURITY
+  CLEANING
+  UTILITY
+  OTHER
+}
+
+enum ReExpensePaymentStatus {
+  PAID
+  UNPAID
+  OVERDUE
+}
+
+enum ReRecurrenceFrequency {
+  MONTHLY
+  QUARTERLY
+  ANNUAL
+}
+
+enum RePropertyDocumentType {
+  TITLE_DEED
+  LEASE_CONTRACT
+  NOC
+  MUNICIPALITY_CERTIFICATE
+  INSURANCE_POLICY
+  MORTGAGE_DOCUMENT
+  VALUATION_REPORT
+  MAINTENANCE_INVOICE
+  UTILITY_BILL
+  TENANT_ID
+  FLOOR_PLAN
+  PHOTO
+  OTHER
+}
+
+model ReProperty {
+  id                      String              @id @default(cuid())
+  name                    String
+  propertyType            RePropertyType
+  ownershipStatus         ReOwnershipStatus   @default(OWNED)
+  entityId                String
+  entity                  Entity              @relation(fields: [entityId], references: [id])
+  assetId                 String?             @unique
+  asset                   Asset?              @relation(fields: [assetId], references: [id])
+  landParcelId            String?             @unique
+  landParcel              LandParcel?         @relation(fields: [landParcelId], references: [id])
+  purchaseDate            DateTime?
+  purchasePriceOmr        Decimal?            @db.Decimal(18, 3)
+  currentValuationOmr     Decimal?            @db.Decimal(18, 3)
+  lastValuationDate       DateTime?
+  valuationMethod         ReValuationMethod?
+  governorate             String?
+  wilayat                 String?
+  area                    String?
+  streetAddress           String?
+  plotNumber              String?
+  parcelNumber            String?
+  gpsLat                  Decimal?            @db.Decimal(10, 7)
+  gpsLng                  Decimal?            @db.Decimal(10, 7)
+  googleMapsUrl           String?
+  landAreaSqm             Decimal?            @db.Decimal(18, 2)
+  builtUpAreaSqm          Decimal?            @db.Decimal(18, 2)
+  numFloors               Int?
+  numUnits                Int                 @default(0)
+  yearBuilt               Int?
+  mortgageBank            String?
+  mortgageOutstandingOmr  Decimal?            @db.Decimal(18, 3)
+  mortgageMonthlyPaymentOmr Decimal?          @db.Decimal(18, 3)
+  mortgageEndDate         DateTime?
+  status                  RePropertyStatus    @default(ACTIVE)
+  notes                   String?
+  units                   ReUnit[]
+  maintenance             ReMaintenanceRequest[]
+  valuations              RePropertyValuation[]
+  expenses                RePropertyExpense[]
+  documents               RePropertyDocument[]
+  createdAt               DateTime            @default(now())
+  updatedAt               DateTime            @updatedAt
+
+  @@index([entityId, status])
+  @@index([entityId, governorate, wilayat])
+}
+
+model ReUnit {
+  id                       String              @id @default(cuid())
+  propertyId               String
+  property                 ReProperty          @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  unitNumber               String
+  unitType                 ReUnitType
+  floorNumber              Int?
+  areaSqm                  Decimal?            @db.Decimal(18, 2)
+  numBedrooms              Int?
+  numBathrooms             Int?
+  numParkingSpaces         Int?
+  electricityMeterNumber   String?
+  electricityAccountNumber String?
+  electricityProvider      String?
+  waterMeterNumber         String?
+  waterAccountNumber       String?
+  waterProvider            String?             @default("PAEW")
+  occupancyStatus          ReOccupancyStatus   @default(VACANT)
+  furnishingStatus         ReFurnishingStatus?
+  marketRentOmr            Decimal?            @db.Decimal(18, 3)
+  vacantSince              DateTime?
+  notes                    String?
+  tenants                  ReTenant[]
+  leases                   ReLease[]
+  rentSchedules            ReRentSchedule[]
+  maintenance              ReMaintenanceRequest[]
+  utilityReadings          ReUtilityReading[]
+  expenses                 RePropertyExpense[]
+  documents                RePropertyDocument[]
+  createdAt                DateTime            @default(now())
+  updatedAt                DateTime            @updatedAt
+
+  @@index([propertyId, occupancyStatus])
+  @@index([propertyId, unitType])
+}
+
+model ReTenant {
+  id                    String         @id @default(cuid())
+  unitId                String
+  unit                  ReUnit         @relation(fields: [unitId], references: [id], onDelete: Cascade)
+  fullName              String
+  nationality           String?
+  idType                ReTenantIdType?
+  idNumber              String?
+  idExpiryDate          DateTime?
+  phonePrimary          String?
+  phoneSecondary        String?
+  email                 String?
+  employerName          String?
+  emergencyContactName  String?
+  emergencyContactPhone String?
+  notes                 String?
+  leases                ReLease[]
+  createdAt             DateTime       @default(now())
+  updatedAt             DateTime       @updatedAt
+
+  @@index([unitId])
+  @@index([fullName])
+}
+
+model ReLease {
+  id                            String             @id @default(cuid())
+  unitId                        String
+  unit                          ReUnit             @relation(fields: [unitId], references: [id], onDelete: Cascade)
+  tenantId                      String
+  tenant                        ReTenant           @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  leaseStartDate                DateTime
+  leaseEndDate                  DateTime
+  leaseDurationMonths           Int?
+  noticePeriodDays              Int                @default(90)
+  autoRenew                     Boolean            @default(false)
+  rentAmountOmr                 Decimal            @db.Decimal(18, 3)
+  paymentFrequency              RePaymentFrequency @default(MONTHLY)
+  paymentMethod                 RePaymentMethod    @default(BANK_TRANSFER)
+  securityDepositOmr            Decimal?           @db.Decimal(18, 3)
+  securityDepositPaid           Boolean            @default(false)
+  securityDepositReturned       Boolean            @default(false)
+  securityDepositReturnDate     DateTime?
+  securityDepositDeductionsOmr  Decimal?           @db.Decimal(18, 3)
+  pdcBank                       String?
+  pdcChequeNumbers              Json?
+  municipalityRegistrationNumber String?
+  municipalityRegistrationDate  DateTime?
+  municipalityExpiryDate        DateTime?
+  legalReference                String?
+  status                        ReLeaseStatus      @default(ACTIVE)
+  terminationDate               DateTime?
+  terminationReason             String?
+  notes                         String?
+  rentSchedules                 ReRentSchedule[]
+  documents                     RePropertyDocument[]
+  createdAt                     DateTime           @default(now())
+  updatedAt                     DateTime           @updatedAt
+
+  @@index([unitId, status])
+  @@index([tenantId])
+  @@index([leaseEndDate])
+}
+
+model ReRentSchedule {
+  id                String              @id @default(cuid())
+  leaseId           String
+  lease             ReLease             @relation(fields: [leaseId], references: [id], onDelete: Cascade)
+  unitId            String
+  unit              ReUnit              @relation(fields: [unitId], references: [id], onDelete: Cascade)
+  dueDate           DateTime
+  amountOmr         Decimal             @db.Decimal(18, 3)
+  periodLabel       String
+  paymentStatus     ReRentPaymentStatus @default(PENDING)
+  paidDate          DateTime?
+  paidAmountOmr     Decimal?            @db.Decimal(18, 3)
+  paymentMethod     RePaymentMethod?
+  chequeNumber      String?
+  bankReference     String?
+  receiptNumber     String?
+  pdcChequeNumber   String?
+  pdcBank           String?
+  pdcClearanceDate  DateTime?
+  pdcStatus         RePdcStatus?
+  lateFeeOmr        Decimal?            @db.Decimal(18, 3)
+  notes             String?
+  createdAt         DateTime            @default(now())
+  updatedAt         DateTime            @updatedAt
+
+  @@index([leaseId, dueDate])
+  @@index([unitId, paymentStatus])
+  @@index([dueDate, paymentStatus])
+}
+
+model ReMaintenanceRequest {
+  id                 String                  @id @default(cuid())
+  propertyId         String
+  property           ReProperty              @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  unitId             String?
+  unit               ReUnit?                 @relation(fields: [unitId], references: [id], onDelete: SetNull)
+  reportedBy         ReMaintenanceReportedBy
+  reportedDate       DateTime                @default(now())
+  category           ReMaintenanceCategory
+  priority           ReMaintenancePriority   @default(MEDIUM)
+  description        String
+  assignedTo         String?
+  contractorCompany  String?
+  contractorPhone    String?
+  status             ReMaintenanceStatus     @default(OPEN)
+  scheduledDate      DateTime?
+  completedDate      DateTime?
+  resolutionNotes    String?
+  quotedCostOmr      Decimal?                @db.Decimal(18, 3)
+  actualCostOmr      Decimal?                @db.Decimal(18, 3)
+  invoiceNumber      String?
+  chargedTo          ReMaintenanceChargedTo?
+  paidByOwner        Boolean                 @default(true)
+  documents          RePropertyDocument[]
+  createdAt          DateTime                @default(now())
+  updatedAt          DateTime                @updatedAt
+
+  @@index([propertyId, status])
+  @@index([unitId, status])
+}
+
+model ReUtilityReading {
+  id              String                 @id @default(cuid())
+  unitId          String
+  unit            ReUnit                 @relation(fields: [unitId], references: [id], onDelete: Cascade)
+  utilityType     ReUtilityType
+  readingDate     DateTime
+  meterReading    Decimal                @db.Decimal(18, 3)
+  previousReading Decimal?               @db.Decimal(18, 3)
+  unitsConsumed   Decimal?               @db.Decimal(18, 3)
+  amountOmr       Decimal?               @db.Decimal(18, 3)
+  billReference   String?
+  paymentStatus   ReUtilityPaymentStatus @default(UNPAID)
+  notes           String?
+  createdAt       DateTime               @default(now())
+  updatedAt       DateTime               @updatedAt
+
+  @@index([unitId, utilityType, readingDate])
+}
+
+model RePropertyValuation {
+  id              String             @id @default(cuid())
+  propertyId      String
+  property        ReProperty         @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  valuationDate   DateTime
+  valuationOmr    Decimal            @db.Decimal(18, 3)
+  method          ReValuationMethod?
+  appraiserName   String?
+  appraiserCompany String?
+  notes           String?
+  createdAt       DateTime           @default(now())
+
+  @@index([propertyId, valuationDate])
+}
+
+model RePropertyExpense {
+  id                   String                    @id @default(cuid())
+  propertyId           String
+  property             ReProperty                @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  unitId               String?
+  unit                 ReUnit?                   @relation(fields: [unitId], references: [id], onDelete: SetNull)
+  expenseDate          DateTime
+  category             RePropertyExpenseCategory
+  description          String
+  amountOmr            Decimal                   @db.Decimal(18, 3)
+  vendorName           String?
+  invoiceNumber        String?
+  paymentStatus        ReExpensePaymentStatus    @default(UNPAID)
+  paymentDate          DateTime?
+  recurring            Boolean                   @default(false)
+  recurrenceFrequency  ReRecurrenceFrequency?
+  notes                String?
+  createdAt            DateTime                  @default(now())
+  updatedAt            DateTime                  @updatedAt
+
+  @@index([propertyId, expenseDate])
+  @@index([propertyId, category])
+}
+
+model RePropertyDocument {
+  id                    String                 @id @default(cuid())
+  propertyId            String
+  property              ReProperty             @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  unitId                String?
+  unit                  ReUnit?                @relation(fields: [unitId], references: [id], onDelete: SetNull)
+  leaseId               String?
+  lease                 ReLease?               @relation(fields: [leaseId], references: [id], onDelete: SetNull)
+  maintenanceRequestId  String?
+  maintenanceRequest    ReMaintenanceRequest?  @relation(fields: [maintenanceRequestId], references: [id], onDelete: SetNull)
+  documentType          RePropertyDocumentType
+  fileName              String
+  fileUrl               String
+  mimeType              String
+  fileSize              Int
+  expiryDate            DateTime?
+  notes                 String?
+  uploadedById          String?
+  createdAt             DateTime               @default(now())
+
+  @@index([propertyId, documentType])
+  @@index([unitId])
+  @@index([leaseId])
 }

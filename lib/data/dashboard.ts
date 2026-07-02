@@ -12,6 +12,7 @@ import {
   peCompanyEntityFilter,
   proposalEntityFilter,
   landEntityFilter,
+  rePropertyEntityFilter,
 } from "@/lib/permissions/scoped-queries";
 import type { UserContext } from "@/lib/permissions/types";
 import { ASSET_CATEGORY_LABELS, EXIT_TYPE_LABELS } from "@/lib/labels";
@@ -362,6 +363,31 @@ export async function getDashboardSummary(ctx: UserContext): Promise<DashboardSu
       href: "/lands",
       count: landCount,
     });
+  }
+
+  if (canAccess(ctx, "REAL_ESTATE")) {
+    try {
+      const { ensureRealEstateSchema } = await import("@/lib/db/ensure-real-estate-schema");
+      await ensureRealEstateSchema();
+      const propertyCount = await db.reProperty.count({
+        where: { ...rePropertyEntityFilter(ctx), status: { not: "SOLD" } },
+      });
+      moduleSummaries.push({
+        module: "REAL_ESTATE",
+        label: "Real Estate",
+        href: "/real-estate",
+        count: propertyCount,
+      });
+    } catch (error) {
+      console.error("Real estate dashboard summary failed:", error);
+      moduleSummaries.push({
+        module: "REAL_ESTATE",
+        label: "Real Estate",
+        href: "/real-estate",
+        count: 0,
+        detail: "Schema sync pending",
+      });
+    }
   }
 
   if (canAccess(ctx, "CARS")) {

@@ -2,6 +2,7 @@ export type ModuleName =
   | "DASHBOARD"
   | "ASSETS"
   | "LANDS"
+  | "REAL_ESTATE"
   | "CARS"
   | "COMPANIES"
   | "LOANS"

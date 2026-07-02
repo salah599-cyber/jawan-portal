@@ -1,0 +1,135 @@
+import type { RePropertyDetail } from "@/lib/data/real-estate";
+
+function dec(value: { toString(): string } | number | null | undefined): string | null {
+  if (value == null) return null;
+  return value.toString();
+}
+
+function dateIso(value: Date | null | undefined) {
+  return value ? value.toISOString() : null;
+}
+
+export type SerializedReProperty = ReturnType<typeof serializeReProperty>;
+
+export function serializeReProperty(property: RePropertyDetail) {
+  return {
+    id: property.id,
+    name: property.name,
+    propertyType: property.propertyType,
+    ownershipStatus: property.ownershipStatus,
+    status: property.status,
+    entityId: property.entityId,
+    entityName: property.entity.name,
+    assetId: property.assetId,
+    landParcelId: property.landParcelId,
+    purchaseDate: dateIso(property.purchaseDate),
+    purchasePriceOmr: dec(property.purchasePriceOmr),
+    currentValuationOmr: dec(property.currentValuationOmr),
+    lastValuationDate: dateIso(property.lastValuationDate),
+    valuationMethod: property.valuationMethod,
+    governorate: property.governorate,
+    wilayat: property.wilayat,
+    area: property.area,
+    streetAddress: property.streetAddress,
+    plotNumber: property.plotNumber,
+    parcelNumber: property.parcelNumber,
+    gpsLat: dec(property.gpsLat),
+    gpsLng: dec(property.gpsLng),
+    googleMapsUrl: property.googleMapsUrl,
+    landAreaSqm: dec(property.landAreaSqm),
+    builtUpAreaSqm: dec(property.builtUpAreaSqm),
+    numFloors: property.numFloors,
+    numUnits: property.numUnits,
+    yearBuilt: property.yearBuilt,
+    mortgageBank: property.mortgageBank,
+    mortgageOutstandingOmr: dec(property.mortgageOutstandingOmr),
+    mortgageMonthlyPaymentOmr: dec(property.mortgageMonthlyPaymentOmr),
+    mortgageEndDate: dateIso(property.mortgageEndDate),
+    notes: property.notes,
+    metrics: property.metrics,
+    alerts: property.alerts,
+    units: property.units.map((unit) => ({
+      id: unit.id,
+      unitNumber: unit.unitNumber,
+      unitType: unit.unitType,
+      floorNumber: unit.floorNumber,
+      areaSqm: dec(unit.areaSqm),
+      numBedrooms: unit.numBedrooms,
+      numBathrooms: unit.numBathrooms,
+      occupancyStatus: unit.occupancyStatus,
+      furnishingStatus: unit.furnishingStatus,
+      marketRentOmr: dec(unit.marketRentOmr),
+      vacantSince: dateIso(unit.vacantSince),
+      electricityMeterNumber: unit.electricityMeterNumber,
+      waterMeterNumber: unit.waterMeterNumber,
+      tenants: unit.tenants.map((tenant) => ({
+        id: tenant.id,
+        fullName: tenant.fullName,
+        phonePrimary: tenant.phonePrimary,
+        email: tenant.email,
+      })),
+      leases: unit.leases.map((lease) => ({
+        id: lease.id,
+        status: lease.status,
+        leaseStartDate: dateIso(lease.leaseStartDate),
+        leaseEndDate: dateIso(lease.leaseEndDate),
+        rentAmountOmr: dec(lease.rentAmountOmr),
+        paymentFrequency: lease.paymentFrequency,
+        paymentMethod: lease.paymentMethod,
+        securityDepositOmr: dec(lease.securityDepositOmr),
+        autoRenew: lease.autoRenew,
+        tenant: { id: lease.tenant.id, fullName: lease.tenant.fullName },
+      })),
+      rentSchedules: unit.rentSchedules.map((row) => ({
+        id: row.id,
+        dueDate: dateIso(row.dueDate),
+        amountOmr: dec(row.amountOmr),
+        periodLabel: row.periodLabel,
+        paymentStatus: row.paymentStatus,
+        paidDate: dateIso(row.paidDate),
+        paidAmountOmr: dec(row.paidAmountOmr),
+        paymentMethod: row.paymentMethod,
+        pdcChequeNumber: row.pdcChequeNumber,
+        pdcBank: row.pdcBank,
+        pdcStatus: row.pdcStatus,
+        lateFeeOmr: dec(row.lateFeeOmr),
+      })),
+      utilityReadings: unit.utilityReadings.map((reading) => ({
+        id: reading.id,
+        utilityType: reading.utilityType,
+        readingDate: dateIso(reading.readingDate),
+        meterReading: dec(reading.meterReading),
+        previousReading: dec(reading.previousReading),
+        unitsConsumed: dec(reading.unitsConsumed),
+        amountOmr: dec(reading.amountOmr),
+        billReference: reading.billReference,
+        paymentStatus: reading.paymentStatus,
+        notes: reading.notes,
+      })),
+    })),
+    maintenance: property.maintenance.map((request) => ({
+      ...request,
+      reportedDate: dateIso(request.reportedDate),
+      scheduledDate: dateIso(request.scheduledDate),
+      completedDate: dateIso(request.completedDate),
+      quotedCostOmr: dec(request.quotedCostOmr),
+      actualCostOmr: dec(request.actualCostOmr),
+    })),
+    expenses: property.expenses.map((e) => ({
+      ...e,
+      expenseDate: dateIso(e.expenseDate),
+      amountOmr: dec(e.amountOmr),
+      paymentDate: dateIso(e.paymentDate),
+    })),
+    valuations: property.valuations.map((v) => ({
+      ...v,
+      valuationDate: dateIso(v.valuationDate),
+      valuationOmr: dec(v.valuationOmr),
+    })),
+    documents: property.documents.map((d) => ({
+      ...d,
+      expiryDate: dateIso(d.expiryDate),
+      createdAt: dateIso(d.createdAt),
+    })),
+  };
+}

@@ -6,6 +6,7 @@ DB_URL="${POSTGRES_URL_NON_POOLING:-${POSTGRES_URL:-${DATABASE_URL_UNPOOLED:-${D
 if [ -n "$DB_URL" ]; then
   node scripts/sync-pe-schema.cjs || echo "WARNING: PE schema sync failed during build; runtime sync will retry."
   node scripts/sync-public-markets-schema.cjs || echo "WARNING: Public markets schema sync failed during build; runtime sync will retry."
+  node scripts/sync-real-estate-schema.cjs || echo "WARNING: Real estate schema sync failed during build; runtime sync will retry."
 fi
 
 exec npx next build

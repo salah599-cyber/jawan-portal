@@ -12,22 +12,27 @@ export async function GET(request: Request) {
   }
 
   try {
-    const peScript = path.join(process.cwd(), "scripts", "sync-pe-schema.cjs");
-    const publicMarketsScript = path.join(process.cwd(), "scripts", "sync-public-markets-schema.cjs");
+    const scripts = [
+      "sync-pe-schema.cjs",
+      "sync-public-markets-schema.cjs",
+      "sync-real-estate-schema.cjs",
+    ].map((name) => path.join(process.cwd(), "scripts", name));
 
-    const [peResult, publicMarketsResult] = await Promise.all([
-      execFileAsync("node", [peScript], { env: process.env, timeout: 120_000 }),
-      execFileAsync("node", [publicMarketsScript], { env: process.env, timeout: 120_000 }),
-    ]);
+    const results = await Promise.all(
+      scripts.map((script) =>
+        execFileAsync("node", [script], { env: process.env, timeout: 120_000 }),
+      ),
+    );
 
     return NextResponse.json({
       ok: true,
       job: "sync-schema",
-      stdout: [peResult.stdout, publicMarketsResult.stdout].map((s) => s.trim()).filter(Boolean).join("\n"),
-      stderr: [peResult.stderr, publicMarketsResult.stderr]
-        .map((s) => s.trim())
-        .filter(Boolean)
-        .join("\n") || undefined,
+      stdout: results.map((r) => r.stdout.trim()).filter(Boolean).join("\n"),
+      stderr:
+        results
+          .map((r) => r.stderr.trim())
+          .filter(Boolean)
+          .join("\n") || undefined,
     });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Schema sync failed";

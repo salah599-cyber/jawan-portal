@@ -19,6 +19,7 @@ import {
   Lightbulb,
   TrendingUp,
   Briefcase,
+  Home,
 } from "lucide-react";
 import {
   Sidebar,
@@ -38,6 +39,7 @@ const platformNav = [
   { href: "/portfolio/public-markets", label: "Public Markets", icon: TrendingUp },
   { href: "/portfolio/pe", label: "PE / VC Portfolio", icon: Briefcase },
   { href: "/lands", label: "Lands", icon: Map },
+  { href: "/real-estate", label: "Real Estate", icon: Home },
   { href: "/cars", label: "Cars", icon: Car },
   { href: "/companies", label: "Companies", icon: Factory },
   { href: "/loans", label: "Loans", icon: HandCoins },
@@ -57,12 +59,16 @@ const adminNav = [
 export function AppSidebar({
   showAdmin = false,
   showReports = true,
+  showRealEstate = true,
 }: {
   showAdmin?: boolean;
   showReports?: boolean;
+  showRealEstate?: boolean;
 }) {
   const pathname = usePathname();
-  const items = showReports ? platformNav : platformNav.filter((item) => item.href !== "/reports");
+  let items = platformNav;
+  if (!showReports) items = items.filter((item) => item.href !== "/reports");
+  if (!showRealEstate) items = items.filter((item) => item.href !== "/real-estate");
   const nav = showAdmin ? [...items, ...adminNav] : items;
 
   return (
