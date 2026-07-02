@@ -21,6 +21,7 @@ import {
   Receipt,
   Wallet,
   Lightbulb,
+  Briefcase,
 } from "lucide-react";
 
 const MODULE_ICONS: Record<string, typeof Building2> = {
@@ -30,6 +31,7 @@ const MODULE_ICONS: Record<string, typeof Building2> = {
   LANDS: Map,
   CARS: Car,
   COMPANIES: Factory,
+  PRIVATE_EQUITY: Briefcase,
   LOANS: HandCoins,
   CHEQUES: Banknote,
   PROPOSALS: Lightbulb,
