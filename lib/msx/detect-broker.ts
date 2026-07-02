@@ -1,8 +1,13 @@
 import { BROKER_SIGNATURES } from "./constants";
 
 export function detectBroker(fileName: string, content: string): string {
-  const haystack = `${fileName}\n${content}`.toLowerCase();
+  for (const { broker, patterns } of BROKER_SIGNATURES) {
+    if (patterns.some((pattern) => pattern.test(fileName))) {
+      return broker;
+    }
+  }
 
+  const haystack = content.toLowerCase();
   for (const { broker, patterns } of BROKER_SIGNATURES) {
     if (patterns.some((pattern) => pattern.test(haystack))) {
       return broker;

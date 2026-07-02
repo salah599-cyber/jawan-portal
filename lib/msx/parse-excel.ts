@@ -1,37 +1,44 @@
+import { readSpreadsheetRows } from "./read-workbook";
 import type { ParseReportResult } from "./types";
 import { detectBroker, extractAccountNumber, extractAsOfDate } from "./detect-broker";
 import { dedupeHoldings, rowsToHoldings } from "./holdings";
 
-function sheetToRows(sheet: import("exceljs").Worksheet): unknown[][] {
-  const rows: unknown[][] = [];
-  sheet.eachRow({ includeEmpty: false }, (row) => {
-    const values = row.values;
-    if (!values) return;
-    const cells = Array.isArray(values) ? values.slice(1) : [];
-    rows.push(cells);
-  });
-  return rows;
-}
-
 export async function parseExcelReport(buffer: Buffer, fileName: string): Promise<ParseReportResult> {
-  const ExcelJS = await import("exceljs");
-  const workbook = new ExcelJS.Workbook();
-  await workbook.xlsx.load(buffer as unknown as import("exceljs").Buffer);
-
   const warnings: string[] = [];
   const allHoldings = [];
 
-  for (const sheet of workbook.worksheets) {
-    const rows = sheetToRows(sheet);
-    if (rows.length === 0) continue;
+  let sheets: unknown[][][];
+  try {
+    sheets = readSpreadsheetRows(buffer, fileName);
+  } catch (error) {
+    return {
+      broker: detectBroker(fileName, ""),
+      holdings: [],
+      warnings: [
+        error instanceof Error
+          ? `Could not read spreadsheet: ${error.message}`
+          : "Could not read spreadsheet. Save the file as .xlsx and try again.",
+      ],
+    };
+  }
+
+  if (sheets.length === 0) {
+    return {
+      broker: detectBroker(fileName, ""),
+      holdings: [],
+      warnings: ["The spreadsheet appears to be empty."],
+    };
+  }
+
+  for (const rows of sheets) {
     const holdings = rowsToHoldings(rows);
     if (holdings.length > 0) {
       allHoldings.push(...holdings);
     }
   }
 
-  const flatText = workbook.worksheets
-    .map((sheet) => sheetToRows(sheet).map((row) => row.map((cell) => String(cell ?? "")).join(" ")).join("\n"))
+  const flatText = sheets
+    .map((rows) => rows.map((row) => row.map((cell) => String(cell ?? "")).join(" ")).join("\n"))
     .join("\n");
 
   const broker = detectBroker(fileName, flatText);
@@ -40,7 +47,9 @@ export async function parseExcelReport(buffer: Buffer, fileName: string): Promis
   const holdings = dedupeHoldings(allHoldings);
 
   if (holdings.length === 0) {
-    warnings.push("No MSX holdings were detected in this spreadsheet. Check that symbol and quantity columns are present.");
+    warnings.push(
+      "No MSX holdings were detected in this spreadsheet. Ensure the file has stock symbol and quantity columns, or save a fresh export as .xlsx.",
+    );
   }
 
   return { broker, accountNumber, asOfDate, holdings, warnings };
