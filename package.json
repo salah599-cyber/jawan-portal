@@ -5,6 +5,7 @@
   "scripts": {
     "dev": "next dev",
     "build": "bash scripts/build.sh",
+    "db:sync-pe": "node scripts/sync-pe-schema.cjs",
     "start": "next start",
     "lint": "eslint",
     "db:generate": "prisma generate",
