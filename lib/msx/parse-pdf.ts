@@ -1,6 +1,6 @@
 import type { ParseReportResult } from "./types";
 import { detectBroker, extractAccountNumber, extractAsOfDate } from "./detect-broker";
-import { dedupeHoldings, parseTextLines, rowsToHoldings } from "./holdings";
+import { dedupeHoldings, parsePdfTableText, parseTextLines, rowsToHoldings } from "./holdings";
 import { loadPdfRuntime } from "./pdf-runtime";
 
 async function extractPdfContent(buffer: Buffer): Promise<{ text: string; tableRows: unknown[][] }> {
