@@ -3,6 +3,8 @@
 import { revalidatePath } from "next/cache";
 import { db } from "@/lib/db";
 import { logAudit } from "@/lib/audit/log";
+import { parseAssetCategorySelection } from "@/lib/assets/category-display";
+import { createCustomAssetType, resolveCustomAssetType } from "@/lib/data/asset-types";
 import { canWrite, requireModuleAccess } from "@/lib/permissions/access";
 import { assetEntityFilter } from "@/lib/permissions/scoped-queries";
 import { assertStatusNotExited } from "@/lib/assets/status";
@@ -10,7 +12,9 @@ import type { AssetCategory, AssetStatus } from "@/lib/generated/prisma/client";
 
 export type CreateAssetInput = {
   name: string;
-  category: AssetCategory;
+  category?: AssetCategory;
+  categorySelection?: string;
+  assetTypeId?: string;
   entityId: string;
   status: AssetStatus;
   currency: string;
@@ -21,6 +25,49 @@ export type CreateAssetInput = {
   managerName?: string;
   managerEmail?: string;
 };
+
+async function resolveAssetCategoryInput(input: Pick<CreateAssetInput, "category" | "categorySelection" | "assetTypeId">) {
+  if (input.categorySelection) {
+    const parsed = parseAssetCategorySelection(input.categorySelection);
+    if (parsed.kind === "custom") {
+      const type = await resolveCustomAssetType(parsed.assetTypeId);
+      return { category: "OTHER" as AssetCategory, assetTypeId: type.id };
+    }
+    return { category: parsed.category as AssetCategory, assetTypeId: undefined };
+  }
+
+  if (input.assetTypeId) {
+    const type = await resolveCustomAssetType(input.assetTypeId);
+    return { category: "OTHER" as AssetCategory, assetTypeId: type.id };
+  }
+
+  if (input.category) {
+    return { category: input.category, assetTypeId: undefined };
+  }
+
+  throw new Error("Category is required.");
+}
+
+export async function addCustomAssetType(name: string) {
+  const ctx = await requireModuleAccess("ASSETS");
+  if (!canWrite(ctx, "ASSETS")) {
+    throw new Error("You do not have permission to add asset types.");
+  }
+
+  const type = await createCustomAssetType(name);
+
+  await logAudit({
+    userId: ctx.id,
+    action: "CREATE",
+    resource: "AssetType",
+    resourceId: type.id,
+    metadata: { name: type.name },
+  });
+
+  revalidatePath("/assets");
+  revalidatePath("/assets/new");
+  return type;
+}
 
 function categoryDetailCreate(category: AssetCategory) {
   switch (category) {
@@ -69,10 +116,13 @@ export async function createAsset(input: CreateAssetInput) {
 
   assertStatusNotExited(input.status);
 
+  const { category, assetTypeId } = await resolveAssetCategoryInput(input);
+
   const asset = await db.asset.create({
     data: {
       name: input.name.trim(),
-      category: input.category,
+      category,
+      assetTypeId,
       entityId: input.entityId,
       status: input.status,
       currency: input.currency || "OMR",
@@ -82,8 +132,9 @@ export async function createAsset(input: CreateAssetInput) {
       description: input.description?.trim() || undefined,
       managerName: input.managerName?.trim() || undefined,
       managerEmail: input.managerEmail?.trim() || undefined,
-      ...categoryDetailCreate(input.category),
+      ...categoryDetailCreate(category),
     },
+    include: { assetType: { select: { name: true } } },
   });
 
   await logAudit({
@@ -91,7 +142,11 @@ export async function createAsset(input: CreateAssetInput) {
     action: "CREATE",
     resource: "Asset",
     resourceId: asset.id,
-    metadata: { name: asset.name, category: asset.category },
+    metadata: {
+      name: asset.name,
+      category: asset.category,
+      assetType: asset.assetType?.name,
+    },
   });
 
   revalidatePath("/assets");
@@ -111,6 +166,7 @@ export async function listAssets(filter: "all" | "active" | "exited" = "all") {
     where: { ...assetEntityFilter(ctx), ...statusFilter },
     include: {
       entity: true,
+      assetType: { select: { name: true } },
       exit: true,
       landParcel: { select: { id: true } },
       vehicle: { select: { id: true } },
@@ -162,6 +218,7 @@ export async function getAsset(id: string) {
     where: { id, ...assetEntityFilter(ctx) },
     include: {
       entity: true,
+      assetType: { select: { name: true } },
       exit: { include: { documents: { orderBy: { createdAt: "desc" } } } },
       landParcel: { select: { id: true, sale: { select: { id: true } } } },
       vehicle: { select: { id: true } },

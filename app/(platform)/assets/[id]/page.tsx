@@ -7,7 +7,8 @@ import { AssetExitSummary } from "@/components/assets/asset-exit-summary";
 import { RecordAssetExitForm } from "@/components/assets/record-asset-exit-form";
 import { getAsset, deleteAsset } from "@/lib/actions/assets";
 import { canWrite, requireModuleAccess } from "@/lib/permissions/access";
-import { ASSET_CATEGORY_LABELS, ASSET_STATUS_LABELS } from "@/lib/labels";
+import { getAssetCategoryLabel } from "@/lib/assets/category-display";
+import { ASSET_STATUS_LABELS } from "@/lib/labels";
 import { formatMoney, formatDate, formatDecimalInput } from "@/lib/format";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -73,7 +74,7 @@ export default async function AssetDetailPage({ params }: { params: Promise<{ id
           <Card className="lg:col-span-2">
             <CardHeader>
               <CardTitle>Asset Details</CardTitle>
-              <CardDescription>{ASSET_CATEGORY_LABELS[asset.category] ?? asset.category}</CardDescription>
+              <CardDescription>{getAssetCategoryLabel(asset)}</CardDescription>
             </CardHeader>
             <CardContent className="grid gap-4 sm:grid-cols-2">
               <Detail label="Entity" value={asset.entity.name} />

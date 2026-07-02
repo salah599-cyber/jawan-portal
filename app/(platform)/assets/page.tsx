@@ -5,7 +5,8 @@ import { RowActions } from "@/components/platform/row-actions";
 import { AssetsFilterTabs, type AssetsFilter } from "@/components/assets/assets-filter-tabs";
 import { listAssets, deleteAsset } from "@/lib/actions/assets";
 import { canWrite, requireModuleAccess } from "@/lib/permissions/access";
-import { ASSET_CATEGORY_LABELS, ASSET_STATUS_LABELS } from "@/lib/labels";
+import { getAssetCategoryLabel } from "@/lib/assets/category-display";
+import { ASSET_STATUS_LABELS } from "@/lib/labels";
 import { formatMoney, formatDate } from "@/lib/format";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -87,7 +88,7 @@ export default async function AssetsPage({
                             {asset.name}
                           </Link>
                         </TableCell>
-                        <TableCell>{ASSET_CATEGORY_LABELS[asset.category] ?? asset.category}</TableCell>
+                        <TableCell>{getAssetCategoryLabel(asset)}</TableCell>
                         <TableCell>{asset.entity.name}</TableCell>
                         <TableCell>
                           <Badge variant={asset.status === "EXITED" ? "outline" : "secondary"}>

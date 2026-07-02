@@ -345,6 +345,8 @@ model Asset {
   ownershipPct    Decimal               @default(100) @db.Decimal(5, 2)
   entityId        String
   entity          Entity                @relation(fields: [entityId], references: [id])
+  assetTypeId     String?
+  assetType       AssetType?            @relation(fields: [assetTypeId], references: [id], onDelete: SetNull)
   managerName     String?
   managerEmail    String?
   managerPhone    String?
@@ -370,6 +372,17 @@ model Asset {
   createdAt       DateTime              @default(now())
   updatedAt       DateTime              @updatedAt
   @@index([entityId, category, status])
+  @@index([assetTypeId])
+}
+
+model AssetType {
+  id        String   @id @default(cuid())
+  name      String   @unique
+  isActive  Boolean  @default(true)
+  sortOrder Int      @default(0)
+  assets    Asset[]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
 
 model RealEstateDetail {

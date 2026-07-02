@@ -3,7 +3,8 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { updateAsset, type CreateAssetInput } from "@/lib/actions/assets";
-import { ASSET_CATEGORY_LABELS, EDITABLE_ASSET_STATUS_ENTRIES } from "@/lib/labels";
+import { getAssetCategoryLabel } from "@/lib/assets/category-display";
+import { EDITABLE_ASSET_STATUS_ENTRIES } from "@/lib/labels";
 import { formatDecimalInput, formatDateInput } from "@/lib/format";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -24,6 +25,7 @@ type AssetRecord = {
   id: string;
   name: string;
   category: string;
+  assetType?: { name: string } | null;
   status: string;
   entityId: string;
   currency: string;
@@ -94,7 +96,7 @@ export function EditAssetForm({
           <div className="space-y-2">
             <Label>Category</Label>
             <Input
-              value={ASSET_CATEGORY_LABELS[asset.category] ?? asset.category}
+              value={getAssetCategoryLabel(asset)}
               disabled
               className="bg-muted"
             />

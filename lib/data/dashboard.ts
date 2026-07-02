@@ -15,7 +15,8 @@ import {
   rePropertyEntityFilter,
 } from "@/lib/permissions/scoped-queries";
 import type { UserContext } from "@/lib/permissions/types";
-import { ASSET_CATEGORY_LABELS, EXIT_TYPE_LABELS } from "@/lib/labels";
+import { getAssetCategoryKey } from "@/lib/assets/category-display";
+import { ASSET_CATEGORY_LABELS } from "@/lib/labels";
 
 export type CurrencyTotal = {
   currency: string;
@@ -161,6 +162,7 @@ export async function getDashboardSummary(ctx: UserContext): Promise<DashboardSu
       select: {
         id: true,
         category: true,
+        assetType: { select: { name: true } },
         status: true,
         currentValue: true,
         currency: true,
@@ -174,10 +176,11 @@ export async function getDashboardSummary(ctx: UserContext): Promise<DashboardSu
       const value = weightedValue(asset.currentValue, asset.ownershipPct);
       addToCurrencyMap(portfolioMap, asset.currency, value);
 
-      const entry = categoryMap.get(asset.category) ?? { count: 0, totals: new Map<string, number>() };
+      const categoryKey = getAssetCategoryKey(asset);
+      const entry = categoryMap.get(categoryKey) ?? { count: 0, totals: new Map<string, number>() };
       entry.count += 1;
       addToCurrencyMap(entry.totals, asset.currency, value);
-      categoryMap.set(asset.category, entry);
+      categoryMap.set(categoryKey, entry);
     }
 
     const bankAccountCount = await db.bankAccount.count({ where: bankAccountFilter(ctx) });
@@ -629,7 +632,9 @@ export async function getDashboardSummary(ctx: UserContext): Promise<DashboardSu
     categoryBreakdown: [...categoryMap.entries()]
       .map(([category, data]) => ({
         category,
-        label: ASSET_CATEGORY_LABELS[category] ?? category,
+        label: category.startsWith("custom:")
+          ? category.slice("custom:".length)
+          : (ASSET_CATEGORY_LABELS[category] ?? category),
         count: data.count,
         totals: mapToTotals(data.totals),
       }))
