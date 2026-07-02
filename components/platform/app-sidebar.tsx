@@ -35,7 +35,7 @@ import {
 const platformNav = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
   { href: "/assets", label: "Assets", icon: Building2 },
-  { href: "/portfolio/msx", label: "MSX Portfolio", icon: TrendingUp },
+  { href: "/portfolio/public-markets", label: "Public Markets", icon: TrendingUp },
   { href: "/portfolio/pe", label: "PE / VC Portfolio", icon: Briefcase },
   { href: "/lands", label: "Lands", icon: Map },
   { href: "/cars", label: "Cars", icon: Car },

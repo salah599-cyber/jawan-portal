@@ -17,11 +17,22 @@ const nextConfig: NextConfig = {
       "./node_modules/pdfjs-dist/**/*",
       "./node_modules/@napi-rs/canvas/**/*",
     ],
+    "/api/portfolio/public-markets/import": [
+      "./node_modules/pdf-parse/**/*",
+      "./node_modules/pdfjs-dist/**/*",
+      "./node_modules/@napi-rs/canvas/**/*",
+    ],
     "/portfolio/pe": ["./lib/db/pe-schema.sql"],
     "/portfolio/pe/[id]": ["./lib/db/pe-schema.sql"],
     "/portfolio/pe/new": ["./lib/db/pe-schema.sql"],
     "/portfolio/pe/[id]/edit": ["./lib/db/pe-schema.sql"],
-    "/api/cron/sync-schema": ["./lib/db/pe-schema.sql", "./scripts/sync-pe-schema.cjs"],
+    "/portfolio/public-markets": ["./lib/db/public-markets-schema.sql"],
+    "/api/cron/sync-schema": [
+      "./lib/db/pe-schema.sql",
+      "./scripts/sync-pe-schema.cjs",
+      "./lib/db/public-markets-schema.sql",
+      "./scripts/sync-public-markets-schema.cjs",
+    ],
   },
   experimental: {
     serverActions: {

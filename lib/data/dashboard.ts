@@ -517,6 +517,27 @@ export async function getDashboardSummary(ctx: UserContext): Promise<DashboardSu
     }
   }
 
+  if (canAccess(ctx, "ASSETS")) {
+    try {
+      const { ensurePublicMarketsSchema } = await import("@/lib/db/ensure-public-markets-schema");
+      await ensurePublicMarketsSchema();
+
+      const publicHoldingCount = await db.publicEquityHolding.count({
+        where: { asset: assetEntityFilter(ctx) },
+      });
+
+      moduleSummaries.push({
+        module: "PUBLIC_MARKETS",
+        label: "Public Markets",
+        href: "/portfolio/public-markets",
+        count: publicHoldingCount,
+        detail: publicHoldingCount > 0 ? "Listed equities" : undefined,
+      });
+    } catch (error) {
+      console.error("Public markets summary unavailable:", error);
+    }
+  }
+
   if (canAccess(ctx, "EXPENSES")) {
     const expenses = await db.expense.findMany({
       where: {

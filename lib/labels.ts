@@ -335,3 +335,18 @@ export const REPORT_CATEGORY_LABELS: Record<string, string> = {
   registers: "Registers",
   advanced: "Advanced",
 };
+
+export const PUBLIC_MARKET_LABELS: Record<string, string> = {
+  MSX: "MSX",
+  USA: "USA",
+  HONG_KONG: "Hong Kong",
+  CHINA: "China",
+  INDIA: "India",
+  UK: "UK",
+  OTHER: "Other",
+};
+
+export const PUBLIC_HOLDING_SOURCE_LABELS: Record<string, string> = {
+  IMPORT: "Import",
+  MANUAL: "Manual",
+};
