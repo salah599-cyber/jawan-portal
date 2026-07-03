@@ -642,6 +642,8 @@ model PublicEquityHolding {
   marketPrice   Decimal?            @db.Decimal(18, 4)
   marketValue   Decimal?            @db.Decimal(18, 2)
   unrealisedPnl Decimal?            @db.Decimal(18, 2)
+  priceFetchedAt DateTime?
+  priceSource   String?
   broker        String?
   accountNumber String?
   exchange      String?

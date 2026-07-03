@@ -23,3 +23,5 @@ UPDATE "PublicEquityHolding" SET "source" = 'IMPORT' WHERE "source" IS NULL;
 
 CREATE INDEX IF NOT EXISTS "PublicEquityHolding_assetId_market_idx" ON "PublicEquityHolding" ("assetId", "market");
 CREATE INDEX IF NOT EXISTS "PublicEquityHolding_market_idx" ON "PublicEquityHolding" ("market");
+ALTER TABLE "PublicEquityHolding" ADD COLUMN IF NOT EXISTS "priceFetchedAt" TIMESTAMP(3);
+ALTER TABLE "PublicEquityHolding" ADD COLUMN IF NOT EXISTS "priceSource" TEXT;

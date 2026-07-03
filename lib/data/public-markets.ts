@@ -9,6 +9,7 @@ import {
   marketFromSlug,
 } from "@/lib/public-markets/constants";
 import { convertToOmr } from "@/lib/public-markets/fx";
+import { normalizeHoldingValues } from "@/lib/public-markets/valuation";
 import { assetEntityFilter } from "@/lib/permissions/scoped-queries";
 import type { UserContext } from "@/lib/permissions/types";
 
@@ -34,6 +35,8 @@ export type PublicHoldingRow = {
   source: string;
   currency: string;
   asOfDate: Date | null;
+  priceFetchedAt: Date | null;
+  priceSource: string | null;
   updatedAt: Date;
   entityId: string;
   entityName: string;
@@ -68,6 +71,7 @@ export type PublicMarketSummary = {
   brokerCount: number;
   currency: string;
   lastUpdated: Date | null;
+  lastPriceRefresh: Date | null;
 };
 
 export type AllMarketsSummary = {
@@ -80,6 +84,7 @@ export type AllMarketsSummary = {
   brokerCount: number;
   marketCount: number;
   lastUpdated: Date | null;
+  lastPriceRefresh: Date | null;
   byMarket: PublicMarketSummary[];
 };
 
@@ -109,7 +114,15 @@ async function mapHoldingRow(
     asset: { entityId: string; entity: { name: string } };
   },
 ): Promise<PublicHoldingRow> {
-  const marketValue = toNumber(holding.marketValue);
+  const quantity = toNumber(holding.quantity) ?? 0;
+  const normalized = normalizeHoldingValues({
+    quantity,
+    costBasis: toNumber(holding.costBasis),
+    marketPrice: toNumber(holding.marketPrice),
+    marketValue: toNumber(holding.marketValue),
+    unrealisedPnl: toNumber(holding.unrealisedPnl),
+  });
+  const marketValue = normalized.marketValue;
   const marketValueOmr =
     marketValue != null ? await convertToOmr(marketValue, holding.currency) : null;
 
@@ -119,12 +132,12 @@ async function mapHoldingRow(
     marketLabel: MARKET_CONFIG[holding.market].shortLabel,
     symbol: holding.symbol,
     name: holding.name,
-    quantity: toNumber(holding.quantity) ?? 0,
-    costBasis: toNumber(holding.costBasis),
-    marketPrice: toNumber(holding.marketPrice),
+    quantity,
+    costBasis: normalized.costBasis,
+    marketPrice: normalized.marketPrice,
     marketValue,
     marketValueOmr,
-    unrealisedPnl: toNumber(holding.unrealisedPnl),
+    unrealisedPnl: normalized.unrealisedPnl,
     broker: holding.broker,
     accountNumber: holding.accountNumber,
     exchange: holding.exchange,
@@ -135,6 +148,8 @@ async function mapHoldingRow(
     source: holding.source,
     currency: holding.currency,
     asOfDate: holding.asOfDate,
+    priceFetchedAt: holding.priceFetchedAt ?? null,
+    priceSource: holding.priceSource ?? null,
     updatedAt: holding.updatedAt,
     entityId: holding.asset.entityId,
     entityName: holding.asset.entity.name,
@@ -248,15 +263,29 @@ async function buildMarketSummary(
   let totalUnrealisedPnl = 0;
   let totalMarketValueOmr = 0;
   let lastUpdated: Date | null = null;
+  let lastPriceRefresh: Date | null = null;
 
   for (const holding of holdings) {
-    const marketValue = toNumber(holding.marketValue) ?? 0;
+    const normalized = normalizeHoldingValues({
+      quantity: toNumber(holding.quantity) ?? 0,
+      costBasis: toNumber(holding.costBasis),
+      marketPrice: toNumber(holding.marketPrice),
+      marketValue: toNumber(holding.marketValue),
+      unrealisedPnl: toNumber(holding.unrealisedPnl),
+    });
+    const marketValue = normalized.marketValue ?? 0;
     totalMarketValue += marketValue;
-    totalCostBasis += toNumber(holding.costBasis) ?? 0;
-    totalUnrealisedPnl += toNumber(holding.unrealisedPnl) ?? 0;
+    totalCostBasis += normalized.costBasis ?? 0;
+    totalUnrealisedPnl += normalized.unrealisedPnl ?? 0;
     totalMarketValueOmr += await convertToOmr(marketValue, holding.currency);
     if (!lastUpdated || holding.updatedAt > lastUpdated) {
       lastUpdated = holding.updatedAt;
+    }
+    if (
+      holding.priceFetchedAt &&
+      (!lastPriceRefresh || holding.priceFetchedAt > lastPriceRefresh)
+    ) {
+      lastPriceRefresh = holding.priceFetchedAt;
     }
   }
 
@@ -275,6 +304,7 @@ async function buildMarketSummary(
     brokerCount: brokers.size,
     currency: config.currency,
     lastUpdated,
+    lastPriceRefresh,
   };
 }
 
@@ -332,6 +362,11 @@ export async function getAllMarketsSummary(
     lastUpdated: activeMarkets.reduce<Date | null>((latest, m) => {
       if (!m.lastUpdated) return latest;
       if (!latest || m.lastUpdated > latest) return m.lastUpdated;
+      return latest;
+    }, null),
+    lastPriceRefresh: activeMarkets.reduce<Date | null>((latest, m) => {
+      if (!m.lastPriceRefresh) return latest;
+      if (!latest || m.lastPriceRefresh > latest) return m.lastPriceRefresh;
       return latest;
     }, null),
     byMarket,

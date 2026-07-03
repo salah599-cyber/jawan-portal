@@ -49,9 +49,11 @@ export function PublicMarketSummaryCards({
         detail={
           showOmr
             ? `≈ ${formatMoney(summary.totalMarketValueOmr, "OMR")} in OMR`
-            : summary.lastUpdated
-              ? `Updated ${formatDate(summary.lastUpdated)}`
-              : undefined
+            : summary.lastPriceRefresh
+              ? `Live prices ${formatDate(summary.lastPriceRefresh)}`
+              : summary.lastUpdated
+                ? `Updated ${formatDate(summary.lastUpdated)}`
+                : undefined
         }
       />
       <SummaryMetric
@@ -86,7 +88,13 @@ export function AllMarketsSummaryCards({ summary }: { summary: AllMarketsSummary
       <SummaryMetric
         label="Total Market Value"
         value={formatMoney(summary.totalMarketValueOmr, "OMR")}
-        detail={summary.lastUpdated ? `Updated ${formatDate(summary.lastUpdated)}` : undefined}
+        detail={
+          summary.lastPriceRefresh
+            ? `Live prices ${formatDate(summary.lastPriceRefresh)}`
+            : summary.lastUpdated
+              ? `Updated ${formatDate(summary.lastUpdated)}`
+              : undefined
+        }
       />
       <SummaryMetric
         label="Cost Basis (OMR)"

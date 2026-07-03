@@ -31,7 +31,7 @@ async function applyPublicMarketsSchema() {
 
   if (!(await publicMarketsColumnExists())) {
     throw new Error(
-      "Public markets schema sync finished but PublicEquityHolding.market is still missing.",
+      "Public markets schema sync finished but PublicEquityHolding.priceFetchedAt is still missing.",
     );
   }
 }
