@@ -1,16 +1,9 @@
 import Link from "next/link";
 import type { CalendarItem } from "@/lib/calendar/types";
+import { KIND_LABELS } from "@/lib/calendar/date-ranges";
 import { formatDate } from "@/lib/format";
 import { Badge } from "@/components/ui/badge";
 import { CompleteTaskButton } from "@/components/calendar/complete-task-button";
-
-const KIND_LABELS: Record<string, string> = {
-  CHEQUE_DUE: "Cheque",
-  EXPENSE_DUE: "Expense",
-  LOAN_MATURITY: "Loan",
-  DOCUMENT_EXPIRY: "Document",
-  TASK: "Task",
-};
 
 function severityClass(severity: CalendarItem["severity"]) {
   if (severity === "danger") return "border-destructive/40 bg-destructive/5";
@@ -20,18 +13,19 @@ function severityClass(severity: CalendarItem["severity"]) {
 
 export function CalendarItemRow({
   item,
-  canEdit,
+  canEdit = false,
   currentUserId,
 }: {
   item: CalendarItem;
-  canEdit: boolean;
-  currentUserId: string;
+  canEdit?: boolean;
+  currentUserId?: string;
 }) {
   const canCompleteTask =
     item.source === "MANUAL" &&
     item.taskId &&
     item.status !== "COMPLETED" &&
     item.status !== "CANCELLED" &&
+    currentUserId &&
     (canEdit || item.assigneeId === currentUserId);
 
   const content = (

@@ -9,7 +9,7 @@ import { getTaskById } from "@/lib/data/calendar";
 import { canWrite, requireModuleAccess } from "@/lib/permissions/access";
 import { taskEntityFilter } from "@/lib/permissions/scoped-queries";
 
-const CALENDAR_PATH = "/calendar";
+const CALENDAR_PATHS = ["/calendar", "/calendar/tasks"];
 
 function parseTaskStatus(value: string): TaskStatus {
   const status = value.trim().toUpperCase() as TaskStatus;
@@ -81,7 +81,8 @@ export async function createTask(formData: FormData) {
     metadata: { title, assigneeId: task.assigneeId, entityId: task.entityId },
   });
 
-  revalidatePath(CALENDAR_PATH);
+  revalidatePath(CALENDAR_PATHS[0]);
+  revalidatePath(CALENDAR_PATHS[1]);
   return task.id;
 }
 
@@ -128,7 +129,8 @@ export async function updateTask(taskId: string, formData: FormData) {
     metadata: { title, status, assigneeId: assigneeIdRaw || null },
   });
 
-  revalidatePath(CALENDAR_PATH);
+  revalidatePath(CALENDAR_PATHS[0]);
+  revalidatePath(CALENDAR_PATHS[1]);
 }
 
 export async function completeTask(taskId: string, formData: FormData) {
@@ -164,7 +166,8 @@ export async function completeTask(taskId: string, formData: FormData) {
     metadata: { completionNotes },
   });
 
-  revalidatePath(CALENDAR_PATH);
+  revalidatePath(CALENDAR_PATHS[0]);
+  revalidatePath(CALENDAR_PATHS[1]);
 }
 
 export async function reopenTask(taskId: string) {
@@ -185,5 +188,6 @@ export async function reopenTask(taskId: string) {
     },
   });
 
-  revalidatePath(CALENDAR_PATH);
+  revalidatePath(CALENDAR_PATHS[0]);
+  revalidatePath(CALENDAR_PATHS[1]);
 }

@@ -11,6 +11,7 @@ import { formatUserName } from "@/lib/proposals/users";
 import {
   ArrowRight,
   Building2,
+  CalendarDays,
   Car,
   Factory,
   HandCoins,
@@ -40,6 +41,7 @@ const MODULE_ICONS: Record<string, typeof Building2> = {
   PROPOSALS: Lightbulb,
   DOCUMENTS: FileText,
   EXPENSES: Receipt,
+  CALENDAR: CalendarDays,
 };
 
 export default async function DashboardPage() {
@@ -89,7 +91,7 @@ export default async function DashboardPage() {
             value={summary.reminderCount.toString()}
             detail={
               summary.reminderCount
-                ? "Documents, expenses, and vehicle renewals"
+                ? "Unified calendar deadlines and tasks"
                 : "No upcoming items need attention"
             }
             highlight={summary.reminderCount > 0}
@@ -262,27 +264,13 @@ export default async function DashboardPage() {
             <div>
               <CardTitle>Reminders</CardTitle>
               <CardDescription>
-                Expiring documents, vehicle renewals, and upcoming or overdue expenses
+                Upcoming deadlines and tasks from the unified calendar
               </CardDescription>
             </div>
             {summary.reminderCount > 0 ? (
-              <div className="flex flex-wrap gap-2">
-                {summary.moduleSummaries.some((m) => m.module === "DOCUMENTS") ? (
-                  <Button variant="outline" size="sm" asChild>
-                    <Link href="/documents">Documents</Link>
-                  </Button>
-                ) : null}
-                {summary.moduleSummaries.some((m) => m.module === "CARS") ? (
-                  <Button variant="outline" size="sm" asChild>
-                    <Link href="/cars">Cars</Link>
-                  </Button>
-                ) : null}
-                {summary.moduleSummaries.some((m) => m.module === "EXPENSES") ? (
-                  <Button variant="outline" size="sm" asChild>
-                    <Link href="/expenses">Expenses</Link>
-                  </Button>
-                ) : null}
-              </div>
+              <Button variant="outline" size="sm" asChild>
+                <Link href="/calendar">View calendar</Link>
+              </Button>
             ) : null}
           </CardHeader>
           <CardContent>
@@ -296,11 +284,7 @@ export default async function DashboardPage() {
                       <div className="flex items-center gap-2">
                         <p className="text-sm font-medium">{item.title}</p>
                         <Badge variant={item.severity === "danger" ? "destructive" : "secondary"}>
-                          {item.kind === "document"
-                            ? "Document"
-                            : item.kind === "expense"
-                              ? "Expense"
-                              : "Vehicle"}
+                          {item.kind}
                         </Badge>
                       </div>
                       <p className="text-xs text-muted-foreground">{item.subtitle}</p>

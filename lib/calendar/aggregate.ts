@@ -5,12 +5,15 @@ export function filterCalendarItems(
   items: CalendarItem[],
   filters: CalendarFilters = {},
 ): CalendarItem[] {
-  const { entityId, start, end } = filters;
+  const { entityId, start, end, source, assigneeId, kinds } = filters;
 
   return items.filter((item) => {
     if (entityId && item.entityId !== entityId) return false;
     if (start && item.date < start) return false;
     if (end && item.date > end) return false;
+    if (source && source !== "ALL" && item.source !== source) return false;
+    if (assigneeId && item.assigneeId !== assigneeId) return false;
+    if (kinds && kinds.length > 0 && !kinds.includes(item.kind)) return false;
     return true;
   });
 }
