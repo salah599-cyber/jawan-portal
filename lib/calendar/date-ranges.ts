@@ -130,6 +130,7 @@ export const KIND_LABELS: Record<CalendarItemKind, string> = {
   RE_MUNICIPALITY: "Municipality",
   RE_DOCUMENT_EXPIRY: "RE Document",
   PE_MONITORING_DUE: "PE Monitoring",
+  LP_CAPITAL_CALL_DUE: "LP Capital Call",
   PROPOSAL_APPROVAL: "Proposal",
   CASH_STALE: "Cash",
   TASK: "Task",

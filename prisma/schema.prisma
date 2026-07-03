@@ -37,6 +37,7 @@ enum ModuleName {
   EXPENSES
   REPORTS
   PRIVATE_EQUITY
+  FUND_LP
   CASH_MANAGEMENT
   CALENDAR
   USERS
@@ -106,6 +107,7 @@ enum TaskPriority {
 enum AssetCategory {
   REAL_ESTATE
   PRIVATE_EQUITY
+  FUND_LP
   PUBLIC_EQUITY
   FIXED_ASSET
   BONDS
@@ -333,6 +335,7 @@ model Entity {
   cheques      Cheque[]
   investmentProposals InvestmentProposal[]
   peCompanies         PeCompany[]
+  lpCommitments       LpCommitment[]
   reProperties        ReProperty[]
   tasks               Task[]
   userAccess   UserEntityAccess[]
@@ -413,6 +416,7 @@ model Asset {
   vehicle         Vehicle?
   registeredCompany RegisteredCompany?
   peCompany         PeCompany?
+  lpCommitment      LpCommitment?
   reProperty        ReProperty?
   exit            AssetExit?
   createdAt       DateTime              @default(now())
@@ -2010,4 +2014,194 @@ model RePropertyDocument {
   @@index([propertyId, documentType])
   @@index([unitId])
   @@index([leaseId])
+}
+
+// ─── Fund LP Investments ────────────────────────────────────────────────────
+
+enum LpFundStrategy {
+  BUYOUT
+  VENTURE
+  GROWTH
+  REAL_ASSETS
+  CREDIT
+  FUND_OF_FUNDS
+  OTHER
+}
+
+enum LpFundStatus {
+  ACTIVE
+  FULLY_INVESTED
+  HARVESTING
+  LIQUIDATED
+}
+
+enum LpCommitmentStatus {
+  ACTIVE
+  FULLY_CALLED
+  HARVESTING
+  CLOSED
+  WRITTEN_OFF
+}
+
+enum LpCapitalCallStatus {
+  PENDING
+  PAID
+  OVERDUE
+  CANCELLED
+}
+
+enum LpDistributionType {
+  RETURN_OF_CAPITAL
+  INCOME
+  CARRY
+  RECALLABLE
+  OTHER
+}
+
+enum LpNavSource {
+  GP_REPORT
+  ESTIMATE
+  MANUAL
+}
+
+enum LpDocumentType {
+  CAPITAL_CALL_NOTICE
+  GP_REPORT
+  QUARTERLY_LETTER
+  SIDE_LETTER
+  SUBSCRIPTION_DOC
+  OTHER
+}
+
+model LpGpManager {
+  id        String   @id @default(cuid())
+  name      String
+  country   String?
+  website   String?
+  notes     String?
+  funds     LpFund[]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([name])
+}
+
+model LpFund {
+  id                   String         @id @default(cuid())
+  name                 String
+  gpManagerId          String?
+  gpManager            LpGpManager?   @relation(fields: [gpManagerId], references: [id], onDelete: SetNull)
+  strategy             LpFundStrategy @default(OTHER)
+  vintageYear          Int?
+  fundSize             Decimal?       @db.Decimal(18, 2)
+  currency             String         @default("USD")
+  fundTermYears        Int?
+  investmentPeriodEnd  DateTime?
+  status               LpFundStatus   @default(ACTIVE)
+  notes                String?
+  commitments          LpCommitment[]
+  documents            LpFundDocument[]
+  createdAt            DateTime       @default(now())
+  updatedAt            DateTime       @updatedAt
+
+  @@index([gpManagerId])
+  @@index([status, vintageYear])
+}
+
+model LpCommitment {
+  id                  String             @id @default(cuid())
+  fundId              String
+  fund                LpFund             @relation(fields: [fundId], references: [id], onDelete: Cascade)
+  entityId            String
+  entity              Entity             @relation(fields: [entityId], references: [id])
+  assetId             String?            @unique
+  asset               Asset?             @relation(fields: [assetId], references: [id])
+  commitmentAmount    Decimal            @db.Decimal(18, 2)
+  commitmentDate      DateTime
+  commitmentCurrency  String             @default("USD")
+  status              LpCommitmentStatus @default(ACTIVE)
+  sideLetterNotes     String?
+  ownershipPctOfFund  Decimal?           @db.Decimal(5, 2)
+  capitalCalls        LpCapitalCall[]
+  distributions       LpDistribution[]
+  navUpdates          LpNavUpdate[]
+  documents           LpFundDocument[]
+  createdAt           DateTime           @default(now())
+  updatedAt           DateTime           @updatedAt
+
+  @@unique([fundId, entityId])
+  @@index([entityId, status])
+}
+
+model LpCapitalCall {
+  id            String              @id @default(cuid())
+  commitmentId  String
+  commitment    LpCommitment        @relation(fields: [commitmentId], references: [id], onDelete: Cascade)
+  callDate      DateTime
+  dueDate       DateTime?
+  amount        Decimal             @db.Decimal(18, 2)
+  currency      String              @default("USD")
+  status        LpCapitalCallStatus @default(PENDING)
+  paidDate      DateTime?
+  reference     String?
+  notes         String?
+  createdAt     DateTime            @default(now())
+  updatedAt     DateTime            @updatedAt
+
+  @@index([commitmentId, callDate])
+  @@index([commitmentId, status])
+  @@index([dueDate])
+}
+
+model LpDistribution {
+  id               String             @id @default(cuid())
+  commitmentId     String
+  commitment       LpCommitment       @relation(fields: [commitmentId], references: [id], onDelete: Cascade)
+  distributionDate DateTime
+  amount           Decimal            @db.Decimal(18, 2)
+  currency         String             @default("USD")
+  distributionType LpDistributionType @default(RETURN_OF_CAPITAL)
+  isRecallable     Boolean            @default(false)
+  recalledAmount   Decimal?           @db.Decimal(18, 2)
+  notes            String?
+  createdAt        DateTime           @default(now())
+  updatedAt        DateTime           @updatedAt
+
+  @@index([commitmentId, distributionDate])
+}
+
+model LpNavUpdate {
+  id              String       @id @default(cuid())
+  commitmentId    String
+  commitment      LpCommitment @relation(fields: [commitmentId], references: [id], onDelete: Cascade)
+  asOfDate        DateTime
+  nav             Decimal      @db.Decimal(18, 2)
+  currency        String       @default("USD")
+  source          LpNavSource  @default(GP_REPORT)
+  gpReportedTvpi  Decimal?     @db.Decimal(8, 4)
+  gpReportedIrr   Decimal?     @db.Decimal(8, 4)
+  notes           String?
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
+
+  @@index([commitmentId, asOfDate])
+}
+
+model LpFundDocument {
+  id           String         @id @default(cuid())
+  fundId       String?
+  fund         LpFund?        @relation(fields: [fundId], references: [id], onDelete: Cascade)
+  commitmentId String?
+  commitment   LpCommitment?  @relation(fields: [commitmentId], references: [id], onDelete: Cascade)
+  documentType LpDocumentType @default(OTHER)
+  fileName     String
+  fileUrl      String
+  mimeType     String
+  fileSize     Int
+  notes        String?
+  uploadedById String?
+  createdAt    DateTime       @default(now())
+
+  @@index([fundId, documentType])
+  @@index([commitmentId, documentType])
 }

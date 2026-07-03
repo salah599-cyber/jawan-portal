@@ -3,6 +3,7 @@ type LinkedAsset = {
   vehicle?: { id: string } | null;
   registeredCompany?: { id: string } | null;
   peCompany?: { id: string } | null;
+  lpCommitment?: { id: string } | null;
   reProperty?: { id: string } | null;
 };
 
@@ -31,6 +32,13 @@ export function getAssetLinkedModule(asset: LinkedAsset): AssetLinkedModule | nu
       label: "PE / VC Portfolio",
       href: `/portfolio/pe/${asset.peCompany.id}`,
       manageFrom: "PE / VC Portfolio",
+    };
+  }
+  if (asset.lpCommitment) {
+    return {
+      label: "Fund LP Investments",
+      href: `/portfolio/fund-lp/${asset.lpCommitment.id}`,
+      manageFrom: "Fund LP Investments",
     };
   }
   if (asset.reProperty) {

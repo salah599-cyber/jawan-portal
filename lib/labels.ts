@@ -1,6 +1,7 @@
 export const ASSET_CATEGORY_LABELS: Record<string, string> = {
   REAL_ESTATE: "Real Estate",
   PRIVATE_EQUITY: "Private Equity",
+  FUND_LP: "Fund LP",
   PUBLIC_EQUITY: "Public Equity",
   FIXED_ASSET: "Fixed Asset",
   BONDS: "Bonds",

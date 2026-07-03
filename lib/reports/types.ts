@@ -8,6 +8,7 @@ export type ReportId =
   | "liabilities"
   | "public-equity"
   | "pe-portfolio"
+  | "lp-fund-portfolio"
   | "cheques"
   | "expenses"
   | "exits"
