@@ -41,6 +41,7 @@ const platformNav = [
   { href: "/assets", label: "Assets", icon: Building2 },
   { href: "/portfolio/public-markets", label: "Public Markets", icon: TrendingUp },
   { href: "/portfolio/pe", label: "PE / VC Portfolio", icon: Briefcase },
+  { href: "/portfolio/fund-lp", label: "Fund LP Investments", icon: Landmark },
   { href: "/lands", label: "Lands", icon: Map },
   { href: "/real-estate", label: "Real Estate", icon: Home },
   { href: "/cars", label: "Cars", icon: Car },

@@ -17,6 +17,9 @@ import {
 import type { UserContext } from "@/lib/permissions/types";
 import { getAssetCategoryKey } from "@/lib/assets/category-display";
 import { listPeCompanies } from "@/lib/data/pe-portfolio";
+import { ensureLpFundSchema } from "@/lib/db/ensure-lp-fund-schema";
+import { listLpCommitments } from "@/lib/data/lp-fund";
+import { ACTIVE_LP_COMMITMENT_STATUSES } from "@/lib/lp/constants";
 import {
   applyPeCarryingDelta,
   countActivePeCompanies,
@@ -577,6 +580,61 @@ export async function getDashboardSummary(ctx: UserContext): Promise<DashboardSu
         module: "PRIVATE_EQUITY",
         label: "PE / VC Portfolio",
         href: "/portfolio/pe",
+        count: 0,
+        detail: "Database migration pending",
+      });
+    }
+  }
+
+  if (canAccess(ctx, "FUND_LP")) {
+    try {
+      await ensureLpFundSchema();
+      const commitments = await listLpCommitments(ctx);
+      const activeCount = commitments.filter((c) =>
+        ACTIVE_LP_COMMITMENT_STATUSES.includes(
+          c.status as (typeof ACTIVE_LP_COMMITMENT_STATUSES)[number],
+        ),
+      ).length;
+
+
+      const navOmr = await Promise.all(
+        commitments.map(async (c) => {
+          if (c.latestNav == null) return 0;
+          return convertToOmr(c.latestNav, c.commitmentCurrency);
+        }),
+      ).then((values) => values.reduce((sum, v) => sum + v, 0));
+
+      const { formatOmr } = await import("@/lib/format");
+
+      moduleSummaries.push({
+        module: "FUND_LP",
+        label: "Fund LP Investments",
+        href: "/portfolio/fund-lp",
+        count: activeCount,
+        detail:
+          commitments.length > 0
+            ? `${formatOmr(navOmr)} NAV · ${commitments.length} commitment${commitments.length === 1 ? "" : "s"}`
+            : undefined,
+      });
+
+      if (canAccess(ctx, "ASSETS")) {
+        for (const row of commitments) {
+          if (!row.assetId || row.latestNav == null) continue;
+          const categoryKey = "FUND_LP";
+          const entry = categoryMap.get(categoryKey) ?? { count: 0, totals: new Map<string, number>() };
+          const currency = row.commitmentCurrency;
+          const current = entry.totals.get(currency) ?? 0;
+          entry.totals.set(currency, current + row.latestNav);
+          entry.count += 1;
+          categoryMap.set(categoryKey, entry);
+        }
+      }
+    } catch (error) {
+      console.error("Fund LP portfolio summary unavailable:", error);
+      moduleSummaries.push({
+        module: "FUND_LP",
+        label: "Fund LP Investments",
+        href: "/portfolio/fund-lp",
         count: 0,
         detail: "Database migration pending",
       });

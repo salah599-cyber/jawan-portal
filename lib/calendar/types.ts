@@ -12,6 +12,7 @@ export type CalendarItemKind =
   | "RE_MUNICIPALITY"
   | "RE_DOCUMENT_EXPIRY"
   | "PE_MONITORING_DUE"
+  | "LP_CAPITAL_CALL_DUE"
   | "PROPOSAL_APPROVAL"
   | "CASH_STALE"
   | "TASK";

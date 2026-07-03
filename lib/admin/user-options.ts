@@ -14,6 +14,8 @@ export const MANAGEABLE_MODULES: { module: ModuleName; label: string }[] = [
   { module: "DOCUMENTS", label: "Documents" },
   { module: "EXPENSES", label: "Expenses" },
   { module: "REPORTS", label: "Reports" },
+  { module: "PRIVATE_EQUITY", label: "PE / VC Portfolio" },
+  { module: "FUND_LP", label: "Fund LP Investments" },
   { module: "CASH_MANAGEMENT", label: "Cash Management" },
   { module: "CALENDAR", label: "Calendar & Tasks" },
   { module: "USERS", label: "Users" },

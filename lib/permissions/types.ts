@@ -12,6 +12,7 @@ export type ModuleName =
   | "EXPENSES"
   | "REPORTS"
   | "PRIVATE_EQUITY"
+  | "FUND_LP"
   | "CASH_MANAGEMENT"
   | "CALENDAR"
   | "USERS"

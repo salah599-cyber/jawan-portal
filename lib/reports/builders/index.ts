@@ -1,7 +1,13 @@
 import { db } from "@/lib/db";
 import { MSX_PORTFOLIO_ASSET_NAME } from "@/lib/msx/constants";
 import { ensurePeSchema } from "@/lib/db/ensure-pe-schema";
+import { ensureLpFundSchema } from "@/lib/db/ensure-lp-fund-schema";
 import { getPePortfolioSummary, listPeCompanies } from "@/lib/data/pe-portfolio";
+import { getLpPortfolioSummary, listLpCommitments } from "@/lib/data/lp-fund";
+import {
+  LP_COMMITMENT_STATUS_LABELS,
+  LP_FUND_STRATEGY_LABELS,
+} from "@/lib/lp/constants";
 import {
   ASSET_CATEGORY_LABELS,
   ASSET_STATUS_LABELS,
@@ -553,6 +559,65 @@ export async function buildPePortfolioReport(
     ],
     rows,
     footnotes: ["Amounts in each company's reporting currency."],
+  };
+}
+
+export async function buildLpFundPortfolioReport(
+  ctx: UserContext,
+  params: ReportParams,
+): Promise<ReportResult> {
+  await ensureLpFundSchema();
+  const entityName = await resolveEntityName(params.entityId);
+  const [summary, commitments] = await Promise.all([
+    getLpPortfolioSummary(ctx, params.entityId),
+    listLpCommitments(ctx, params.entityId),
+  ]);
+
+  const rows = commitments.map((row) => ({
+    entity: row.entityName,
+    fund: row.fundName,
+    gp: row.gpName ?? "—",
+    strategy: LP_FUND_STRATEGY_LABELS[row.strategy] ?? row.strategy,
+    status: LP_COMMITMENT_STATUS_LABELS[row.status] ?? row.status,
+    committed: formatAmount(row.commitmentAmount, row.commitmentCurrency),
+    paidIn: formatAmount(row.paidInCapital, row.commitmentCurrency),
+    nav: formatAmount(row.latestNav, row.commitmentCurrency),
+    unfunded: formatAmount(row.unfundedCommitment, row.commitmentCurrency),
+    tvpi: row.tvpi != null ? `${row.tvpi.toFixed(2)}x` : "—",
+    currency: row.commitmentCurrency,
+  }));
+
+  return {
+    ...baseResult(
+      "lp-fund-portfolio",
+      "Fund LP Portfolio Summary",
+      "LP fund commitments with paid-in capital, NAV, multiples, and unfunded balances.",
+      entityName ?? summary?.entityName,
+    ),
+    metrics: summary
+      ? [
+          { label: "Commitments", value: summary.commitmentCount.toString() },
+          { label: "Total committed", value: formatAmount(summary.totalCommitted, summary.reportingCurrency) },
+          { label: "Paid-in", value: formatAmount(summary.totalPaidIn, summary.reportingCurrency) },
+          { label: "Latest NAV", value: formatAmount(summary.totalNav, summary.reportingCurrency) },
+          { label: "Unfunded", value: formatAmount(summary.totalUnfunded, summary.reportingCurrency) },
+        ]
+      : [{ label: "Commitments", value: "0" }],
+    columns: [
+      { key: "entity", label: "Entity" },
+      { key: "fund", label: "Fund" },
+      { key: "gp", label: "GP" },
+      { key: "strategy", label: "Strategy" },
+      { key: "status", label: "Status" },
+      { key: "committed", label: "Committed", align: "right" },
+      { key: "paidIn", label: "Paid-In", align: "right" },
+      { key: "nav", label: "NAV", align: "right" },
+      { key: "unfunded", label: "Unfunded", align: "right" },
+      { key: "tvpi", label: "TVPI", align: "right" },
+      { key: "currency", label: "Currency" },
+    ],
+    rows,
+    footnotes: ["Amounts in each commitment's currency."],
   };
 }
 

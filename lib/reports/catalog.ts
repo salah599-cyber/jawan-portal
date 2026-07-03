@@ -65,6 +65,15 @@ export const REPORT_CATALOG: ReportDefinition[] = [
     supportsDateRange: false,
   },
   {
+    id: "lp-fund-portfolio",
+    title: "Fund LP Portfolio Summary",
+    description: "LP fund commitments with paid-in capital, NAV, multiples, and unfunded balances.",
+    category: "portfolio",
+    requiredModules: ["FUND_LP"],
+    supportsEntityFilter: true,
+    supportsDateRange: false,
+  },
+  {
     id: "cheques",
     title: "Cheque Register",
     description: "Pending and deposited cheques with due dates and amounts.",
