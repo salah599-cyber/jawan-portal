@@ -14,11 +14,14 @@ import { Label } from "@/components/ui/label";
 import { Plus } from "lucide-react";
 
 function calcDerivedValues(quantity: number, marketPrice: number | null, costBasis: number | null) {
-  const normalized = normalizeHoldingValues({
-    quantity,
-    marketPrice,
-    costBasis,
-  });
+  const normalized = normalizeHoldingValues(
+    {
+      quantity,
+      marketPrice,
+      costBasis,
+    },
+    { costBasisIsTotal: true },
+  );
   return {
     marketValue: normalized.marketValue,
     unrealisedPnl: normalized.unrealisedPnl,
@@ -95,7 +98,7 @@ export function AddManualHoldingForm({
         </CardTitle>
         <CardDescription>
           Enter a position for {config.label} when you do not have a broker statement to import.
-          Market value and unrealised P&L are calculated from price, quantity, and cost basis.
+          Market value and unrealised P&L are calculated from price, quantity, and total cost basis.
         </CardDescription>
       </CardHeader>
       <CardContent>
@@ -171,7 +174,7 @@ export function AddManualHoldingForm({
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="costBasis">Cost basis ({config.currency})</Label>
+            <Label htmlFor="costBasis">Total cost basis ({config.currency})</Label>
             <Input
               id="costBasis"
               name="costBasis"

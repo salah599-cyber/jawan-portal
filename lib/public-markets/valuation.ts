@@ -13,6 +13,11 @@ export type NormalizedHoldingValues = {
   unrealisedPnl: number | null;
 };
 
+export type NormalizeHoldingOptions = {
+  /** When true, cost basis is already total invested amount (DB storage / manual entry). */
+  costBasisIsTotal?: boolean;
+};
+
 function finiteOrNull(value: number | null | undefined): number | null {
   if (value == null || Number.isNaN(value)) return null;
   return value;
@@ -24,8 +29,9 @@ function relativeError(actual: number, expected: number): number {
 }
 
 /**
- * Broker reports often provide average cost per share while the UI stores total
- * cost basis. Infer the intended interpretation and always return total cost.
+ * Broker reports often provide average cost per share while the app stores total
+ * cost basis. Use broker P&L to infer the correct interpretation on import.
+ * Without broker P&L, treat the value as total cost (manual entry convention).
  */
 export function normalizeCostBasisToTotal(
   quantity: number,
@@ -55,24 +61,16 @@ export function normalizeCostBasisToTotal(
     }
   }
 
-  if (marketPrice != null && marketPrice > 0) {
-    const distanceToUnitPrice = relativeError(costBasis, marketPrice);
-    const errAsTotal = marketValue != null ? relativeError(costBasis, marketValue) : Infinity;
-    const errAsPerShare = marketValue != null ? relativeError(totalIfPerShare, marketValue) : Infinity;
-
-    if (distanceToUnitPrice < 0.75 && errAsPerShare < errAsTotal) {
-      return totalIfPerShare;
-    }
-    if (errAsTotal <= errAsPerShare) {
-      return costBasis;
-    }
-    return totalIfPerShare;
-  }
-
+  // Without broker P&L there is no reliable way to distinguish per-share vs total
+  // when both can fit market value (e.g. qty=2, cost field=100, value=200).
+  // Default to total — matches manual entry and stored DB values.
   return costBasis;
 }
 
-export function normalizeHoldingValues(input: HoldingValueInput): NormalizedHoldingValues {
+export function normalizeHoldingValues(
+  input: HoldingValueInput,
+  options: NormalizeHoldingOptions = {},
+): NormalizedHoldingValues {
   const quantity = input.quantity > 0 ? input.quantity : 0;
   const rawCostBasis = finiteOrNull(input.costBasis);
   const brokerUnrealisedPnl = finiteOrNull(input.unrealisedPnl);
@@ -89,13 +87,15 @@ export function normalizeHoldingValues(input: HoldingValueInput): NormalizedHold
 
   const costBasis =
     rawCostBasis != null
-      ? normalizeCostBasisToTotal(
-          quantity,
-          rawCostBasis,
-          marketPrice,
-          marketValue,
-          brokerUnrealisedPnl,
-        )
+      ? options.costBasisIsTotal
+        ? rawCostBasis
+        : normalizeCostBasisToTotal(
+            quantity,
+            rawCostBasis,
+            marketPrice,
+            marketValue,
+            brokerUnrealisedPnl,
+          )
       : null;
 
   let unrealisedPnl: number | null = null;
@@ -103,7 +103,7 @@ export function normalizeHoldingValues(input: HoldingValueInput): NormalizedHold
     unrealisedPnl = marketValue - costBasis;
   } else if (marketPrice != null && costBasis != null && quantity > 0) {
     unrealisedPnl = marketPrice * quantity - costBasis;
-  } else if (brokerUnrealisedPnl != null) {
+  } else if (brokerUnrealisedPnl != null && !options.costBasisIsTotal) {
     unrealisedPnl = brokerUnrealisedPnl;
   }
 
@@ -123,8 +123,11 @@ export function toDecimalString(
   return value.toFixed(fractionDigits);
 }
 
-export function normalizeAndFormatHoldingValues(input: HoldingValueInput) {
-  const normalized = normalizeHoldingValues(input);
+export function normalizeAndFormatHoldingValues(
+  input: HoldingValueInput,
+  options: NormalizeHoldingOptions = {},
+) {
+  const normalized = normalizeHoldingValues(input, options);
   return {
     normalized,
     decimals: {

@@ -101,9 +101,9 @@ export async function refreshPublicMarketPrices(options?: {
     const quantity = toNumber(holding.quantity);
     const { decimals } = normalizeAndFormatHoldingValues({
       quantity,
-      costBasis: toNumber(holding.costBasis) || null,
+      costBasis: toNumber(holding.costBasis),
       marketPrice: quote.price,
-    });
+    }, { costBasisIsTotal: true });
 
     try {
       await db.publicEquityHolding.update({
