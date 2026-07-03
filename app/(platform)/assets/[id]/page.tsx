@@ -6,6 +6,7 @@ import { EditLinkButton } from "@/components/platform/edit-link-button";
 import { AssetExitSummary } from "@/components/assets/asset-exit-summary";
 import { RecordAssetExitForm } from "@/components/assets/record-asset-exit-form";
 import { getAsset, deleteAsset } from "@/lib/actions/assets";
+import { getAssetLinkedModule } from "@/lib/assets/linked-module";
 import { canWrite, requireModuleAccess } from "@/lib/permissions/access";
 import { getAssetCategoryLabel } from "@/lib/assets/category-display";
 import { ASSET_STATUS_LABELS } from "@/lib/labels";
@@ -15,10 +16,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 
 function linkedModule(asset: NonNullable<Awaited<ReturnType<typeof getAsset>>>) {
-  if (asset.landParcel) return { label: "Lands", href: "/lands/" + asset.landParcel.id };
-  if (asset.vehicle) return { label: "Cars", href: "/cars/" + asset.vehicle.id };
-  if (asset.registeredCompany) return { label: "Companies", href: "/companies/" + asset.registeredCompany.id };
-  return null;
+  return getAssetLinkedModule(asset);
 }
 
 function canRecordExit(
@@ -26,11 +24,8 @@ function canRecordExit(
   asset: NonNullable<Awaited<ReturnType<typeof getAsset>>>,
 ) {
   if (asset.status === "EXITED" || asset.exit) return false;
-  if (asset.landParcel) return false;
-  if (canWrite(ctx, "ASSETS")) return true;
-  if (asset.vehicle && canWrite(ctx, "CARS")) return true;
-  if (asset.registeredCompany && canWrite(ctx, "COMPANIES")) return true;
-  return false;
+  if (getAssetLinkedModule(asset)) return false;
+  return canWrite(ctx, "ASSETS");
 }
 
 export default async function AssetDetailPage({ params }: { params: Promise<{ id: string }> }) {

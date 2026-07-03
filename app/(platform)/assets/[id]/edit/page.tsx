@@ -2,6 +2,7 @@ import { forbidden, notFound } from "next/navigation";
 import { PlatformHeader } from "@/components/platform/platform-header";
 import { EditAssetForm } from "@/components/assets/edit-asset-form";
 import { getAsset } from "@/lib/actions/assets";
+import { isModuleManagedAsset } from "@/lib/assets/linked-module";
 import { listEntities } from "@/lib/data/entities";
 import { canWrite, requireModuleAccess } from "@/lib/permissions/access";
 
@@ -12,7 +13,7 @@ export default async function EditAssetPage({ params }: { params: Promise<{ id: 
 
   const [asset, entities] = await Promise.all([getAsset(id), listEntities()]);
   if (!asset) notFound();
-  if (asset.landParcel || asset.vehicle) forbidden();
+  if (isModuleManagedAsset(asset)) forbidden();
 
   return (
     <>

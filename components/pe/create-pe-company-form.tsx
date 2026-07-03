@@ -1,7 +1,8 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
+import { isRedirectError } from "next/dist/client/components/redirect-error";
 import { createPeCompany } from "@/lib/actions/pe-portfolio";
 import { PE_STAGE_LABELS, PE_STATUS_LABELS } from "@/lib/labels";
 import { PE_COUNTRY_OPTIONS, PE_REPORTING_CURRENCIES, PE_SECTOR_OPTIONS } from "@/lib/pe/constants";
@@ -23,10 +24,14 @@ export function CreatePeCompanyForm({ entities }: { entities: EntityOption[] }) 
   const [reportingCurrency, setReportingCurrency] = useState("USD");
   const [country, setCountry] = useState("");
   const [sector, setSector] = useState("");
+  const submittingRef = useRef(false);
 
   function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
+    if (submittingRef.current || pending) return;
+
     setError(null);
+    submittingRef.current = true;
     const formData = new FormData(e.currentTarget);
     formData.set("stage", stage);
     formData.set("status", status);
@@ -37,10 +42,10 @@ export function CreatePeCompanyForm({ entities }: { entities: EntityOption[] }) 
 
     startTransition(async () => {
       try {
-        const company = await createPeCompany(formData);
-        router.push("/portfolio/pe/" + company.id);
-        router.refresh();
+        await createPeCompany(formData);
       } catch (err) {
+        if (isRedirectError(err)) throw err;
+        submittingRef.current = false;
         setError(err instanceof Error ? err.message : "Failed to add company.");
       }
     });
@@ -151,7 +156,7 @@ export function CreatePeCompanyForm({ entities }: { entities: EntityOption[] }) 
             <Button type="submit" disabled={pending}>
               {pending ? "Saving..." : "Add Company"}
             </Button>
-            <Button type="button" variant="outline" onClick={() => router.push("/portfolio/pe")}>
+            <Button type="button" variant="outline" disabled={pending} onClick={() => router.push("/portfolio/pe")}>
               Cancel
             </Button>
           </div>

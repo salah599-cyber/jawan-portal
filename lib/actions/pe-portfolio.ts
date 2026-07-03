@@ -2,6 +2,7 @@
 
 import { put } from "@vercel/blob";
 import { revalidatePath } from "next/cache";
+import { redirect } from "next/navigation";
 import { db } from "@/lib/db";
 import { ensurePeSchema } from "@/lib/db/ensure-pe-schema";
 import { deleteBlobUrl } from "@/lib/blob";
@@ -127,7 +128,7 @@ export async function createPeCompany(formData: FormData) {
   });
 
   revalidatePeCompany(company.id);
-  return company;
+  redirect(`${PE_PATH}/${company.id}`);
 }
 
 export async function updatePeCompany(id: string, formData: FormData) {
