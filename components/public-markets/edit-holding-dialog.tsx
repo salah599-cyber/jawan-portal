@@ -25,11 +25,14 @@ function formatDateInput(value: Date | null): string {
 }
 
 function calcDerivedValues(quantity: number, marketPrice: number | null, costBasis: number | null) {
-  const normalized = normalizeHoldingValues({
-    quantity,
-    marketPrice,
-    costBasis,
-  });
+  const normalized = normalizeHoldingValues(
+    {
+      quantity,
+      marketPrice,
+      costBasis,
+    },
+    { costBasisIsTotal: true },
+  );
   return {
     marketValue: normalized.marketValue,
     unrealisedPnl: normalized.unrealisedPnl,
@@ -103,8 +106,8 @@ export function EditHoldingDialog({ holding }: { holding: PublicHoldingRow }) {
         <DialogHeader>
           <DialogTitle>Edit {holding.symbol}</DialogTitle>
           <DialogDescription>
-            Update quantity, cost basis, or prices. Market value and unrealised P&L are calculated
-            automatically when price and cost basis are available.
+            Update quantity, total cost basis, or prices. Market value and unrealised P&L are
+            calculated automatically when price and cost basis are available.
           </DialogDescription>
         </DialogHeader>
         <form onSubmit={handleSubmit} className="grid gap-4">
@@ -156,7 +159,7 @@ export function EditHoldingDialog({ holding }: { holding: PublicHoldingRow }) {
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor={`costBasis-${holding.id}`}>Cost basis ({holding.currency})</Label>
+              <Label htmlFor={`costBasis-${holding.id}`}>Total cost basis ({holding.currency})</Label>
               <Input
                 id={`costBasis-${holding.id}`}
                 type="number"

@@ -157,13 +157,15 @@ export async function addManualHolding(formData: FormData) {
   await ensurePublicMarketsSchema();
   const config = MARKET_CONFIG[market];
   const asset = await ensurePortfolioAsset(entityId, market);
-  const { decimals } = normalizeAndFormatHoldingValues({
-    quantity: input.quantity,
-    costBasis: input.costBasis,
-    marketPrice: input.marketPrice,
-    marketValue: input.marketValue,
-    unrealisedPnl: input.unrealisedPnl,
-  });
+  const { decimals } = normalizeAndFormatHoldingValues(
+    {
+      quantity: input.quantity,
+      costBasis: input.costBasis,
+      marketPrice: input.marketPrice,
+      marketValue: input.marketValue,
+    },
+    { costBasisIsTotal: true },
+  );
 
   const holding = await db.publicEquityHolding.create({
     data: {
@@ -252,20 +254,16 @@ export async function updatePublicHolding(holdingId: string, input: UpdatePublic
       : existing.marketValue
         ? parseFloat(existing.marketValue.toString())
         : null;
-  const unrealisedPnl =
-    input.unrealisedPnl !== undefined
-      ? input.unrealisedPnl
-      : existing.unrealisedPnl
-        ? parseFloat(existing.unrealisedPnl.toString())
-        : null;
 
-  const { decimals } = normalizeAndFormatHoldingValues({
-    quantity,
-    costBasis,
-    marketPrice,
-    marketValue,
-    unrealisedPnl,
-  });
+  const { decimals } = normalizeAndFormatHoldingValues(
+    {
+      quantity,
+      costBasis,
+      marketPrice,
+      marketValue,
+    },
+    { costBasisIsTotal: true },
+  );
 
   const priceSource =
     input.marketPrice != null

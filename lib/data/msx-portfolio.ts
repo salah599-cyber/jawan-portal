@@ -93,7 +93,7 @@ export async function getMsxHoldings(ctx: UserContext, entityId?: string): Promi
       marketPrice: toNumber(holding.marketPrice),
       marketValue: toNumber(holding.marketValue),
       unrealisedPnl: toNumber(holding.unrealisedPnl),
-    });
+    }, { costBasisIsTotal: true });
 
     return {
       id: holding.id,
@@ -174,7 +174,7 @@ export async function getMsxPortfolioSummary(
       marketPrice: toNumber(holding.marketPrice),
       marketValue: toNumber(holding.marketValue),
       unrealisedPnl: toNumber(holding.unrealisedPnl),
-    });
+    }, { costBasisIsTotal: true });
     totalMarketValue += normalized.marketValue ?? 0;
     totalCostBasis += normalized.costBasis ?? 0;
     totalUnrealisedPnl += normalized.unrealisedPnl ?? 0;

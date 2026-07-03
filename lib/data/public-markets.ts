@@ -121,7 +121,7 @@ async function mapHoldingRow(
     marketPrice: toNumber(holding.marketPrice),
     marketValue: toNumber(holding.marketValue),
     unrealisedPnl: toNumber(holding.unrealisedPnl),
-  });
+  }, { costBasisIsTotal: true });
   const marketValue = normalized.marketValue;
   const marketValueOmr =
     marketValue != null ? await convertToOmr(marketValue, holding.currency) : null;
@@ -272,7 +272,7 @@ async function buildMarketSummary(
       marketPrice: toNumber(holding.marketPrice),
       marketValue: toNumber(holding.marketValue),
       unrealisedPnl: toNumber(holding.unrealisedPnl),
-    });
+    }, { costBasisIsTotal: true });
     const marketValue = normalized.marketValue ?? 0;
     totalMarketValue += marketValue;
     totalCostBasis += normalized.costBasis ?? 0;
