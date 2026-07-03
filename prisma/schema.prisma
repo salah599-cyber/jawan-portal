@@ -34,6 +34,7 @@ enum ModuleName {
   CHEQUES
   PROPOSALS
   DOCUMENTS
+  INSURANCE
   EXPENSES
   REPORTS
   PRIVATE_EQUITY
@@ -336,6 +337,7 @@ model Entity {
   investmentProposals InvestmentProposal[]
   peCompanies         PeCompany[]
   lpCommitments       LpCommitment[]
+  insurancePolicies   InsurancePolicy[]
   reProperties        ReProperty[]
   tasks               Task[]
   userAccess   UserEntityAccess[]
@@ -478,6 +480,7 @@ model LandParcel {
   registeredHolders LandRegisteredHolder[]
   sale             LandSale?
   reProperty       ReProperty?
+  insurancePolicies InsurancePolicy[]
   createdAt        DateTime       @default(now())
   updatedAt        DateTime       @updatedAt
   @@index([entityId, country, status])
@@ -581,6 +584,7 @@ model Vehicle {
   assetId                String?           @unique
   asset                  Asset?            @relation(fields: [assetId], references: [id])
   documents              VehicleDocument[]
+  insurancePolicies      InsurancePolicy[]
   createdAt              DateTime          @default(now())
   updatedAt              DateTime          @updatedAt
   @@index([entityId, governorate, status])
@@ -623,6 +627,7 @@ model RegisteredCompany {
   asset                  Asset?              @relation(fields: [assetId], references: [id])
   owners                 CompanyOwner[]
   documents              CompanyDocument[]
+  insurancePolicies      InsurancePolicy[]
   createdAt              DateTime            @default(now())
   updatedAt              DateTime            @updatedAt
 
@@ -1766,6 +1771,7 @@ model ReProperty {
   valuations              RePropertyValuation[]
   expenses                RePropertyExpense[]
   documents               RePropertyDocument[]
+  insurancePolicies       InsurancePolicy[]
   createdAt               DateTime            @default(now())
   updatedAt               DateTime            @updatedAt
 
@@ -2204,4 +2210,89 @@ model LpFundDocument {
 
   @@index([fundId, documentType])
   @@index([commitmentId, documentType])
+}
+
+enum InsurancePolicyType {
+  PROPERTY
+  VEHICLE
+  LIFE
+  HEALTH
+  BUSINESS
+  OTHER
+}
+
+enum InsurancePolicyStatus {
+  ACTIVE
+  PENDING_RENEWAL
+  EXPIRED
+  CANCELLED
+}
+
+enum InsurancePremiumFrequency {
+  ANNUAL
+  SEMI_ANNUAL
+  QUARTERLY
+  MONTHLY
+  ONE_TIME
+}
+
+enum InsuranceDocumentType {
+  POLICY_SCHEDULE
+  CERTIFICATE
+  ENDORSEMENT
+  CLAIM
+  RENEWAL_NOTICE
+  OTHER
+}
+
+model InsurancePolicy {
+  id                    String                    @id @default(cuid())
+  entityId              String
+  entity                Entity                    @relation(fields: [entityId], references: [id])
+  policyType            InsurancePolicyType
+  insurer               String
+  policyNumber          String
+  policyHolder          String?
+  description           String?
+  premium               Decimal?                  @db.Decimal(18, 2)
+  premiumFrequency      InsurancePremiumFrequency @default(ANNUAL)
+  coverageAmount        Decimal?                  @db.Decimal(18, 2)
+  currency              String                    @default("OMR")
+  startDate             DateTime?
+  expiryDate            DateTime?
+  renewalDate           DateTime?
+  status                InsurancePolicyStatus     @default(ACTIVE)
+  vehicleId             String?
+  vehicle               Vehicle?                  @relation(fields: [vehicleId], references: [id], onDelete: SetNull)
+  rePropertyId          String?
+  reProperty            ReProperty?               @relation(fields: [rePropertyId], references: [id], onDelete: SetNull)
+  landParcelId          String?
+  landParcel            LandParcel?               @relation(fields: [landParcelId], references: [id], onDelete: SetNull)
+  registeredCompanyId   String?
+  registeredCompany     RegisteredCompany?        @relation(fields: [registeredCompanyId], references: [id], onDelete: SetNull)
+  notes                 String?
+  documents             InsurancePolicyDocument[]
+  createdAt             DateTime                  @default(now())
+  updatedAt             DateTime                  @updatedAt
+
+  @@index([entityId, status])
+  @@index([expiryDate])
+  @@index([policyType])
+  @@index([policyNumber])
+}
+
+model InsurancePolicyDocument {
+  id           String                @id @default(cuid())
+  policyId     String
+  policy       InsurancePolicy       @relation(fields: [policyId], references: [id], onDelete: Cascade)
+  documentType InsuranceDocumentType @default(OTHER)
+  fileName     String
+  fileUrl      String
+  mimeType     String
+  fileSize     Int
+  notes        String?
+  uploadedById String?
+  createdAt    DateTime              @default(now())
+
+  @@index([policyId, documentType])
 }

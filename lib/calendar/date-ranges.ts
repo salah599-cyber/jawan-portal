@@ -123,6 +123,7 @@ export const KIND_LABELS: Record<CalendarItemKind, string> = {
   EXPENSE_DUE: "Expense",
   LOAN_MATURITY: "Loan",
   DOCUMENT_EXPIRY: "Document",
+  INSURANCE_EXPIRY: "Insurance",
   VEHICLE_EXPIRY: "Vehicle",
   COMPANY_REGISTRATION: "Company",
   RE_RENT_DUE: "Rent",

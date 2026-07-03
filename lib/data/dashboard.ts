@@ -7,6 +7,7 @@ import {
   cashBankAccountFilter,
   companyEntityFilter,
   documentFilter,
+  insurancePolicyEntityFilter,
   expenseEntityFilter,
   loanEntityFilter,
   chequeEntityFilter,
@@ -20,6 +21,8 @@ import { listPeCompanies } from "@/lib/data/pe-portfolio";
 import { ensureLpFundSchema } from "@/lib/db/ensure-lp-fund-schema";
 import { listLpCommitments } from "@/lib/data/lp-fund";
 import { ACTIVE_LP_COMMITMENT_STATUSES } from "@/lib/lp/constants";
+import { ensureInsuranceSchema } from "@/lib/db/ensure-insurance-schema";
+import { isExpiringWithinDays, resolvePolicyStatus } from "@/lib/insurance/helpers";
 import {
   applyPeCarryingDelta,
   countActivePeCompanies,
@@ -635,6 +638,62 @@ export async function getDashboardSummary(ctx: UserContext): Promise<DashboardSu
         module: "FUND_LP",
         label: "Fund LP Investments",
         href: "/portfolio/fund-lp",
+        count: 0,
+        detail: "Database migration pending",
+      });
+    }
+  }
+
+  if (canAccess(ctx, "INSURANCE")) {
+    try {
+      await ensureInsuranceSchema();
+      const policies = await db.insurancePolicy.findMany({
+        where: insurancePolicyEntityFilter(ctx),
+        select: {
+          id: true,
+          policyNumber: true,
+          insurer: true,
+          expiryDate: true,
+          status: true,
+        },
+      });
+
+      const active = policies.filter(
+        (p) => resolvePolicyStatus(p.status, p.expiryDate) !== "EXPIRED" && p.status !== "CANCELLED",
+      );
+      const expiring = policies.filter((p) => isExpiringWithinDays(p.expiryDate, 30));
+
+      moduleSummaries.push({
+        module: "INSURANCE",
+        label: "Insurance Register",
+        href: "/documents/insurance",
+        count: active.length,
+        detail: expiring.length
+          ? `${expiring.length} expiring within 30 days`
+          : policies.length > 0
+            ? `${policies.length} policies`
+            : undefined,
+      });
+
+      for (const policy of expiring) {
+        if (!policy.expiryDate) continue;
+        const effectiveStatus = resolvePolicyStatus(policy.status, policy.expiryDate);
+        pushReminder({
+          id: `insurance-${policy.id}`,
+          kind: "document",
+          title: policy.policyNumber,
+          subtitle: `${policy.insurer} · Insurance expiry`,
+          date: policy.expiryDate,
+          href: `/documents/insurance/${policy.id}`,
+          severity: effectiveStatus === "EXPIRED" ? "danger" : "warning",
+        });
+      }
+    } catch (error) {
+      console.error("Insurance register summary unavailable:", error);
+      moduleSummaries.push({
+        module: "INSURANCE",
+        label: "Insurance Register",
+        href: "/documents/insurance",
         count: 0,
         detail: "Database migration pending",
       });

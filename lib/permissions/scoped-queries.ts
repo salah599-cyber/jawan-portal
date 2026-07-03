@@ -86,6 +86,13 @@ export function documentFilter(ctx: UserContext) {
   return { id: "__none__" };
 }
 
+export function insurancePolicyEntityFilter(ctx: UserContext) {
+  const level = getModulePermission(ctx, "INSURANCE");
+  if (level === "FULL" || level === "READ") return {};
+  if (level === "FILTERED") return { entityId: { in: ctx.entityIds } };
+  return { id: "__none__" };
+}
+
 export function expenseEntityFilter(ctx: UserContext) {
   const level = getModulePermission(ctx, "EXPENSES");
   if (level === "FULL") return {};

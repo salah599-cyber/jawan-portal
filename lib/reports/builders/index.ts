@@ -2,6 +2,13 @@ import { db } from "@/lib/db";
 import { MSX_PORTFOLIO_ASSET_NAME } from "@/lib/msx/constants";
 import { ensurePeSchema } from "@/lib/db/ensure-pe-schema";
 import { ensureLpFundSchema } from "@/lib/db/ensure-lp-fund-schema";
+import { ensureInsuranceSchema } from "@/lib/db/ensure-insurance-schema";
+import { listInsurancePolicies } from "@/lib/actions/insurance";
+import {
+  INSURANCE_POLICY_STATUS_LABELS,
+  INSURANCE_POLICY_TYPE_LABELS,
+  INSURANCE_PREMIUM_FREQUENCY_LABELS,
+} from "@/lib/labels";
 import { getPePortfolioSummary, listPeCompanies } from "@/lib/data/pe-portfolio";
 import { getLpPortfolioSummary, listLpCommitments } from "@/lib/data/lp-fund";
 import {
@@ -966,6 +973,67 @@ export async function buildDocumentExpiryReport(
     ],
     rows,
     footnotes: ["Shows documents expiring within the next 90 days."],
+  };
+}
+
+export async function buildInsuranceRegisterReport(
+  ctx: UserContext,
+  params: ReportParams,
+): Promise<ReportResult> {
+  await ensureInsuranceSchema();
+  const entityName = await resolveEntityName(params.entityId);
+  const policies = await listInsurancePolicies({
+    entityId: params.entityId,
+  });
+
+  const rows = policies.map((policy) => ({
+    entity: policy.entityName,
+    type: INSURANCE_POLICY_TYPE_LABELS[policy.policyType] ?? policy.policyType,
+    insurer: policy.insurer,
+    policyNumber: policy.policyNumber,
+    holder: policy.policyHolder ?? "—",
+    premium:
+      policy.premium != null
+        ? formatAmount(policy.premium, policy.currency)
+        : "—",
+    frequency: INSURANCE_PREMIUM_FREQUENCY_LABELS[policy.premiumFrequency] ?? policy.premiumFrequency,
+    expiry: formatDateValue(policy.expiryDate),
+    status: INSURANCE_POLICY_STATUS_LABELS[policy.effectiveStatus] ?? policy.effectiveStatus,
+    linked: policy.linkedAssetLabel ?? "—",
+  }));
+
+  const expiring = policies.filter((p) => {
+    if (!p.expiryDate) return false;
+    const limit = new Date();
+    limit.setDate(limit.getDate() + 30);
+    return p.expiryDate <= limit;
+  });
+
+  return {
+    ...baseResult(
+      "insurance-register",
+      "Insurance Register",
+      "Insurance policies with premiums, expiry dates, and linked assets.",
+      entityName,
+    ),
+    metrics: [
+      { label: "Policies", value: policies.length.toString() },
+      { label: "Expiring (30d)", value: expiring.length.toString() },
+    ],
+    columns: [
+      { key: "entity", label: "Entity" },
+      { key: "type", label: "Type" },
+      { key: "insurer", label: "Insurer" },
+      { key: "policyNumber", label: "Policy #" },
+      { key: "holder", label: "Holder" },
+      { key: "premium", label: "Premium", align: "right" },
+      { key: "frequency", label: "Frequency" },
+      { key: "expiry", label: "Expiry" },
+      { key: "status", label: "Status" },
+      { key: "linked", label: "Linked Asset" },
+    ],
+    rows,
+    footnotes: ["Status reflects expiry date when past due."],
   };
 }
 

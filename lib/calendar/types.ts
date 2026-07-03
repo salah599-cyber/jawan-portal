@@ -5,6 +5,7 @@ export type CalendarItemKind =
   | "EXPENSE_DUE"
   | "LOAN_MATURITY"
   | "DOCUMENT_EXPIRY"
+  | "INSURANCE_EXPIRY"
   | "VEHICLE_EXPIRY"
   | "COMPANY_REGISTRATION"
   | "RE_RENT_DUE"
