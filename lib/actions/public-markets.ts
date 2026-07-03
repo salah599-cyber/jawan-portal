@@ -323,12 +323,16 @@ export async function refreshPublicMarketPricesAction(formData: FormData) {
 
   const result = await runPriceRefresh({ entityId, market });
 
-  await logAudit({
-    userId: ctx.id,
-    action: "REFRESH",
-    resource: "public_markets_prices",
-    metadata: { entityId, market, ...result },
-  });
+  try {
+    await logAudit({
+      userId: ctx.id,
+      action: "REFRESH",
+      resource: "public_markets_prices",
+      metadata: { entityId, market, ...result },
+    });
+  } catch {
+    // Audit logging should not block a successful price refresh.
+  }
 
   revalidatePath(PUBLIC_MARKETS_PATH);
   revalidatePath("/portfolio/msx");

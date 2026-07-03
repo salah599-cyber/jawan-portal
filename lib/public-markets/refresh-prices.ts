@@ -73,7 +73,12 @@ export async function refreshPublicMarketPrices(options?: {
   }
 
   const uniqueYahooSymbols = [...new Set(yahooSymbolByHoldingId.values())];
-  const quotes = await fetchYahooQuotes(uniqueYahooSymbols);
+  let quotes: Awaited<ReturnType<typeof fetchYahooQuotes>>;
+  try {
+    quotes = await fetchYahooQuotes(uniqueYahooSymbols);
+  } catch {
+    quotes = new Map();
+  }
 
   const now = new Date();
   let updated = 0;
@@ -100,20 +105,24 @@ export async function refreshPublicMarketPrices(options?: {
       marketPrice: quote.price,
     });
 
-    await db.publicEquityHolding.update({
-      where: { id: holding.id },
-      data: {
-        marketPrice: decimals.marketPrice,
-        marketValue: decimals.marketValue,
-        unrealisedPnl: decimals.unrealisedPnl,
-        priceFetchedAt: now,
-        priceSource: "YAHOO",
-        asOfDate: now,
-      },
-    });
+    try {
+      await db.publicEquityHolding.update({
+        where: { id: holding.id },
+        data: {
+          marketPrice: decimals.marketPrice,
+          marketValue: decimals.marketValue,
+          unrealisedPnl: decimals.unrealisedPnl,
+          priceFetchedAt: now,
+          priceSource: "YAHOO",
+          asOfDate: now,
+        },
+      });
 
-    assetIds.add(holding.assetId);
-    updated += 1;
+      assetIds.add(holding.assetId);
+      updated += 1;
+    } catch {
+      failed += 1;
+    }
   }
 
   await Promise.all([...assetIds].map((assetId) => refreshAssetValue(assetId)));

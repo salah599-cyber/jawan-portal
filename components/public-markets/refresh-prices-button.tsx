@@ -31,11 +31,17 @@ export function RefreshPricesButton({
     startTransition(async () => {
       try {
         const result = await refreshPublicMarketPricesAction(formData);
-        setMessage(
-          `Updated ${result.updated} holding${result.updated === 1 ? "" : "s"}` +
-            (result.skipped > 0 ? ` · ${result.skipped} MSX skipped` : "") +
-            (result.failed > 0 ? ` · ${result.failed} failed` : ""),
-        );
+        if (result.updated === 0 && result.failed > 0) {
+          setError(
+            `Could not fetch live prices for ${result.failed} holding${result.failed === 1 ? "" : "s"}. Check symbols or try again later.`,
+          );
+        } else {
+          setMessage(
+            `Updated ${result.updated} holding${result.updated === 1 ? "" : "s"}` +
+              (result.skipped > 0 ? ` · ${result.skipped} MSX skipped` : "") +
+              (result.failed > 0 ? ` · ${result.failed} failed` : ""),
+          );
+        }
         router.refresh();
       } catch (err) {
         setError(err instanceof Error ? err.message : "Failed to refresh prices.");
