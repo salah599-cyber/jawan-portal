@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import type { PublicMarket } from "@/lib/generated/prisma/client";
 import { addManualHolding } from "@/lib/actions/public-markets";
 import { MARKET_CONFIG } from "@/lib/public-markets/constants";
+import { normalizeHoldingValues } from "@/lib/public-markets/valuation";
 import { EntitySelect, type EntityOption } from "@/components/platform/entity-select";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -13,13 +14,15 @@ import { Label } from "@/components/ui/label";
 import { Plus } from "lucide-react";
 
 function calcDerivedValues(quantity: number, marketPrice: number | null, costBasis: number | null) {
-  const marketValue =
-    marketPrice != null && quantity > 0 ? Number((marketPrice * quantity).toFixed(2)) : null;
-  const unrealisedPnl =
-    marketValue != null && costBasis != null
-      ? Number((marketValue - costBasis).toFixed(2))
-      : null;
-  return { marketValue, unrealisedPnl };
+  const normalized = normalizeHoldingValues({
+    quantity,
+    marketPrice,
+    costBasis,
+  });
+  return {
+    marketValue: normalized.marketValue,
+    unrealisedPnl: normalized.unrealisedPnl,
+  };
 }
 
 export function AddManualHoldingForm({
@@ -175,6 +178,7 @@ export function AddManualHoldingForm({
               type="number"
               step="any"
               min="0"
+              placeholder="Total invested or avg cost per share"
               onChange={(e) => {
                 const cost = e.target.value === "" ? null : parseFloat(e.target.value);
                 const nextCost = cost != null && !Number.isNaN(cost) ? cost : null;

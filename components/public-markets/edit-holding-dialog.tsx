@@ -4,6 +4,7 @@ import { useEffect, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import type { PublicHoldingRow } from "@/lib/data/public-markets";
 import { updatePublicHolding } from "@/lib/actions/public-markets";
+import { normalizeHoldingValues } from "@/lib/public-markets/valuation";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -24,13 +25,15 @@ function formatDateInput(value: Date | null): string {
 }
 
 function calcDerivedValues(quantity: number, marketPrice: number | null, costBasis: number | null) {
-  const marketValue =
-    marketPrice != null && quantity > 0 ? Number((marketPrice * quantity).toFixed(2)) : null;
-  const unrealisedPnl =
-    marketValue != null && costBasis != null
-      ? Number((marketValue - costBasis).toFixed(2))
-      : null;
-  return { marketValue, unrealisedPnl };
+  const normalized = normalizeHoldingValues({
+    quantity,
+    marketPrice,
+    costBasis,
+  });
+  return {
+    marketValue: normalized.marketValue,
+    unrealisedPnl: normalized.unrealisedPnl,
+  };
 }
 
 export function EditHoldingDialog({ holding }: { holding: PublicHoldingRow }) {
@@ -159,6 +162,7 @@ export function EditHoldingDialog({ holding }: { holding: PublicHoldingRow }) {
                 type="number"
                 step="any"
                 min="0"
+                placeholder="Total invested or avg cost per share"
                 value={costBasis ?? ""}
                 onChange={(e) => {
                   const cost = e.target.value === "" ? null : parseFloat(e.target.value);
