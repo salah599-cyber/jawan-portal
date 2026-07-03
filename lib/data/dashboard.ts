@@ -22,6 +22,7 @@ import {
   countActivePeCompanies,
   formatPeCarryingDetail,
 } from "@/lib/pe/portfolio-rollup";
+import { convertToOmr } from "@/lib/reports/helpers";
 import { ASSET_CATEGORY_LABELS } from "@/lib/labels";
 
 export type CurrencyTotal = {
@@ -82,6 +83,8 @@ export type DashboardSummary = {
   portfolioTotals: CurrencyTotal[];
   liabilityTotals: CurrencyTotal[];
   netWorthTotals: CurrencyTotal[];
+  portfolioTotalOmr: number;
+  netWorthTotalOmr: number;
   activeAssetCount: number;
   reminderCount: number;
   categoryBreakdown: CategoryBreakdown[];
@@ -124,6 +127,15 @@ function subtractTotals(assets: CurrencyTotal[], liabilities: CurrencyTotal[]): 
     map.set(item.currency, (map.get(item.currency) ?? 0) - item.amount);
   }
   return mapToTotals(map);
+}
+
+async function consolidateMapToOmr(map: Map<string, number>): Promise<number> {
+  let total = 0;
+  for (const [currency, amount] of map.entries()) {
+    if (amount <= 0) continue;
+    total += await convertToOmr(amount, currency);
+  }
+  return total;
 }
 
 function liabilityEntityFilter(ctx: UserContext) {
@@ -681,11 +693,15 @@ export async function getDashboardSummary(ctx: UserContext): Promise<DashboardSu
 
   const portfolioTotals = mapToTotals(portfolioMap);
   const liabilityTotals = mapToTotals(liabilityMap);
+  const portfolioTotalOmr = await consolidateMapToOmr(portfolioMap);
+  const liabilityTotalOmr = await consolidateMapToOmr(liabilityMap);
 
   return {
     portfolioTotals,
     liabilityTotals,
     netWorthTotals: subtractTotals(portfolioTotals, liabilityTotals),
+    portfolioTotalOmr,
+    netWorthTotalOmr: portfolioTotalOmr - liabilityTotalOmr,
     activeAssetCount,
     reminderCount: reminders.length,
     categoryBreakdown: [...categoryMap.entries()]
