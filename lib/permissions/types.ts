@@ -13,6 +13,7 @@ export type ModuleName =
   | "REPORTS"
   | "PRIVATE_EQUITY"
   | "CASH_MANAGEMENT"
+  | "CALENDAR"
   | "USERS"
   | "AUDIT";
 
