@@ -36,7 +36,8 @@ export function CalendarViewTabs({
         >
           {view.label}
         </Link>
-      ))}
+        );
+      })}
     </div>
   );
 }
