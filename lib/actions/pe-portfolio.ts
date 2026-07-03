@@ -3,6 +3,7 @@
 import { put } from "@vercel/blob";
 import { revalidatePath } from "next/cache";
 import { db } from "@/lib/db";
+import { ensurePeSchema } from "@/lib/db/ensure-pe-schema";
 import { deleteBlobUrl } from "@/lib/blob";
 import { logAudit } from "@/lib/audit/log";
 import { canWrite, requireModuleAccess } from "@/lib/permissions/access";
@@ -93,6 +94,8 @@ export async function createPeCompany(formData: FormData) {
   if (!canWrite(ctx, "PRIVATE_EQUITY")) {
     throw new Error("You do not have permission to add portfolio companies.");
   }
+
+  await ensurePeSchema();
 
   const data = readPeCompanyFormData(formData);
   assertEntityAccess(ctx, data.entityId);

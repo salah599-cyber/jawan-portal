@@ -1,86 +1,34 @@
-import fs from "node:fs";
-import path from "node:path";
-import { Client } from "pg";
+import { db } from "@/lib/db";
+import {
+  isIgnorablePeSchemaError,
+  PE_SCHEMA_STATEMENTS,
+  PE_SCHEMA_TABLE_CHECK_SQL,
+} from "@/lib/db/pe-schema-statements";
 
 let ensurePromise: Promise<void> | null = null;
 
-function getDatabaseUrl() {
-  return (
-    process.env.POSTGRES_URL_NON_POOLING ||
-    process.env.POSTGRES_URL ||
-    process.env.DATABASE_URL_UNPOOLED ||
-    process.env.DATABASE_URL ||
-    process.env.POSTGRES_PRISMA_URL
-  );
-}
-
-function splitSqlStatements(sql: string) {
-  return sql
-    .split(/;\s*(?:\n|$)/)
-    .map((chunk) =>
-      chunk
-        .split("\n")
-        .filter((line) => !line.trim().startsWith("--"))
-        .join("\n")
-        .trim(),
-    )
-    .filter(Boolean);
-}
-
-function isIgnorableSchemaError(message: string) {
-  return (
-    message.includes("already exists") ||
-    message.includes("duplicate_object") ||
-    message.includes("duplicate key") ||
-    message.includes("IF NOT EXISTS")
-  );
-}
-
-async function tableExists(client: Client, tableName: string) {
-  const result = await client.query(
-    `SELECT EXISTS (
-      SELECT 1
-      FROM pg_tables
-      WHERE schemaname = 'public' AND tablename = $1
-    )`,
-    [tableName],
-  );
-  return Boolean(result.rows[0]?.exists);
+async function peSchemaReady(): Promise<boolean> {
+  const rows = await db.$queryRawUnsafe<Array<{ exists: boolean }>>(PE_SCHEMA_TABLE_CHECK_SQL);
+  return Boolean(rows[0]?.exists);
 }
 
 async function applyPeSchema() {
-  const connectionString = getDatabaseUrl();
-  if (!connectionString) {
-    throw new Error("No database URL is configured for PE schema sync.");
+  if (await peSchemaReady()) {
+    return;
   }
 
-  const client = new Client({ connectionString });
-  await client.connect();
-
-  try {
-    if (await tableExists(client, "PeCompany")) {
-      return;
+  for (const statement of PE_SCHEMA_STATEMENTS) {
+    try {
+      await db.$executeRawUnsafe(statement);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      if (isIgnorablePeSchemaError(message)) continue;
+      throw new Error(`PE schema statement failed: ${message}`);
     }
+  }
 
-    const sqlPath = path.join(process.cwd(), "lib/db/pe-schema.sql");
-    const sql = fs.readFileSync(sqlPath, "utf8");
-    const statements = splitSqlStatements(sql);
-
-    for (const statement of statements) {
-      try {
-        await client.query(statement);
-      } catch (error) {
-        const message = error instanceof Error ? error.message : String(error);
-        if (isIgnorableSchemaError(message)) continue;
-        throw new Error(`PE schema statement failed: ${message}`);
-      }
-    }
-
-    if (!(await tableExists(client, "PeCompany"))) {
-      throw new Error("PE schema sync finished but PeCompany table is still missing.");
-    }
-  } finally {
-    await client.end();
+  if (!(await peSchemaReady())) {
+    throw new Error("PE schema sync finished but PeCompanyDocument table is still missing.");
   }
 }
 
@@ -93,4 +41,12 @@ export function ensurePeSchema() {
   }
 
   return ensurePromise;
+}
+
+export async function isPeSchemaReady() {
+  try {
+    return await peSchemaReady();
+  } catch {
+    return false;
+  }
 }
