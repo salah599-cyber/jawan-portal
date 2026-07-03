@@ -4,6 +4,7 @@ import { AddLinkButton } from "@/components/platform/add-link-button";
 import { RowActions } from "@/components/platform/row-actions";
 import { AssetsFilterTabs, type AssetsFilter } from "@/components/assets/assets-filter-tabs";
 import { listAssets, deleteAsset } from "@/lib/actions/assets";
+import { getAssetLinkedModule } from "@/lib/assets/linked-module";
 import { canWrite, requireModuleAccess } from "@/lib/permissions/access";
 import { getAssetCategoryLabel } from "@/lib/assets/category-display";
 import { ASSET_STATUS_LABELS } from "@/lib/labels";
@@ -73,13 +74,7 @@ export default async function AssetsPage({
                 </TableHeader>
                 <TableBody>
                   {assets.map((asset) => {
-                    const linkedModule = asset.landParcel
-                      ? "Lands"
-                      : asset.vehicle
-                        ? "Cars"
-                        : asset.registeredCompany
-                          ? "Companies"
-                          : null;
+                    const linked = getAssetLinkedModule(asset);
 
                     return (
                       <TableRow key={asset.id}>
@@ -103,22 +98,14 @@ export default async function AssetsPage({
                         {showAdd ? (
                           <TableCell>
                             <RowActions
-                              editHref={linkedModule ? undefined : "/assets/" + asset.id + "/edit"}
+                              editHref={linked ? undefined : "/assets/" + asset.id + "/edit"}
                               itemId={asset.id}
                               itemLabel={asset.name}
                               deleteAction={deleteAsset}
-                              disableDelete={!!linkedModule}
+                              disableDelete={!!linked}
                               disabledReason={
-                                linkedModule
-                                  ? "Linked to a " +
-                                    (asset.landParcel
-                                      ? "land parcel"
-                                      : asset.vehicle
-                                        ? "vehicle"
-                                        : "company") +
-                                    ". Manage from " +
-                                    linkedModule +
-                                    " instead."
+                                linked
+                                  ? `Managed from ${linked.manageFrom}. Open the linked record to edit or delete.`
                                   : undefined
                               }
                             />

@@ -3,8 +3,8 @@ import { PlatformHeader } from "@/components/platform/platform-header";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { formatDate, formatMoney } from "@/lib/format";
-import { getDashboardSummary, formatCurrencyTotals } from "@/lib/data/dashboard";
+import { formatDate, formatMoney, formatOmr } from "@/lib/format";
+import { getDashboardSummary } from "@/lib/data/dashboard";
 import { requireModuleAccess } from "@/lib/permissions/access";
 import { EXIT_TYPE_LABELS } from "@/lib/labels";
 import { formatUserName } from "@/lib/proposals/users";
@@ -46,9 +46,9 @@ export default async function DashboardPage() {
   const ctx = await requireModuleAccess("DASHBOARD");
   const summary = await getDashboardSummary(ctx);
 
-  const portfolioDisplay = formatCurrencyTotals(summary.portfolioTotals);
-  const netWorthDisplay = formatCurrencyTotals(summary.netWorthTotals);
-  const hasPortfolio = summary.portfolioTotals.length > 0;
+  const portfolioDisplay = formatOmr(summary.portfolioTotalOmr);
+  const netWorthDisplay = formatOmr(summary.netWorthTotalOmr);
+  const hasPortfolio = summary.portfolioTotalOmr > 0;
 
   return (
     <>
@@ -60,7 +60,7 @@ export default async function DashboardPage() {
             value={portfolioDisplay}
             detail={
               hasPortfolio
-                ? "Active & monitored assets (ownership-adjusted)"
+                ? "Active & monitored assets, converted to OMR"
                 : "Add assets to track portfolio value"
             }
           />
@@ -69,7 +69,7 @@ export default async function DashboardPage() {
             value={netWorthDisplay}
             detail={
               summary.liabilityTotals.length
-                ? "Portfolio minus active liabilities"
+                ? "Portfolio minus liabilities, converted to OMR"
                 : hasPortfolio
                   ? "No active liabilities recorded"
                   : "Calculated from assets and liabilities"

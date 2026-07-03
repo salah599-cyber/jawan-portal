@@ -6,6 +6,7 @@ import { logAudit } from "@/lib/audit/log";
 import { parseAssetCategorySelection } from "@/lib/assets/category-display";
 import { createCustomAssetType, resolveCustomAssetType } from "@/lib/data/asset-types";
 import { canWrite, requireModuleAccess } from "@/lib/permissions/access";
+import { getAssetLinkedModule, isModuleManagedAsset } from "@/lib/assets/linked-module";
 import { assetEntityFilter } from "@/lib/permissions/scoped-queries";
 import { assertStatusNotExited } from "@/lib/assets/status";
 import type { AssetCategory, AssetStatus } from "@/lib/generated/prisma/client";
@@ -163,7 +164,11 @@ export async function listAssets(filter: "all" | "active" | "exited" = "all") {
         : {};
 
   return db.asset.findMany({
-    where: { ...assetEntityFilter(ctx), ...statusFilter },
+    where: {
+      ...assetEntityFilter(ctx),
+      ...statusFilter,
+      peCompany: null,
+    },
     include: {
       entity: true,
       assetType: { select: { name: true } },
@@ -171,6 +176,7 @@ export async function listAssets(filter: "all" | "active" | "exited" = "all") {
       landParcel: { select: { id: true } },
       vehicle: { select: { id: true } },
       registeredCompany: { select: { id: true } },
+      reProperty: { select: { id: true } },
     },
     orderBy: { updatedAt: "desc" },
   });
@@ -187,16 +193,19 @@ export async function deleteAsset(id: string) {
     include: {
       landParcel: { select: { id: true } },
       vehicle: { select: { id: true } },
+      registeredCompany: { select: { id: true } },
+      peCompany: { select: { id: true } },
+      reProperty: { select: { id: true } },
     },
   });
   if (!asset) throw new Error("Asset not found.");
-  if (asset.landParcel) {
+  if (isModuleManagedAsset(asset)) {
+    const linked = getAssetLinkedModule(asset);
     throw new Error(
-      "This asset is linked to a land parcel. Delete it from the Lands section instead.",
+      linked
+        ? `This asset is managed from ${linked.manageFrom}. Delete it there instead.`
+        : "This asset is managed from another module.",
     );
-  }
-  if (asset.vehicle) {
-    throw new Error("This asset is linked to a vehicle. Delete it from the Cars section instead.");
   }
 
   await db.asset.delete({ where: { id } });
@@ -223,6 +232,8 @@ export async function getAsset(id: string) {
       landParcel: { select: { id: true, sale: { select: { id: true } } } },
       vehicle: { select: { id: true } },
       registeredCompany: { select: { id: true } },
+      peCompany: { select: { id: true } },
+      reProperty: { select: { id: true } },
     },
   });
 }
@@ -238,14 +249,19 @@ export async function updateAsset(id: string, input: CreateAssetInput) {
     include: {
       landParcel: { select: { id: true } },
       vehicle: { select: { id: true } },
+      registeredCompany: { select: { id: true } },
+      peCompany: { select: { id: true } },
+      reProperty: { select: { id: true } },
     },
   });
   if (!asset) throw new Error("Asset not found.");
-  if (asset.landParcel) {
-    throw new Error("This asset is linked to a land parcel. Edit it from the Lands section instead.");
-  }
-  if (asset.vehicle) {
-    throw new Error("This asset is linked to a vehicle. Edit it from the Cars section instead.");
+  if (isModuleManagedAsset(asset)) {
+    const linked = getAssetLinkedModule(asset);
+    throw new Error(
+      linked
+        ? `This asset is linked to another record. Edit it from ${linked.manageFrom} instead.`
+        : "This asset is managed from another module.",
+    );
   }
 
   assertStatusNotExited(input.status);

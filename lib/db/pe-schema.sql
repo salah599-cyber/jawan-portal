@@ -243,6 +243,7 @@ CREATE TABLE "PeCompanyDocument" (
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
     CONSTRAINT "PeCompanyDocument_pkey" PRIMARY KEY ("id")
+);
 
 CREATE UNIQUE INDEX "PeCompany_assetId_key" ON "PeCompany"("assetId");
 CREATE INDEX "PeCompany_entityId_status_idx" ON "PeCompany"("entityId", "status");

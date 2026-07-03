@@ -1,6 +1,7 @@
 import { db } from "@/lib/db";
 import type { PeCompanyStatus } from "@/lib/generated/prisma/client";
 import { sumDecimals, toNumber } from "./helpers";
+import { getPeCarryingValue } from "./valuation";
 
 const PE_PATH = "/portfolio/pe";
 
@@ -35,7 +36,8 @@ export async function syncPeCompanyAsset(companyId: string) {
   const latestValuation = company.valuations[0];
   const fairValue = latestValuation
     ? toNumber(latestValuation.stakeFairValueReporting)
-    : 0;
+    : null;
+  const carryingValue = getPeCarryingValue(totalInvested, fairValue);
 
   const firstInvestment = company.investments
     .slice()
@@ -49,8 +51,8 @@ export async function syncPeCompanyAsset(companyId: string) {
       currency: company.reportingCurrency,
       acquisitionDate: firstInvestment?.investmentDate,
       acquisitionCost: totalInvested > 0 ? totalInvested.toString() : null,
-      currentValue: fairValue > 0 ? fairValue.toString() : null,
-      valueUpdatedAt: latestValuation ? new Date() : undefined,
+      currentValue: carryingValue > 0 ? carryingValue.toString() : null,
+      valueUpdatedAt: latestValuation?.valuationDate ?? undefined,
       exitedAt: company.exit?.exitDate ?? (company.status === "EXITED" ? new Date() : null),
     },
   });

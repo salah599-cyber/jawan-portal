@@ -13,7 +13,8 @@ import {
   LIABILITY_TYPE_LABELS,
   PROPOSAL_STATUS_LABELS,
 } from "@/lib/labels";
-import { getModulePermission } from "@/lib/permissions/access";
+import { getModulePermission, canAccess } from "@/lib/permissions/access";
+import { applyPeCarryingDelta } from "@/lib/pe/portfolio-rollup";
 import {
   assetEntityFilter,
   carEntityFilter,
@@ -70,7 +71,7 @@ export async function buildNetWorthReport(
       ...entityWhere(params.entityId, assetEntityFilter(ctx)),
       status: { in: [...COUNTABLE_ASSET_STATUSES] },
     },
-    select: { currentValue: true, currency: true, ownershipPct: true },
+    select: { id: true, currentValue: true, currency: true, ownershipPct: true },
   });
 
   const liabilities = await db.liability.findMany({
@@ -83,12 +84,22 @@ export async function buildNetWorthReport(
 
   const portfolioMap = new Map<string, number>();
   const liabilityMap = new Map<string, number>();
+  const assetValuesById = new Map<string, number>();
 
   for (const asset of assets) {
     const value = weightedValue(asset.currentValue, asset.ownershipPct);
+    assetValuesById.set(asset.id, value);
     if (value > 0) {
       portfolioMap.set(asset.currency, (portfolioMap.get(asset.currency) ?? 0) + value);
     }
+  }
+
+  if (canAccess(ctx, "PRIVATE_EQUITY")) {
+    await ensurePeSchema();
+    const peCompanies = await listPeCompanies(ctx, params.entityId);
+    applyPeCarryingDelta(peCompanies, assetValuesById, (currency, delta) => {
+      portfolioMap.set(currency, (portfolioMap.get(currency) ?? 0) + delta);
+    });
   }
 
   for (const liability of liabilities) {
@@ -138,6 +149,7 @@ export async function buildNetWorthReport(
     rows,
     footnotes: [
       "Portfolio values are ownership-adjusted.",
+      "Private equity carrying values use the latest fair value, or invested capital when no valuation is recorded.",
       "Multi-currency totals are not summed without FX conversion — use Consolidated Net Worth (OMR) for a single-currency view.",
     ],
   };
@@ -153,7 +165,7 @@ export async function buildConsolidatedOmrReport(
       ...entityWhere(params.entityId, assetEntityFilter(ctx)),
       status: { in: [...COUNTABLE_ASSET_STATUSES] },
     },
-    select: { currentValue: true, currency: true, ownershipPct: true, category: true },
+    select: { id: true, currentValue: true, currency: true, ownershipPct: true, category: true },
   });
 
   const liabilities = await db.liability.findMany({
@@ -167,14 +179,31 @@ export async function buildConsolidatedOmrReport(
   let portfolioOmr = 0;
   let liabilitiesOmr = 0;
   const categoryTotals = new Map<string, number>();
+  const assetValuesById = new Map<string, number>();
 
   for (const asset of assets) {
     const value = weightedValue(asset.currentValue, asset.ownershipPct);
+    assetValuesById.set(asset.id, value);
     if (value <= 0) continue;
     const omr = await convertToOmr(value, asset.currency);
     portfolioOmr += omr;
     const label = ASSET_CATEGORY_LABELS[asset.category] ?? asset.category;
     categoryTotals.set(label, (categoryTotals.get(label) ?? 0) + omr);
+  }
+
+  if (canAccess(ctx, "PRIVATE_EQUITY")) {
+    await ensurePeSchema();
+    const peCompanies = await listPeCompanies(ctx, params.entityId);
+    const peDeltas: Array<{ currency: string; amount: number }> = [];
+    applyPeCarryingDelta(peCompanies, assetValuesById, (currency, delta) => {
+      peDeltas.push({ currency, amount: delta });
+    });
+    for (const { currency, amount } of peDeltas) {
+      const omr = await convertToOmr(amount, currency);
+      portfolioOmr += omr;
+      const label = ASSET_CATEGORY_LABELS.PRIVATE_EQUITY;
+      categoryTotals.set(label, (categoryTotals.get(label) ?? 0) + omr);
+    }
   }
 
   for (const liability of liabilities) {
@@ -280,18 +309,31 @@ export async function buildAssetAllocationReport(
       ...entityWhere(params.entityId, assetEntityFilter(ctx)),
       status: { in: [...COUNTABLE_ASSET_STATUSES] },
     },
-    select: { category: true, currentValue: true, currency: true, ownershipPct: true },
+    select: { id: true, category: true, currentValue: true, currency: true, ownershipPct: true },
   });
 
   const totals = new Map<string, { count: number; value: number; currency: string }>();
+  const assetValuesById = new Map<string, number>();
 
   for (const asset of assets) {
     const label = ASSET_CATEGORY_LABELS[asset.category] ?? asset.category;
     const value = weightedValue(asset.currentValue, asset.ownershipPct);
+    assetValuesById.set(asset.id, value);
     const entry = totals.get(label) ?? { count: 0, value: 0, currency: asset.currency };
     entry.count += 1;
     entry.value += value;
     totals.set(label, entry);
+  }
+
+  if (canAccess(ctx, "PRIVATE_EQUITY")) {
+    await ensurePeSchema();
+    const peCompanies = await listPeCompanies(ctx, params.entityId);
+    applyPeCarryingDelta(peCompanies, assetValuesById, (currency, delta) => {
+      const label = ASSET_CATEGORY_LABELS.PRIVATE_EQUITY;
+      const entry = totals.get(label) ?? { count: 0, value: 0, currency };
+      entry.value += delta;
+      totals.set(label, entry);
+    });
   }
 
   const grandTotal = [...totals.values()].reduce((sum, entry) => sum + entry.value, 0);
@@ -323,7 +365,10 @@ export async function buildAssetAllocationReport(
       { key: "sharePct", label: "Share", align: "right" },
     ],
     rows,
-    footnotes: ["Allocation uses native currency per category; not FX-converted."],
+    footnotes: [
+      "Allocation uses native currency per category; not FX-converted.",
+      "Private equity carrying values use the latest fair value, or invested capital when no valuation is recorded.",
+    ],
   };
 }
 

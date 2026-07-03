@@ -1,16 +1,9 @@
 /**
- * Idempotently applies PE/VC tables to an existing production database.
- * Uses pg directly so we never invoke Prisma Migrate (avoids P3005 on Vercel).
- *
- * Run manually:
- *   node scripts/sync-pe-schema.cjs
+ * Ordered DDL statements for PE/VC portfolio schema.
+ * Kept as a plain list so runtime and build-time sync never break when
+ * splitting SQL files on semicolons.
  */
-require("dotenv").config({ path: ".env.local" });
-require("dotenv").config();
-
-const { Client } = require("pg");
-
-const PE_SCHEMA_STATEMENTS = [
+export const PE_SCHEMA_STATEMENTS = [
   `ALTER TYPE "ModuleName" ADD VALUE IF NOT EXISTS 'PRIVATE_EQUITY'`,
   `CREATE TYPE "PeStage" AS ENUM ('IDEA', 'PRE_SEED', 'SEED', 'SERIES_A', 'GROWTH', 'MATURE')`,
   `CREATE TYPE "PeCompanyStatus" AS ENUM ('ACTIVE', 'FOLLOW_ON_PENDING', 'WATCHLIST', 'EXITED', 'WRITTEN_OFF')`,
@@ -229,17 +222,7 @@ const PE_SCHEMA_STATEMENTS = [
   `ALTER TABLE "PeCompanyDocument" ADD CONSTRAINT "PeCompanyDocument_companyId_fkey" FOREIGN KEY ("companyId") REFERENCES "PeCompany"("id") ON DELETE CASCADE ON UPDATE CASCADE`,
 ];
 
-function getDatabaseUrl() {
-  return (
-    process.env.POSTGRES_URL_NON_POOLING ||
-    process.env.POSTGRES_URL ||
-    process.env.DATABASE_URL_UNPOOLED ||
-    process.env.DATABASE_URL ||
-    process.env.POSTGRES_PRISMA_URL
-  );
-}
-
-function isIgnorableSchemaError(message) {
+export function isIgnorablePeSchemaError(message: string) {
   return (
     message.includes("already exists") ||
     message.includes("duplicate_object") ||
@@ -249,55 +232,10 @@ function isIgnorableSchemaError(message) {
   );
 }
 
-async function tableExists(client, tableName) {
-  const result = await client.query(
-    `SELECT EXISTS (
-      SELECT 1
-      FROM pg_tables
-      WHERE schemaname = 'public' AND tablename = $1
-    )`,
-    [tableName],
-  );
-  return Boolean(result.rows[0]?.exists);
-}
-
-async function main() {
-  const connectionString = getDatabaseUrl();
-  if (!connectionString) {
-    console.log("No database URL set; skipping PE schema sync.");
-    return;
-  }
-
-  const client = new Client({ connectionString });
-  await client.connect();
-
-  try {
-    if (await tableExists(client, "PeCompanyDocument")) {
-      console.log("PE schema already present; nothing to do.");
-      return;
-    }
-
-    for (const statement of PE_SCHEMA_STATEMENTS) {
-      try {
-        await client.query(statement);
-      } catch (error) {
-        const message = error instanceof Error ? error.message : String(error);
-        if (isIgnorableSchemaError(message)) continue;
-        throw error;
-      }
-    }
-
-    if (!(await tableExists(client, "PeCompanyDocument"))) {
-      throw new Error("PE schema sync finished but PeCompanyDocument table is still missing.");
-    }
-
-    console.log("PE schema applied successfully.");
-  } finally {
-    await client.end();
-  }
-}
-
-main().catch((error) => {
-  console.error("PE schema sync failed:", error);
-  process.exit(1);
-});
+export const PE_SCHEMA_TABLE_CHECK_SQL = `
+  SELECT EXISTS (
+    SELECT 1
+    FROM pg_tables
+    WHERE schemaname = 'public' AND tablename = 'PeCompanyDocument'
+  ) AS "exists"
+`;

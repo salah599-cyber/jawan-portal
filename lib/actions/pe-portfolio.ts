@@ -2,7 +2,9 @@
 
 import { put } from "@vercel/blob";
 import { revalidatePath } from "next/cache";
+import { redirect } from "next/navigation";
 import { db } from "@/lib/db";
+import { ensurePeSchema } from "@/lib/db/ensure-pe-schema";
 import { deleteBlobUrl } from "@/lib/blob";
 import { logAudit } from "@/lib/audit/log";
 import { canWrite, requireModuleAccess } from "@/lib/permissions/access";
@@ -63,6 +65,7 @@ function revalidatePeCompany(companyId: string) {
   revalidatePath(`${PE_PATH}/${companyId}/edit`);
   revalidatePath("/assets");
   revalidatePath("/dashboard");
+  revalidatePath("/reports");
 }
 
 function readPeCompanyFormData(formData: FormData) {
@@ -94,6 +97,8 @@ export async function createPeCompany(formData: FormData) {
     throw new Error("You do not have permission to add portfolio companies.");
   }
 
+  await ensurePeSchema();
+
   const data = readPeCompanyFormData(formData);
   assertEntityAccess(ctx, data.entityId);
 
@@ -115,6 +120,8 @@ export async function createPeCompany(formData: FormData) {
     },
   });
 
+  await syncPeCompanyAsset(company.id);
+
   await logAudit({
     userId: ctx.id,
     action: "CREATE",
@@ -124,7 +131,7 @@ export async function createPeCompany(formData: FormData) {
   });
 
   revalidatePeCompany(company.id);
-  return company;
+  redirect(`${PE_PATH}/${company.id}`);
 }
 
 export async function updatePeCompany(id: string, formData: FormData) {
@@ -199,6 +206,7 @@ export async function deletePeCompany(id: string) {
   revalidatePath(PE_PATH);
   revalidatePath("/assets");
   revalidatePath("/dashboard");
+  revalidatePath("/reports");
 }
 
 export async function upsertPeInvestment(formData: FormData) {
