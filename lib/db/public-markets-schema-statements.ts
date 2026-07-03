@@ -22,6 +22,8 @@ export const PUBLIC_MARKETS_SCHEMA_STATEMENTS = [
   `UPDATE "PublicEquityHolding" SET "source" = 'IMPORT' WHERE "source" IS NULL`,
   `CREATE INDEX IF NOT EXISTS "PublicEquityHolding_assetId_market_idx" ON "PublicEquityHolding" ("assetId", "market")`,
   `CREATE INDEX IF NOT EXISTS "PublicEquityHolding_market_idx" ON "PublicEquityHolding" ("market")`,
+  `ALTER TABLE "PublicEquityHolding" ADD COLUMN IF NOT EXISTS "priceFetchedAt" TIMESTAMP(3)`,
+  `ALTER TABLE "PublicEquityHolding" ADD COLUMN IF NOT EXISTS "priceSource" TEXT`,
 ];
 
 export function isIgnorablePublicMarketsSchemaError(message: string) {
@@ -41,7 +43,7 @@ export const PUBLIC_MARKETS_SCHEMA_COLUMN_CHECK_SQL = `
     JOIN pg_namespace n ON c.relnamespace = n.oid
     WHERE n.nspname = 'public'
       AND c.relname = 'PublicEquityHolding'
-      AND a.attname = 'market'
+      AND a.attname = 'priceFetchedAt'
       AND a.attnum > 0
       AND NOT a.attisdropped
   ) AS "exists"

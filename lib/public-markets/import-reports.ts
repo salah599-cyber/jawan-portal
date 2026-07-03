@@ -7,14 +7,8 @@ import { ensurePublicMarketsSchema } from "@/lib/db/ensure-public-markets-schema
 import { parseMarketReport } from "@/lib/public-markets/parsers/router";
 import type { BrokerReportFile, ImportFileResult } from "@/lib/public-markets/types";
 import type { UserContext } from "@/lib/permissions/types";
-
-function toDecimalString(
-  value: number | undefined,
-  fractionDigits: number,
-): string | undefined {
-  if (value == null || Number.isNaN(value)) return undefined;
-  return value.toFixed(fractionDigits);
-}
+import { normalizeAndFormatHoldingValues } from "@/lib/public-markets/valuation";
+import { refreshPublicMarketPrices } from "@/lib/public-markets/refresh-prices";
 
 export async function ensurePortfolioAsset(entityId: string, market: PublicMarket) {
   const config = MARKET_CONFIG[market];
@@ -104,28 +98,39 @@ async function importSingleReport(
     });
 
     await db.publicEquityHolding.createMany({
-      data: parsed.holdings.map((holding) => ({
-        assetId,
-        market,
-        symbol: holding.symbol,
-        name: holding.name,
-        quantity: toDecimalString(holding.quantity, 6) ?? "0",
-        costBasis: toDecimalString(holding.costBasis, 2),
-        marketPrice: toDecimalString(holding.marketPrice, 4),
-        marketValue: toDecimalString(holding.marketValue, 2),
-        unrealisedPnl: toDecimalString(holding.unrealisedPnl, 2),
-        broker: parsed.broker,
-        accountNumber: parsed.accountNumber,
-        exchange: holding.exchange,
-        isin: holding.isin,
-        cusip: holding.cusip,
-        sedol: holding.sedol,
-        country: holding.country ?? MARKET_CONFIG[market].country,
-        source: "IMPORT",
-        currency: holding.currency ?? MARKET_CONFIG[market].currency,
-        asOfDate: parsed.asOfDate,
-        importBatchId: batch.id,
-      })),
+      data: parsed.holdings.map((holding) => {
+        const { decimals } = normalizeAndFormatHoldingValues({
+          quantity: holding.quantity,
+          costBasis: holding.costBasis,
+          marketPrice: holding.marketPrice,
+          marketValue: holding.marketValue,
+          unrealisedPnl: holding.unrealisedPnl,
+        });
+
+        return {
+          assetId,
+          market,
+          symbol: holding.symbol,
+          name: holding.name,
+          quantity: holding.quantity.toFixed(6),
+          costBasis: decimals.costBasis,
+          marketPrice: decimals.marketPrice,
+          marketValue: decimals.marketValue,
+          unrealisedPnl: decimals.unrealisedPnl,
+          priceSource: "BROKER",
+          broker: parsed.broker,
+          accountNumber: parsed.accountNumber,
+          exchange: holding.exchange,
+          isin: holding.isin,
+          cusip: holding.cusip,
+          sedol: holding.sedol,
+          country: holding.country ?? MARKET_CONFIG[market].country,
+          source: "IMPORT",
+          currency: holding.currency ?? MARKET_CONFIG[market].currency,
+          asOfDate: parsed.asOfDate,
+          importBatchId: batch.id,
+        };
+      }),
     });
 
     return {
@@ -162,6 +167,14 @@ export async function importBrokerReportsForEntity(
   );
 
   await refreshAssetValue(asset.id);
+
+  if (market !== "MSX") {
+    try {
+      await refreshPublicMarketPrices({ entityId, market });
+    } catch {
+      // Yahoo refresh should not block a successful import.
+    }
+  }
 
   const importedCount = results.reduce((sum, result) => sum + result.holdingsImported, 0);
 

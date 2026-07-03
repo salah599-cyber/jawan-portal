@@ -1,4 +1,4 @@
-import { db } from "@/lib/db";
+import { Client } from "pg";
 import {
   isIgnorablePublicMarketsSchemaError,
   PUBLIC_MARKETS_SCHEMA_COLUMN_CHECK_SQL,
@@ -7,32 +7,52 @@ import {
 
 let ensurePromise: Promise<void> | null = null;
 
-async function publicMarketsColumnExists(): Promise<boolean> {
-  const rows = await db.$queryRawUnsafe<Array<{ exists: boolean }>>(
-    PUBLIC_MARKETS_SCHEMA_COLUMN_CHECK_SQL,
+function getDatabaseUrl() {
+  return (
+    process.env.POSTGRES_URL_NON_POOLING ||
+    process.env.POSTGRES_URL ||
+    process.env.DATABASE_URL_UNPOOLED ||
+    process.env.DATABASE_URL ||
+    process.env.POSTGRES_PRISMA_URL
   );
-  return Boolean(rows[0]?.exists);
+}
+
+async function publicMarketsColumnExists(client: Client): Promise<boolean> {
+  const result = await client.query(PUBLIC_MARKETS_SCHEMA_COLUMN_CHECK_SQL);
+  return Boolean(result.rows[0]?.exists);
 }
 
 async function applyPublicMarketsSchema() {
-  if (await publicMarketsColumnExists()) {
-    return;
+  const connectionString = getDatabaseUrl();
+  if (!connectionString) {
+    throw new Error("No database URL is configured for public markets schema sync.");
   }
 
-  for (const statement of PUBLIC_MARKETS_SCHEMA_STATEMENTS) {
-    try {
-      await db.$executeRawUnsafe(statement);
-    } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
-      if (isIgnorablePublicMarketsSchemaError(message)) continue;
-      throw new Error(`Public markets schema statement failed: ${message}`);
+  const client = new Client({ connectionString });
+  await client.connect();
+
+  try {
+    if (await publicMarketsColumnExists(client)) {
+      return;
     }
-  }
 
-  if (!(await publicMarketsColumnExists())) {
-    throw new Error(
-      "Public markets schema sync finished but PublicEquityHolding.market is still missing.",
-    );
+    for (const statement of PUBLIC_MARKETS_SCHEMA_STATEMENTS) {
+      try {
+        await client.query(statement);
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        if (isIgnorablePublicMarketsSchemaError(message)) continue;
+        throw new Error(`Public markets schema statement failed: ${message}`);
+      }
+    }
+
+    if (!(await publicMarketsColumnExists(client))) {
+      throw new Error(
+        "Public markets schema sync finished but PublicEquityHolding.priceFetchedAt is still missing.",
+      );
+    }
+  } finally {
+    await client.end();
   }
 }
 
@@ -48,9 +68,16 @@ export function ensurePublicMarketsSchema() {
 }
 
 export async function isPublicMarketsSchemaReady() {
+  const connectionString = getDatabaseUrl();
+  if (!connectionString) return false;
+
+  const client = new Client({ connectionString });
   try {
-    return await publicMarketsColumnExists();
+    await client.connect();
+    return await publicMarketsColumnExists(client);
   } catch {
     return false;
+  } finally {
+    await client.end();
   }
 }

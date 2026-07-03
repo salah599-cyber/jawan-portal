@@ -1,5 +1,6 @@
 import { db } from "@/lib/db";
 import { MSX_PORTFOLIO_ASSET_NAME } from "@/lib/msx/constants";
+import { normalizeHoldingValues } from "@/lib/public-markets/valuation";
 import { assetEntityFilter } from "@/lib/permissions/scoped-queries";
 import type { UserContext } from "@/lib/permissions/types";
 
@@ -84,21 +85,32 @@ export async function getMsxHoldings(ctx: UserContext, entityId?: string): Promi
     orderBy: [{ broker: "asc" }, { symbol: "asc" }],
   });
 
-  return holdings.map((holding) => ({
-    id: holding.id,
-    symbol: holding.symbol,
-    name: holding.name,
-    quantity: toNumber(holding.quantity) ?? 0,
-    costBasis: toNumber(holding.costBasis),
-    marketPrice: toNumber(holding.marketPrice),
-    marketValue: toNumber(holding.marketValue),
-    unrealisedPnl: toNumber(holding.unrealisedPnl),
-    broker: holding.broker,
-    accountNumber: holding.accountNumber,
-    currency: holding.currency,
-    asOfDate: holding.asOfDate,
-    updatedAt: holding.updatedAt,
-  }));
+  return holdings.map((holding) => {
+    const quantity = toNumber(holding.quantity) ?? 0;
+    const normalized = normalizeHoldingValues({
+      quantity,
+      costBasis: toNumber(holding.costBasis),
+      marketPrice: toNumber(holding.marketPrice),
+      marketValue: toNumber(holding.marketValue),
+      unrealisedPnl: toNumber(holding.unrealisedPnl),
+    });
+
+    return {
+      id: holding.id,
+      symbol: holding.symbol,
+      name: holding.name,
+      quantity,
+      costBasis: normalized.costBasis,
+      marketPrice: normalized.marketPrice,
+      marketValue: normalized.marketValue,
+      unrealisedPnl: normalized.unrealisedPnl,
+      broker: holding.broker,
+      accountNumber: holding.accountNumber,
+      currency: holding.currency,
+      asOfDate: holding.asOfDate,
+      updatedAt: holding.updatedAt,
+    };
+  });
 }
 
 export async function getMsxImportBatches(ctx: UserContext, limit = 10): Promise<MsxImportBatchRow[]> {
@@ -156,9 +168,16 @@ export async function getMsxPortfolioSummary(
   let lastUpdated: Date | null = null;
 
   for (const holding of holdings) {
-    totalMarketValue += toNumber(holding.marketValue) ?? 0;
-    totalCostBasis += toNumber(holding.costBasis) ?? 0;
-    totalUnrealisedPnl += toNumber(holding.unrealisedPnl) ?? 0;
+    const normalized = normalizeHoldingValues({
+      quantity: toNumber(holding.quantity) ?? 0,
+      costBasis: toNumber(holding.costBasis),
+      marketPrice: toNumber(holding.marketPrice),
+      marketValue: toNumber(holding.marketValue),
+      unrealisedPnl: toNumber(holding.unrealisedPnl),
+    });
+    totalMarketValue += normalized.marketValue ?? 0;
+    totalCostBasis += normalized.costBasis ?? 0;
+    totalUnrealisedPnl += normalized.unrealisedPnl ?? 0;
     if (!lastUpdated || holding.updatedAt > lastUpdated) {
       lastUpdated = holding.updatedAt;
     }

@@ -2,6 +2,7 @@ import type { PublicMarket } from "@/lib/generated/prisma/client";
 import { COLUMN_ALIASES, MARKET_CONFIG } from "@/lib/public-markets/constants";
 import { parseNumeric, parseQuantity } from "@/lib/msx/parse-number";
 import type { ParsedHolding } from "@/lib/public-markets/types";
+import { normalizeHoldingValues } from "@/lib/public-markets/valuation";
 
 const HEADER_SCAN_LIMIT = 50;
 const SKIP_ROW_PATTERN = /\b(total|grand\s*total|sub\s*total|summary|portfolio\s*value|cash\s*balance|header)\b/i;
@@ -160,14 +161,22 @@ export function rowToHolding(
   const sedol = typeof cellValue(row, mapping.sedol) === "string" ? String(cellValue(row, mapping.sedol)).trim() : undefined;
   const exchange = typeof cellValue(row, mapping.exchange) === "string" ? String(cellValue(row, mapping.exchange)).trim() : undefined;
 
+  const normalized = normalizeHoldingValues({
+    quantity,
+    costBasis,
+    marketPrice,
+    marketValue,
+    unrealisedPnl,
+  });
+
   return {
     symbol,
     name: inferName(row, mapping, symbol),
     quantity,
-    costBasis,
-    marketPrice,
-    marketValue: marketValue ?? (marketPrice != null ? marketPrice * quantity : undefined),
-    unrealisedPnl,
+    costBasis: normalized.costBasis ?? undefined,
+    marketPrice: normalized.marketPrice ?? undefined,
+    marketValue: normalized.marketValue ?? undefined,
+    unrealisedPnl: normalized.unrealisedPnl ?? undefined,
     currency: MARKET_CONFIG[market].currency,
     country: MARKET_CONFIG[market].country,
     exchange: exchange ?? MARKET_CONFIG[market].exchange,

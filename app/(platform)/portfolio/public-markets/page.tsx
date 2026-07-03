@@ -2,6 +2,7 @@ import Link from "next/link";
 import { PlatformHeader } from "@/components/platform/platform-header";
 import { AddManualHoldingForm } from "@/components/public-markets/add-manual-holding-form";
 import { ExportHoldingsButton } from "@/components/public-markets/export-holdings-button";
+import { RefreshPricesButton } from "@/components/public-markets/refresh-prices-button";
 import { MarketTabs } from "@/components/public-markets/market-tabs";
 import {
   AllMarketsSummaryCards,
@@ -73,6 +74,13 @@ export default async function PublicMarketsPage({
           </div>
           <div className="flex flex-wrap items-center gap-2">
             <ExportHoldingsButton entityId={entityId} market={activeMarket} />
+            {canEdit ? (
+              <RefreshPricesButton
+                entityId={entityId}
+                market={activeMarket}
+                disabled={market === "MSX" && !isAllMarkets}
+              />
+            ) : null}
             {marketConfig?.marketDataUrl ? (
               <Button variant="outline" size="sm" asChild>
                 <Link href={marketConfig.marketDataUrl} target="_blank" rel="noopener noreferrer">

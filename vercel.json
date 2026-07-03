@@ -2,6 +2,10 @@
   "buildCommand": "bash scripts/build.sh",
   "crons": [
     {
+      "path": "/api/cron/refresh-public-prices",
+      "schedule": "0 5 * * *"
+    },
+    {
       "path": "/api/cron/refresh-aggregates",
       "schedule": "0 5 * * *"
     },

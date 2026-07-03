@@ -1,6 +1,7 @@
 import { formatDate, formatMoney } from "@/lib/format";
 import type { PublicHoldingRow } from "@/lib/data/public-markets";
 import { DeletePublicHoldingButton } from "@/components/public-markets/delete-holding-button";
+import { EditHoldingDialog } from "@/components/public-markets/edit-holding-dialog";
 import { Badge } from "@/components/ui/badge";
 import {
   Table,
@@ -52,7 +53,8 @@ export function PublicHoldingsTable({
           {showOmr ? <TableHead className="text-right">Value (OMR)</TableHead> : null}
           <TableHead className="text-right">Unrealised P&L</TableHead>
           <TableHead>As Of</TableHead>
-          {canEdit ? <TableHead className="w-[60px]" /> : null}
+          <TableHead>Price</TableHead>
+          {canEdit ? <TableHead className="w-[90px]" /> : null}
         </TableRow>
       </TableHeader>
       <TableBody>
@@ -104,9 +106,24 @@ export function PublicHoldingsTable({
               </span>
             </TableCell>
             <TableCell>{formatDate(holding.asOfDate)}</TableCell>
+            <TableCell>
+              <div className="space-y-0.5 text-xs">
+                {holding.priceSource ? (
+                  <Badge variant="outline">{holding.priceSource}</Badge>
+                ) : (
+                  <span className="text-muted-foreground">—</span>
+                )}
+                {holding.priceFetchedAt ? (
+                  <p className="text-muted-foreground">{formatDate(holding.priceFetchedAt)}</p>
+                ) : null}
+              </div>
+            </TableCell>
             {canEdit ? (
               <TableCell>
-                <DeletePublicHoldingButton holdingId={holding.id} symbol={holding.symbol} />
+                <div className="flex items-center justify-end gap-1">
+                  <EditHoldingDialog holding={holding} />
+                  <DeletePublicHoldingButton holdingId={holding.id} symbol={holding.symbol} />
+                </div>
               </TableCell>
             ) : null}
           </TableRow>
