@@ -65,6 +65,7 @@ function revalidatePeCompany(companyId: string) {
   revalidatePath(`${PE_PATH}/${companyId}/edit`);
   revalidatePath("/assets");
   revalidatePath("/dashboard");
+  revalidatePath("/reports");
 }
 
 function readPeCompanyFormData(formData: FormData) {
@@ -118,6 +119,8 @@ export async function createPeCompany(formData: FormData) {
       assetId: asset.id,
     },
   });
+
+  await syncPeCompanyAsset(company.id);
 
   await logAudit({
     userId: ctx.id,
@@ -203,6 +206,7 @@ export async function deletePeCompany(id: string) {
   revalidatePath(PE_PATH);
   revalidatePath("/assets");
   revalidatePath("/dashboard");
+  revalidatePath("/reports");
 }
 
 export async function upsertPeInvestment(formData: FormData) {

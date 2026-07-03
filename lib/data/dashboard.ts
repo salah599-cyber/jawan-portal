@@ -10,13 +10,18 @@ import {
   expenseEntityFilter,
   loanEntityFilter,
   chequeEntityFilter,
-  peCompanyEntityFilter,
   proposalEntityFilter,
   landEntityFilter,
   rePropertyEntityFilter,
 } from "@/lib/permissions/scoped-queries";
 import type { UserContext } from "@/lib/permissions/types";
 import { getAssetCategoryKey } from "@/lib/assets/category-display";
+import { listPeCompanies } from "@/lib/data/pe-portfolio";
+import {
+  applyPeCarryingDelta,
+  countActivePeCompanies,
+  formatPeCarryingDetail,
+} from "@/lib/pe/portfolio-rollup";
 import { ASSET_CATEGORY_LABELS } from "@/lib/labels";
 
 export type CurrencyTotal = {
@@ -143,6 +148,22 @@ function daysUntil(date: Date) {
   return Math.ceil((target.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
 }
 
+function reconcilePePortfolioOnDashboard(
+  companies: Awaited<ReturnType<typeof listPeCompanies>>,
+  assetValuesById: Map<string, number>,
+  portfolioMap: Map<string, number>,
+  categoryMap: Map<string, { count: number; totals: Map<string, number> }>,
+) {
+  applyPeCarryingDelta(companies, assetValuesById, (currency, delta) => {
+    addToCurrencyMap(portfolioMap, currency, delta);
+
+    const categoryKey = "PRIVATE_EQUITY";
+    const entry = categoryMap.get(categoryKey) ?? { count: 0, totals: new Map<string, number>() };
+    addToCurrencyMap(entry.totals, currency, delta);
+    categoryMap.set(categoryKey, entry);
+  });
+}
+
 export async function getDashboardSummary(ctx: UserContext): Promise<DashboardSummary> {
   const portfolioMap = new Map<string, number>();
   const liabilityMap = new Map<string, number>();
@@ -153,6 +174,7 @@ export async function getDashboardSummary(ctx: UserContext): Promise<DashboardSu
   let pendingProposals: DashboardPendingProposal[] = [];
 
   let activeAssetCount = 0;
+  const assetValuesById = new Map<string, number>();
 
   if (canAccess(ctx, "ASSETS")) {
     const assets = await db.asset.findMany({
@@ -175,6 +197,7 @@ export async function getDashboardSummary(ctx: UserContext): Promise<DashboardSu
 
     for (const asset of assets) {
       const value = weightedValue(asset.currentValue, asset.ownershipPct);
+      assetValuesById.set(asset.id, value);
       addToCurrencyMap(portfolioMap, asset.currency, value);
 
       const categoryKey = getAssetCategoryKey(asset);
@@ -516,20 +539,20 @@ export async function getDashboardSummary(ctx: UserContext): Promise<DashboardSu
   if (canAccess(ctx, "PRIVATE_EQUITY")) {
     try {
       await ensurePeSchema();
-      const peCompanies = await db.peCompany.findMany({
-        where: {
-          ...peCompanyEntityFilter(ctx),
-          status: { in: ["ACTIVE", "FOLLOW_ON_PENDING", "WATCHLIST"] },
-        },
-        select: { id: true },
-      });
+      const peCompanies = await listPeCompanies(ctx);
+      const activeCount = countActivePeCompanies(peCompanies);
 
       moduleSummaries.push({
         module: "PRIVATE_EQUITY",
         label: "PE / VC Portfolio",
         href: "/portfolio/pe",
-        count: peCompanies.length,
+        count: activeCount,
+        detail: formatPeCarryingDetail(peCompanies) ?? (peCompanies.length > 0 ? `${peCompanies.length} companies` : undefined),
       });
+
+      if (canAccess(ctx, "ASSETS")) {
+        reconcilePePortfolioOnDashboard(peCompanies, assetValuesById, portfolioMap, categoryMap);
+      }
     } catch (error) {
       console.error("PE portfolio summary unavailable:", error);
       moduleSummaries.push({
