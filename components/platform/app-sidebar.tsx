@@ -21,6 +21,7 @@ import {
   Briefcase,
   Home,
   Wallet,
+  CalendarDays,
 } from "lucide-react";
 import {
   Sidebar,
@@ -36,6 +37,7 @@ import {
 
 const platformNav = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
+  { href: "/calendar", label: "Calendar", icon: CalendarDays },
   { href: "/assets", label: "Assets", icon: Building2 },
   { href: "/portfolio/public-markets", label: "Public Markets", icon: TrendingUp },
   { href: "/portfolio/pe", label: "PE / VC Portfolio", icon: Briefcase },
@@ -61,12 +63,15 @@ const adminNav = [
 export function AppSidebar({
   showAdmin = false,
   showReports = true,
+  showCalendar = true,
 }: {
   showAdmin?: boolean;
   showReports?: boolean;
+  showCalendar?: boolean;
 }) {
   const pathname = usePathname();
   let items = platformNav;
+  if (!showCalendar) items = items.filter((item) => item.href !== "/calendar");
   if (!showReports) items = items.filter((item) => item.href !== "/reports");
   const nav = showAdmin ? [...items, ...adminNav] : items;
 

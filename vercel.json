@@ -14,7 +14,7 @@
       "schedule": "0 6 * * *"
     },
     {
-      "path": "/api/cron/expense-reminders",
+      "path": "/api/cron/calendar-digest",
       "schedule": "0 7 * * *"
     },
     {

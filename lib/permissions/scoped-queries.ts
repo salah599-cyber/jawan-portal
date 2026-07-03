@@ -103,3 +103,19 @@ export function cashBankAccountFilter(ctx: UserContext) {
   }
   return { id: "__none__" };
 }
+
+export function taskEntityFilter(ctx: UserContext) {
+  const level = getModulePermission(ctx, "CALENDAR");
+  if (level === "FULL" || level === "READ") return {};
+  if (level === "FILTERED") {
+    return {
+      OR: [
+        { entityId: null },
+        { entityId: { in: ctx.entityIds } },
+        { assigneeId: ctx.id },
+        { createdById: ctx.id },
+      ],
+    };
+  }
+  return { id: "__none__" };
+}

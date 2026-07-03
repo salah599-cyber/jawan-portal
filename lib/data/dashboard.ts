@@ -47,7 +47,7 @@ export type ModuleSummary = {
 
 export type DashboardReminder = {
   id: string;
-  kind: "document" | "expense" | "vehicle";
+  kind: string;
   title: string;
   subtitle: string;
   date: Date | null;
@@ -182,6 +182,12 @@ export async function getDashboardSummary(ctx: UserContext): Promise<DashboardSu
   const categoryMap = new Map<string, { count: number; totals: Map<string, number> }>();
   const moduleSummaries: ModuleSummary[] = [];
   const reminders: DashboardReminder[] = [];
+  const useCalendarReminders = canAccess(ctx, "CALENDAR");
+
+  function pushReminder(reminder: DashboardReminder) {
+    if (!useCalendarReminders) reminders.push(reminder);
+  }
+
   let recentExits: DashboardRecentExit[] = [];
   let pendingProposals: DashboardPendingProposal[] = [];
 
@@ -299,7 +305,7 @@ export async function getDashboardSummary(ctx: UserContext): Promise<DashboardSu
       if (!loan.maturityDate) continue;
       if (loan.maturityDate > horizon) continue;
 
-      reminders.push({
+      pushReminder({
         id: loan.id + "-maturity",
         kind: "document",
         title: loan.name,
@@ -350,7 +356,7 @@ export async function getDashboardSummary(ctx: UserContext): Promise<DashboardSu
       if (!cheque.dueDate) continue;
       if (cheque.dueDate > horizon) continue;
 
-      reminders.push({
+      pushReminder({
         id: cheque.id + "-due",
         kind: "document",
         title: "Cheque #" + cheque.chequeNumber,
@@ -376,7 +382,7 @@ export async function getDashboardSummary(ctx: UserContext): Promise<DashboardSu
       });
 
       if (cash.staleCount > 0) {
-        reminders.push({
+        pushReminder({
           id: "cash-stale",
           kind: "document",
           title: "Cash balances need updating",
@@ -497,7 +503,7 @@ export async function getDashboardSummary(ctx: UserContext): Promise<DashboardSu
         if (date > horizon) continue;
 
         const plate = [vehicle.plateCode, vehicle.plateNumber].filter(Boolean).join(" ");
-        reminders.push({
+        pushReminder({
           id: vehicle.id + "-" + label,
           kind: "vehicle",
           title: vehicle.name,
@@ -536,7 +542,7 @@ export async function getDashboardSummary(ctx: UserContext): Promise<DashboardSu
       if (!company.registrationExpiryDate) continue;
       if (company.registrationExpiryDate > horizon) continue;
 
-      reminders.push({
+      pushReminder({
         id: company.id + "-registration-expiry",
         kind: "document",
         title: company.name,
@@ -605,7 +611,7 @@ export async function getDashboardSummary(ctx: UserContext): Promise<DashboardSu
     });
 
     for (const doc of expiringDocs) {
-      reminders.push({
+      pushReminder({
         id: "doc-" + doc.id,
         kind: "document",
         title: doc.name,
@@ -672,7 +678,7 @@ export async function getDashboardSummary(ctx: UserContext): Promise<DashboardSu
     });
 
     for (const expense of expenses) {
-      reminders.push({
+      pushReminder({
         id: "expense-" + expense.id,
         kind: "expense",
         title: expense.title,
@@ -682,6 +688,32 @@ export async function getDashboardSummary(ctx: UserContext): Promise<DashboardSu
         severity: expense.status === "OVERDUE" ? "danger" : "warning",
       });
     }
+  }
+
+  if (useCalendarReminders) {
+    const { getDashboardCalendarReminders } = await import("@/lib/data/calendar");
+    const { KIND_LABELS } = await import("@/lib/calendar/date-ranges");
+    const calendarReminders = await getDashboardCalendarReminders(ctx);
+
+    for (const item of calendarReminders) {
+      reminders.push({
+        id: item.id,
+        kind: KIND_LABELS[item.kind as keyof typeof KIND_LABELS] ?? item.kind,
+        title: item.title,
+        subtitle: item.subtitle,
+        date: item.date,
+        href: item.href,
+        severity: item.severity,
+      });
+    }
+
+    moduleSummaries.push({
+      module: "CALENDAR",
+      label: "Calendar",
+      href: "/calendar",
+      count: calendarReminders.length,
+      detail: calendarReminders.length ? "Upcoming deadlines" : "Nothing due soon",
+    });
   }
 
   reminders.sort((a, b) => {

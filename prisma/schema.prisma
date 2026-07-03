@@ -38,6 +38,7 @@ enum ModuleName {
   REPORTS
   PRIVATE_EQUITY
   CASH_MANAGEMENT
+  CALENDAR
   USERS
   AUDIT
 }
@@ -86,6 +87,20 @@ enum PublicMarket {
 enum PublicHoldingSource {
   IMPORT
   MANUAL
+}
+
+enum TaskStatus {
+  OPEN
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+}
+
+enum TaskPriority {
+  LOW
+  MEDIUM
+  HIGH
+  URGENT
 }
 
 enum AssetCategory {
@@ -255,6 +270,9 @@ model User {
   proposalApprovals   ProposalApprover[]   @relation("ProposalApproverUser")
   proposalComments    ProposalComment[]
   bankBalanceEntries  BankBalanceEntry[]
+  assignedTasks       Task[]                   @relation("TaskAssignee")
+  createdTasks        Task[]                   @relation("TaskCreator")
+  completedTasks      Task[]                   @relation("TaskCompleter")
   createdAt           DateTime                 @default(now())
   updatedAt           DateTime                 @updatedAt
 }
@@ -316,9 +334,35 @@ model Entity {
   investmentProposals InvestmentProposal[]
   peCompanies         PeCompany[]
   reProperties        ReProperty[]
+  tasks               Task[]
   userAccess   UserEntityAccess[]
   createdAt    DateTime           @default(now())
   updatedAt    DateTime           @updatedAt
+}
+
+model Task {
+  id              String       @id @default(cuid())
+  title           String
+  description     String?
+  dueDate         DateTime
+  status          TaskStatus   @default(OPEN)
+  priority        TaskPriority @default(MEDIUM)
+  entityId        String?
+  entity          Entity?      @relation(fields: [entityId], references: [id], onDelete: SetNull)
+  assigneeId      String?
+  assignee        User?        @relation("TaskAssignee", fields: [assigneeId], references: [id], onDelete: SetNull)
+  createdById     String
+  createdBy       User         @relation("TaskCreator", fields: [createdById], references: [id], onDelete: Cascade)
+  completedAt     DateTime?
+  completedById   String?
+  completedBy     User?        @relation("TaskCompleter", fields: [completedById], references: [id], onDelete: SetNull)
+  completionNotes String?
+  reminderDays    Int          @default(1)
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
+  @@index([dueDate, status])
+  @@index([assigneeId, status])
+  @@index([entityId])
 }
 
 model FxRate {
