@@ -20,7 +20,8 @@ import {
   listPublicMarketsEntities,
   resolveMarketFromSearchParam,
 } from "@/lib/data/public-markets";
-import { MARKET_CONFIG } from "@/lib/public-markets/constants";
+import { MARKET_CONFIG, getMarketPricingNote } from "@/lib/public-markets/constants";
+import { hasAutomaticPriceRefresh } from "@/lib/public-markets/prices/symbols";
 import { canWrite, requireModuleAccess } from "@/lib/permissions/access";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -68,9 +69,14 @@ export default async function PublicMarketsPage({
             </h2>
             <p className="text-sm text-muted-foreground">
               {isAllMarkets
-                ? "Consolidated view of public equity holdings across MSX, USA, Hong Kong, China, India, UK, and other markets."
+                ? "Consolidated view of public equity holdings across MSX, GCC, USA, Hong Kong, China, India, UK, and other markets."
                 : marketConfig?.description}
             </p>
+            {!isAllMarkets && getMarketPricingNote(market) ? (
+              <p className="mt-1 text-sm text-amber-700 dark:text-amber-400">
+                {getMarketPricingNote(market)}
+              </p>
+            ) : null}
           </div>
           <div className="flex flex-wrap items-center gap-2">
             <ExportHoldingsButton entityId={entityId} market={activeMarket} />
@@ -78,7 +84,7 @@ export default async function PublicMarketsPage({
               <RefreshPricesButton
                 entityId={entityId}
                 market={activeMarket}
-                disabled={market === "MSX" && !isAllMarkets}
+                disabled={!isAllMarkets && !hasAutomaticPriceRefresh(market)}
               />
             ) : null}
             {marketConfig?.marketDataUrl ? (

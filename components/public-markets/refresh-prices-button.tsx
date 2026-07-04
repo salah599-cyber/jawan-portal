@@ -33,12 +33,14 @@ export function RefreshPricesButton({
         const result = await refreshPublicMarketPricesAction(formData);
         if (result.updated === 0 && result.failed > 0) {
           setError(
-            `Could not fetch live prices for ${result.failed} holding${result.failed === 1 ? "" : "s"}. Check symbols or try again later.`,
+            `Could not fetch prices for ${result.failed} holding${result.failed === 1 ? "" : "s"}. Check symbols or try again later.`,
           );
         } else {
           setMessage(
             `Updated ${result.updated} holding${result.updated === 1 ? "" : "s"}` +
-              (result.skipped > 0 ? ` · ${result.skipped} MSX skipped` : "") +
+              (result.skipped > 0
+                ? ` · ${result.skipped} without price feed skipped`
+                : "") +
               (result.failed > 0 ? ` · ${result.failed} failed` : ""),
           );
         }
@@ -59,7 +61,7 @@ export function RefreshPricesButton({
         disabled={pending || disabled}
       >
         <RefreshCw className={`mr-2 h-4 w-4 ${pending ? "animate-spin" : ""}`} />
-        {pending ? "Refreshing..." : "Refresh Live Prices"}
+        {pending ? "Refreshing..." : market === "MSX" ? "Refresh MSX Prices" : "Refresh Live Prices"}
       </Button>
       {message ? <p className="text-xs text-green-700">{message}</p> : null}
       {error ? <p className="text-xs text-destructive">{error}</p> : null}

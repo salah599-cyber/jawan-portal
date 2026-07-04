@@ -6,6 +6,10 @@
       "schedule": "0 5 * * *"
     },
     {
+      "path": "/api/cron/refresh-msx-prices",
+      "schedule": "30 11 * * 0-4"
+    },
+    {
       "path": "/api/cron/refresh-aggregates",
       "schedule": "0 5 * * *"
     },

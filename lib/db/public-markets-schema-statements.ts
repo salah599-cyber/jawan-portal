@@ -3,8 +3,16 @@
  * Kept as a plain list so runtime (Prisma) and build-time (pg) sync never
  * break DO $$ blocks when splitting on semicolons.
  */
+export const PUBLIC_MARKETS_ENUM_EXPANSION_STATEMENTS = [
+  `ALTER TYPE "PublicMarket" ADD VALUE IF NOT EXISTS 'UAE'`,
+  `ALTER TYPE "PublicMarket" ADD VALUE IF NOT EXISTS 'SAUDI_ARABIA'`,
+  `ALTER TYPE "PublicMarket" ADD VALUE IF NOT EXISTS 'KUWAIT'`,
+  `ALTER TYPE "PublicMarket" ADD VALUE IF NOT EXISTS 'BAHRAIN'`,
+  `ALTER TYPE "PublicMarket" ADD VALUE IF NOT EXISTS 'QATAR'`,
+];
+
 export const PUBLIC_MARKETS_SCHEMA_STATEMENTS = [
-  `CREATE TYPE "PublicMarket" AS ENUM ('MSX', 'USA', 'HONG_KONG', 'CHINA', 'INDIA', 'UK', 'OTHER')`,
+  `CREATE TYPE "PublicMarket" AS ENUM ('MSX', 'UAE', 'SAUDI_ARABIA', 'KUWAIT', 'BAHRAIN', 'QATAR', 'USA', 'HONG_KONG', 'CHINA', 'INDIA', 'UK', 'OTHER')`,
   `CREATE TYPE "PublicHoldingSource" AS ENUM ('IMPORT', 'MANUAL')`,
   `ALTER TABLE "PublicEquityHolding" ADD COLUMN IF NOT EXISTS "market" "PublicMarket" NOT NULL DEFAULT 'MSX'`,
   `ALTER TABLE "PublicEquityHolding" ADD COLUMN IF NOT EXISTS "exchange" TEXT`,

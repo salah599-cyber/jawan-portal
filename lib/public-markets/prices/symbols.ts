@@ -13,10 +13,22 @@ const YAHOO_SUPPORTED_MARKETS: PublicMarket[] = [
   "INDIA",
   "UK",
   "OTHER",
+  "SAUDI_ARABIA",
+  "UAE",
+  "KUWAIT",
+  "QATAR",
 ];
 
 export function isYahooPriceSupported(market: PublicMarket): boolean {
   return YAHOO_SUPPORTED_MARKETS.includes(market);
+}
+
+export function isMsxEodPriceSupported(market: PublicMarket): boolean {
+  return market === "MSX";
+}
+
+export function hasAutomaticPriceRefresh(market: PublicMarket): boolean {
+  return isYahooPriceSupported(market) || isMsxEodPriceSupported(market);
 }
 
 function padHongKongSymbol(symbol: string): string {
@@ -47,6 +59,15 @@ function indiaSuffix(exchange?: string | null): string {
   return ".NS";
 }
 
+function isUaeAdxExchange(exchange?: string | null): boolean {
+  const normalizedExchange = exchange?.toUpperCase() ?? "";
+  return (
+    normalizedExchange.includes("ADX") ||
+    normalizedExchange.includes("ABU DHABI") ||
+    normalizedExchange.includes("ABUDHABI")
+  );
+}
+
 export function toYahooSymbol({ market, symbol, exchange }: YahooSymbolInput): string | null {
   if (!isYahooPriceSupported(market)) return null;
 
@@ -68,6 +89,15 @@ export function toYahooSymbol({ market, symbol, exchange }: YahooSymbolInput): s
       return `${cleaned}${chinaSuffix(cleaned, exchange)}`;
     case "INDIA":
       return `${cleaned}${indiaSuffix(exchange)}`;
+    case "SAUDI_ARABIA":
+      return `${cleaned}.SR`;
+    case "UAE":
+      if (isUaeAdxExchange(exchange)) return null;
+      return `${cleaned}.AE`;
+    case "KUWAIT":
+      return `${cleaned}.KW`;
+    case "QATAR":
+      return `${cleaned}.QA`;
     case "OTHER":
       return cleaned;
     default:

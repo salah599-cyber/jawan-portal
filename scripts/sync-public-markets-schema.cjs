@@ -8,11 +8,18 @@
 require("dotenv").config({ path: ".env.local" });
 require("dotenv").config();
 
-const path = require("path");
 const { Client } = require("pg");
 
+const PUBLIC_MARKETS_ENUM_EXPANSION_STATEMENTS = [
+  `ALTER TYPE "PublicMarket" ADD VALUE IF NOT EXISTS 'UAE'`,
+  `ALTER TYPE "PublicMarket" ADD VALUE IF NOT EXISTS 'SAUDI_ARABIA'`,
+  `ALTER TYPE "PublicMarket" ADD VALUE IF NOT EXISTS 'KUWAIT'`,
+  `ALTER TYPE "PublicMarket" ADD VALUE IF NOT EXISTS 'BAHRAIN'`,
+  `ALTER TYPE "PublicMarket" ADD VALUE IF NOT EXISTS 'QATAR'`,
+];
+
 const PUBLIC_MARKETS_SCHEMA_STATEMENTS = [
-  `CREATE TYPE "PublicMarket" AS ENUM ('MSX', 'USA', 'HONG_KONG', 'CHINA', 'INDIA', 'UK', 'OTHER')`,
+  `CREATE TYPE "PublicMarket" AS ENUM ('MSX', 'UAE', 'SAUDI_ARABIA', 'KUWAIT', 'BAHRAIN', 'QATAR', 'USA', 'HONG_KONG', 'CHINA', 'INDIA', 'UK', 'OTHER')`,
   `CREATE TYPE "PublicHoldingSource" AS ENUM ('IMPORT', 'MANUAL')`,
   `ALTER TABLE "PublicEquityHolding" ADD COLUMN IF NOT EXISTS "market" "PublicMarket" NOT NULL DEFAULT 'MSX'`,
   `ALTER TABLE "PublicEquityHolding" ADD COLUMN IF NOT EXISTS "exchange" TEXT`,
@@ -72,6 +79,18 @@ async function columnExists(client) {
   return Boolean(result.rows[0]?.exists);
 }
 
+async function runStatements(client, statements) {
+  for (const statement of statements) {
+    try {
+      await client.query(statement);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      if (isIgnorableSchemaError(message)) continue;
+      throw error;
+    }
+  }
+}
+
 async function main() {
   const connectionString = getDatabaseUrl();
   if (!connectionString) {
@@ -83,20 +102,14 @@ async function main() {
   await client.connect();
 
   try {
+    await runStatements(client, PUBLIC_MARKETS_ENUM_EXPANSION_STATEMENTS);
+
     if (await columnExists(client)) {
-      console.log("Public markets schema already present; nothing to do.");
+      console.log("Public markets schema already present; enum values synced.");
       return;
     }
 
-    for (const statement of PUBLIC_MARKETS_SCHEMA_STATEMENTS) {
-      try {
-        await client.query(statement);
-      } catch (error) {
-        const message = error instanceof Error ? error.message : String(error);
-        if (isIgnorableSchemaError(message)) continue;
-        throw error;
-      }
-    }
+    await runStatements(client, PUBLIC_MARKETS_SCHEMA_STATEMENTS);
 
     if (!(await columnExists(client))) {
       throw new Error(
