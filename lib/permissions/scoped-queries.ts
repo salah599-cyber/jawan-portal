@@ -111,6 +111,15 @@ export function successionPlanFilter(ctx: UserContext) {
   return { id: "__none__" };
 }
 
+export function contactEntityFilter(ctx: UserContext) {
+  const level = getModulePermission(ctx, "CONTACTS");
+  if (level === "FULL" || level === "READ") return {};
+  if (level === "FILTERED") {
+    return { OR: [{ entityId: null }, { entityId: { in: ctx.entityIds } }] };
+  }
+  return { id: "__none__" };
+}
+
 export function reportsEntityFilter(ctx: UserContext) {
   const level = getModulePermission(ctx, "REPORTS");
   if (level === "FULL" || level === "READ") return {};

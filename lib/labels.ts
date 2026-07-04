@@ -627,3 +627,16 @@ export const SUCCESSION_DOCUMENT_STATUS_LABELS: Record<string, string> = {
   FILED: "Filed",
   MISSING: "Missing",
 };
+
+export const DIRECTORY_CONTACT_TYPE_LABELS: Record<string, string> = {
+  BANKER: "Banker",
+  LAWYER: "Lawyer",
+  FUND_MANAGER: "Fund Manager",
+  BROKER: "Broker",
+  TENANT: "Tenant",
+  CONTRACTOR: "Contractor",
+  CO_INVESTOR: "Co-Investor",
+  GOVERNMENT: "Government",
+  ADVISOR: "Advisor",
+  OTHER: "Other",
+};

@@ -164,6 +164,15 @@ export const REPORT_CATALOG: ReportDefinition[] = [
     supportsDateRange: false,
   },
   {
+    id: "contacts-directory",
+    title: "Contacts Directory",
+    description: "External contacts with follow-up dates, organizations, and entity assignments.",
+    category: "registers",
+    requiredModules: ["CONTACTS"],
+    supportsEntityFilter: true,
+    supportsDateRange: false,
+  },
+  {
     id: "bank-accounts",
     title: "Bank Accounts",
     description: "Registered bank accounts across entities.",

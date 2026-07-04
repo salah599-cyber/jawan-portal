@@ -18,6 +18,7 @@ export type CalendarItemKind =
   | "CASH_STALE"
   | "FAMILY_KYC_EXPIRY"
   | "SUCCESSION_REVIEW_DUE"
+  | "CONTACT_FOLLOW_UP"
   | "TASK";
 
 export type CalendarItemSeverity = "info" | "warning" | "danger";

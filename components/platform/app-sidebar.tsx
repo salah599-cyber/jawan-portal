@@ -25,6 +25,7 @@ import {
   Shield,
   Heart,
   Scroll,
+  BookUser,
   type LucideIcon,
 } from "lucide-react";
 import {
@@ -87,6 +88,7 @@ const platformNav: NavItem[] = [
       { href: "/family/succession", label: "Succession & Estate", icon: "scroll" as const },
     ],
   },
+  { href: "/contacts", label: "Contacts", icon: BookUser },
   { href: "/reports", label: "Reports", icon: BarChart3 },
 ];
 
@@ -129,6 +131,7 @@ export function AppSidebar({
   showInsuranceRegister = true,
   showFamilyMembers = false,
   showSuccession = false,
+  showContacts = false,
 }: {
   showAdmin?: boolean;
   showReports?: boolean;
@@ -137,6 +140,7 @@ export function AppSidebar({
   showInsuranceRegister?: boolean;
   showFamilyMembers?: boolean;
   showSuccession?: boolean;
+  showContacts?: boolean;
 }) {
   const pathname = usePathname();
 
@@ -168,6 +172,7 @@ export function AppSidebar({
 
   if (!showCalendar) items = items.filter((item) => item.href !== "/calendar");
   if (!showReports) items = items.filter((item) => item.href !== "/reports");
+  if (!showContacts) items = items.filter((item) => item.href !== "/contacts");
   const nav: NavItem[] = showAdmin ? [...items, ...(adminNav as NavItem[])] : items;
 
   return (

@@ -136,5 +136,6 @@ export const KIND_LABELS: Record<CalendarItemKind, string> = {
   CASH_STALE: "Cash",
   FAMILY_KYC_EXPIRY: "Family KYC",
   SUCCESSION_REVIEW_DUE: "Succession Review",
+  CONTACT_FOLLOW_UP: "Contact Follow-up",
   TASK: "Task",
 };
