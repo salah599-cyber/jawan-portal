@@ -23,6 +23,14 @@ export function isYahooPriceSupported(market: PublicMarket): boolean {
   return YAHOO_SUPPORTED_MARKETS.includes(market);
 }
 
+export function isMsxEodPriceSupported(market: PublicMarket): boolean {
+  return market === "MSX";
+}
+
+export function hasAutomaticPriceRefresh(market: PublicMarket): boolean {
+  return isYahooPriceSupported(market) || isMsxEodPriceSupported(market);
+}
+
 function padHongKongSymbol(symbol: string): string {
   if (/^\d+$/.test(symbol)) {
     return symbol.padStart(4, "0");

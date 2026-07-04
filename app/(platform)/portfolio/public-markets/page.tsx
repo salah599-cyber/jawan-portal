@@ -21,7 +21,7 @@ import {
   resolveMarketFromSearchParam,
 } from "@/lib/data/public-markets";
 import { MARKET_CONFIG, getMarketPricingNote } from "@/lib/public-markets/constants";
-import { isYahooPriceSupported } from "@/lib/public-markets/prices/symbols";
+import { hasAutomaticPriceRefresh } from "@/lib/public-markets/prices/symbols";
 import { canWrite, requireModuleAccess } from "@/lib/permissions/access";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -84,7 +84,7 @@ export default async function PublicMarketsPage({
               <RefreshPricesButton
                 entityId={entityId}
                 market={activeMarket}
-                disabled={!isAllMarkets && !isYahooPriceSupported(market)}
+                disabled={!isAllMarkets && !hasAutomaticPriceRefresh(market)}
               />
             ) : null}
             {marketConfig?.marketDataUrl ? (
