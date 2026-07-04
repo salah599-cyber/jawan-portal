@@ -16,6 +16,7 @@ export type ReportId =
   | "vehicles"
   | "companies"
   | "document-expiry"
+  | "insurance-register"
   | "bank-accounts"
   | "proposals"
   | "valuation-history"

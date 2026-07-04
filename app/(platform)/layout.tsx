@@ -9,10 +9,18 @@ export default async function PlatformLayout({ children }: { children: React.Rea
   const showAdmin = ctx ? isSuperAdmin(ctx) : false;
   const showReports = ctx ? canAccess(ctx, "REPORTS") : false;
   const showCalendar = ctx ? canAccess(ctx, "CALENDAR") : false;
+  const showDocumentsVault = ctx ? canAccess(ctx, "DOCUMENTS") : false;
+  const showInsuranceRegister = ctx ? canAccess(ctx, "INSURANCE") : false;
 
   return (
     <SidebarProvider>
-      <AppSidebar showAdmin={showAdmin} showReports={showReports} showCalendar={showCalendar} />
+      <AppSidebar
+        showAdmin={showAdmin}
+        showReports={showReports}
+        showCalendar={showCalendar}
+        showDocumentsVault={showDocumentsVault}
+        showInsuranceRegister={showInsuranceRegister}
+      />
       <SidebarInset className="flex min-h-svh flex-col">{children}</SidebarInset>
     </SidebarProvider>
   );

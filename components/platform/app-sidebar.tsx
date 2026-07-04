@@ -22,6 +22,8 @@ import {
   Home,
   Wallet,
   CalendarDays,
+  Shield,
+  type LucideIcon,
 } from "lucide-react";
 import {
   Sidebar,
@@ -33,9 +35,19 @@ import {
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
+  SidebarMenuSub,
+  SidebarMenuSubButton,
+  SidebarMenuSubItem,
 } from "@/components/ui/sidebar";
 
-const platformNav = [
+type NavItem = {
+  href: string;
+  label: string;
+  icon: LucideIcon;
+  children?: { href: string; label: string }[];
+};
+
+const platformNav: NavItem[] = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
   { href: "/calendar", label: "Calendar", icon: CalendarDays },
   { href: "/assets", label: "Assets", icon: Building2 },
@@ -51,7 +63,15 @@ const platformNav = [
   { href: "/cash", label: "Cash Management", icon: Wallet },
   { href: "/proposals", label: "Proposals", icon: Lightbulb },
   { href: "/assets/bank-details", label: "Bank Details", icon: Landmark },
-  { href: "/documents", label: "Documents", icon: FileText },
+  {
+    href: "/documents",
+    label: "Documents",
+    icon: FileText,
+    children: [
+      { href: "/documents", label: "Document Vault" },
+      { href: "/documents/insurance", label: "Insurance Register" },
+    ],
+  },
   { href: "/expenses", label: "Expenses", icon: Receipt },
   { href: "/reports", label: "Reports", icon: BarChart3 },
 ];
@@ -61,20 +81,50 @@ const adminNav = [
   { href: "/admin/audit-log", label: "Audit Log", icon: ScrollText },
 ];
 
+function isActive(pathname: string, href: string) {
+  if (href === "/documents") {
+    return pathname === "/documents" || pathname === "/documents/";
+  }
+  return pathname === href || pathname.startsWith(href + "/");
+}
+
+function isDocumentsGroupActive(pathname: string) {
+  return pathname === "/documents" || pathname.startsWith("/documents/");
+}
+
 export function AppSidebar({
   showAdmin = false,
   showReports = true,
   showCalendar = true,
+  showDocumentsVault = true,
+  showInsuranceRegister = true,
 }: {
   showAdmin?: boolean;
   showReports?: boolean;
   showCalendar?: boolean;
+  showDocumentsVault?: boolean;
+  showInsuranceRegister?: boolean;
 }) {
   const pathname = usePathname();
-  let items = platformNav;
+
+  let items = platformNav
+    .map((item) => {
+      if (item.href !== "/documents" || !item.children) return item;
+
+      const children = item.children.filter((child) => {
+        if (child.href === "/documents") return showDocumentsVault;
+        if (child.href === "/documents/insurance") return showInsuranceRegister;
+        return true;
+      });
+
+      if (children.length === 0) return null;
+      return { ...item, children };
+    })
+    .filter((item): item is NavItem => item != null);
+
   if (!showCalendar) items = items.filter((item) => item.href !== "/calendar");
   if (!showReports) items = items.filter((item) => item.href !== "/reports");
-  const nav = showAdmin ? [...items, ...adminNav] : items;
+  const nav: NavItem[] = showAdmin ? [...items, ...(adminNav as NavItem[])] : items;
 
   return (
     <Sidebar>
@@ -89,16 +139,54 @@ export function AppSidebar({
           <SidebarGroupLabel>Platform</SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
-              {nav.map((item) => (
-                <SidebarMenuItem key={item.href}>
-                  <SidebarMenuButton asChild isActive={pathname === item.href || pathname.startsWith(item.href + "/")}>
-                    <Link href={item.href}>
-                      <item.icon />
-                      <span>{item.label}</span>
-                    </Link>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-              ))}
+              {nav.map((item) => {
+                if (item.children && item.children.length > 0) {
+                  const groupActive = isDocumentsGroupActive(pathname);
+                  return (
+                    <SidebarMenuItem key={item.href}>
+                      <SidebarMenuButton asChild isActive={groupActive}>
+                        <Link href={item.children[0]?.href ?? item.href}>
+                          <item.icon />
+                          <span>{item.label}</span>
+                        </Link>
+                      </SidebarMenuButton>
+                      <SidebarMenuSub>
+                        {item.children.map((child) => (
+                          <SidebarMenuSubItem key={child.href}>
+                            <SidebarMenuSubButton
+                              asChild
+                              isActive={isActive(pathname, child.href)}
+                            >
+                              <Link href={child.href}>
+                                {child.href === "/documents/insurance" ? (
+                                  <Shield className="size-4" />
+                                ) : (
+                                  <FileText className="size-4" />
+                                )}
+                                <span>{child.label}</span>
+                              </Link>
+                            </SidebarMenuSubButton>
+                          </SidebarMenuSubItem>
+                        ))}
+                      </SidebarMenuSub>
+                    </SidebarMenuItem>
+                  );
+                }
+
+                return (
+                  <SidebarMenuItem key={item.href}>
+                    <SidebarMenuButton
+                      asChild
+                      isActive={pathname === item.href || pathname.startsWith(item.href + "/")}
+                    >
+                      <Link href={item.href}>
+                        <item.icon />
+                        <span>{item.label}</span>
+                      </Link>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                );
+              })}
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>

@@ -511,3 +511,36 @@ export const RE_VALUATION_METHOD_LABELS: Record<string, string> = {
   INCOME: "Income",
   SELF_ASSESSED: "Self-Assessed",
 };
+
+export const INSURANCE_POLICY_TYPE_LABELS: Record<string, string> = {
+  PROPERTY: "Property",
+  VEHICLE: "Vehicle",
+  LIFE: "Life",
+  HEALTH: "Health",
+  BUSINESS: "Business",
+  OTHER: "Other",
+};
+
+export const INSURANCE_POLICY_STATUS_LABELS: Record<string, string> = {
+  ACTIVE: "Active",
+  PENDING_RENEWAL: "Pending Renewal",
+  EXPIRED: "Expired",
+  CANCELLED: "Cancelled",
+};
+
+export const INSURANCE_PREMIUM_FREQUENCY_LABELS: Record<string, string> = {
+  ANNUAL: "Annual",
+  SEMI_ANNUAL: "Semi-Annual",
+  QUARTERLY: "Quarterly",
+  MONTHLY: "Monthly",
+  ONE_TIME: "One-Time",
+};
+
+export const INSURANCE_DOCUMENT_TYPE_LABELS: Record<string, string> = {
+  POLICY_SCHEDULE: "Policy Schedule",
+  CERTIFICATE: "Certificate",
+  ENDORSEMENT: "Endorsement",
+  CLAIM: "Claim",
+  RENEWAL_NOTICE: "Renewal Notice",
+  OTHER: "Other",
+};

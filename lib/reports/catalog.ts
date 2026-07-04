@@ -137,6 +137,15 @@ export const REPORT_CATALOG: ReportDefinition[] = [
     supportsDateRange: false,
   },
   {
+    id: "insurance-register",
+    title: "Insurance Register",
+    description: "Insurance policies with premiums, expiry dates, and linked assets.",
+    category: "registers",
+    requiredModules: ["INSURANCE"],
+    supportsEntityFilter: true,
+    supportsDateRange: false,
+  },
+  {
     id: "bank-accounts",
     title: "Bank Accounts",
     description: "Registered bank accounts across entities.",
