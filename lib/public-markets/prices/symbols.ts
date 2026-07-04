@@ -27,8 +27,36 @@ export function isMsxEodPriceSupported(market: PublicMarket): boolean {
   return market === "MSX";
 }
 
-export function hasAutomaticPriceRefresh(market: PublicMarket): boolean {
-  return isYahooPriceSupported(market) || isMsxEodPriceSupported(market);
+export function isUaeDfmEodPriceSupported(
+  market: PublicMarket,
+  exchange?: string | null,
+): boolean {
+  return market === "UAE" && !isUaeAdxExchange(exchange);
+}
+
+export function isExchangeEodPriceSupported(
+  market: PublicMarket,
+  exchange?: string | null,
+): boolean {
+  return isMsxEodPriceSupported(market) || isUaeDfmEodPriceSupported(market, exchange);
+}
+
+export function getExchangeEodPriceSource(market: PublicMarket): string | null {
+  switch (market) {
+    case "MSX":
+      return "MSX_EOD";
+    case "UAE":
+      return "DFM_EOD";
+    default:
+      return null;
+  }
+}
+
+export function hasAutomaticPriceRefresh(
+  market: PublicMarket,
+  exchange?: string | null,
+): boolean {
+  return isYahooPriceSupported(market) || isExchangeEodPriceSupported(market, exchange);
 }
 
 function padHongKongSymbol(symbol: string): string {
@@ -59,7 +87,7 @@ function indiaSuffix(exchange?: string | null): string {
   return ".NS";
 }
 
-function isUaeAdxExchange(exchange?: string | null): boolean {
+export function isUaeAdxExchange(exchange?: string | null): boolean {
   const normalizedExchange = exchange?.toUpperCase() ?? "";
   return (
     normalizedExchange.includes("ADX") ||

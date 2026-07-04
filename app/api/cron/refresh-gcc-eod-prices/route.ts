@@ -27,7 +27,7 @@ export async function GET(request: Request) {
       {
         ok: false,
         job: "refresh-gcc-eod-prices",
-        error: error instanceof Error ? error.message : "MSX price refresh failed.",
+        error: error instanceof Error ? error.message : "GCC EOD price refresh failed.",
       },
       { status: 500 },
     );

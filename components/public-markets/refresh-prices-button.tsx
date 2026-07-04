@@ -61,7 +61,7 @@ export function RefreshPricesButton({
         disabled={pending || disabled}
       >
         <RefreshCw className={`mr-2 h-4 w-4 ${pending ? "animate-spin" : ""}`} />
-        {pending ? "Refreshing..." : market === "MSX" ? "Refresh MSX Prices" : "Refresh Live Prices"}
+        {pending ? "Refreshing..." : market === "MSX" ? "Refresh MSX Prices" : market === "UAE" ? "Refresh Prices" : "Refresh Live Prices"}
       </Button>
       {message ? <p className="text-xs text-green-700">{message}</p> : null}
       {error ? <p className="text-xs text-destructive">{error}</p> : null}
