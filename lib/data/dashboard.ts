@@ -92,6 +92,14 @@ export type DashboardPendingProposal = {
   submittedBy: { firstName: string | null; lastName: string | null; email: string };
 };
 
+export type AllocationSlice = {
+  category: string;
+  label: string;
+  count: number;
+  amountOmr: number;
+  percentage: number;
+};
+
 export type DashboardSummary = {
   portfolioTotals: CurrencyTotal[];
   liabilityTotals: CurrencyTotal[];
@@ -101,6 +109,7 @@ export type DashboardSummary = {
   activeAssetCount: number;
   reminderCount: number;
   categoryBreakdown: CategoryBreakdown[];
+  allocationSlices: AllocationSlice[];
   moduleSummaries: ModuleSummary[];
   reminders: DashboardReminder[];
   recentExits: DashboardRecentExit[];
@@ -149,6 +158,38 @@ async function consolidateMapToOmr(map: Map<string, number>): Promise<number> {
     total += await convertToOmr(amount, currency);
   }
   return total;
+}
+
+function categoryLabel(category: string): string {
+  return category.startsWith("custom:")
+    ? category.slice("custom:".length)
+    : (ASSET_CATEGORY_LABELS[category] ?? category);
+}
+
+async function buildAllocationSlices(
+  categoryMap: Map<string, { count: number; totals: Map<string, number> }>,
+  portfolioTotalOmr: number,
+): Promise<AllocationSlice[]> {
+  const slices = await Promise.all(
+    [...categoryMap.entries()].map(async ([category, data]) => {
+      const amountOmr = await consolidateMapToOmr(data.totals);
+      return {
+        category,
+        label: categoryLabel(category),
+        count: data.count,
+        amountOmr,
+        percentage: 0,
+      };
+    }),
+  );
+
+  return slices
+    .filter((slice) => slice.amountOmr > 0)
+    .map((slice) => ({
+      ...slice,
+      percentage: portfolioTotalOmr > 0 ? (slice.amountOmr / portfolioTotalOmr) * 100 : 0,
+    }))
+    .sort((a, b) => b.amountOmr - a.amountOmr);
 }
 
 function liabilityEntityFilter(ctx: UserContext) {
@@ -1010,6 +1051,19 @@ export async function getDashboardSummary(ctx: UserContext): Promise<DashboardSu
   const liabilityTotals = mapToTotals(liabilityMap);
   const portfolioTotalOmr = await consolidateMapToOmr(portfolioMap);
   const liabilityTotalOmr = await consolidateMapToOmr(liabilityMap);
+  const categoryBreakdown = [...categoryMap.entries()]
+    .map(([category, data]) => ({
+      category,
+      label: categoryLabel(category),
+      count: data.count,
+      totals: mapToTotals(data.totals),
+    }))
+    .sort((a, b) => {
+      const aTotal = a.totals.reduce((sum, t) => sum + t.amount, 0);
+      const bTotal = b.totals.reduce((sum, t) => sum + t.amount, 0);
+      return bTotal - aTotal;
+    });
+  const allocationSlices = await buildAllocationSlices(categoryMap, portfolioTotalOmr);
 
   return {
     portfolioTotals,
@@ -1019,20 +1073,8 @@ export async function getDashboardSummary(ctx: UserContext): Promise<DashboardSu
     netWorthTotalOmr: portfolioTotalOmr - liabilityTotalOmr,
     activeAssetCount,
     reminderCount: reminders.length,
-    categoryBreakdown: [...categoryMap.entries()]
-      .map(([category, data]) => ({
-        category,
-        label: category.startsWith("custom:")
-          ? category.slice("custom:".length)
-          : (ASSET_CATEGORY_LABELS[category] ?? category),
-        count: data.count,
-        totals: mapToTotals(data.totals),
-      }))
-      .sort((a, b) => {
-        const aTotal = a.totals.reduce((sum, t) => sum + t.amount, 0);
-        const bTotal = b.totals.reduce((sum, t) => sum + t.amount, 0);
-        return bTotal - aTotal;
-      }),
+    categoryBreakdown,
+    allocationSlices,
     moduleSummaries,
     reminders: reminders.slice(0, 12),
     recentExits,

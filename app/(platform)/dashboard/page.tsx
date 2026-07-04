@@ -7,6 +7,7 @@ import { formatDate, formatMoney } from "@/lib/format";
 import { getDashboardSummary } from "@/lib/data/dashboard";
 import { requireModuleAccess } from "@/lib/permissions/access";
 import { DashboardWealthCards } from "@/components/dashboard/dashboard-wealth-cards";
+import { DashboardAssetAllocationChart } from "@/components/dashboard/dashboard-asset-allocation-chart";
 import { EXIT_TYPE_LABELS } from "@/lib/labels";
 import { formatUserName } from "@/lib/proposals/users";
 import {
@@ -87,8 +88,8 @@ export default async function DashboardPage() {
         <div className="grid gap-4 lg:grid-cols-3">
           <Card className="lg:col-span-2">
             <CardHeader>
-              <CardTitle>Portfolio Overview</CardTitle>
-              <CardDescription>Value breakdown by asset class</CardDescription>
+              <CardTitle>Asset Allocation</CardTitle>
+              <CardDescription>Portfolio breakdown by asset class</CardDescription>
             </CardHeader>
             <CardContent>
               {!hasPortfolio ? (
@@ -96,35 +97,10 @@ export default async function DashboardPage() {
                   No asset values recorded yet. Register assets, lands, or cars to populate this view.
                 </p>
               ) : (
-                <div className="space-y-4">
-                  {summary.categoryBreakdown.map((item) => {
-                    const primaryTotal = item.totals[0];
-                    const maxTotal = summary.categoryBreakdown[0]?.totals[0]?.amount ?? 1;
-                    const barWidth = primaryTotal
-                      ? Math.max(4, Math.round((primaryTotal.amount / maxTotal) * 100))
-                      : 0;
-
-                    return (
-                      <div key={item.category} className="space-y-2">
-                        <div className="flex items-center justify-between gap-4 text-sm">
-                          <div>
-                            <p className="font-medium">{item.label}</p>
-                            <p className="text-muted-foreground">{item.count} asset{item.count === 1 ? "" : "s"}</p>
-                          </div>
-                          <p className="font-medium">
-                            {item.totals.map((t) => formatMoney(t.amount, t.currency)).join(" · ")}
-                          </p>
-                        </div>
-                        <div className="h-2 rounded-full bg-muted">
-                          <div
-                            className="h-2 rounded-full bg-primary transition-all"
-                            style={{ width: barWidth + "%" }}
-                          />
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
+                <DashboardAssetAllocationChart
+                  slices={summary.allocationSlices}
+                  totalOmr={summary.portfolioTotalOmr}
+                />
               )}
             </CardContent>
           </Card>
