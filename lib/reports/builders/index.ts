@@ -36,7 +36,6 @@ import {
   PROPOSAL_STATUS_LABELS,
 } from "@/lib/labels";
 import { getModulePermission, canAccess } from "@/lib/permissions/access";
-import { applyPeCarryingDelta } from "@/lib/pe/portfolio-rollup";
 import {
   assetEntityFilter,
   carEntityFilter,
@@ -48,7 +47,9 @@ import {
   loanEntityFilter,
   peCompanyEntityFilter,
   proposalEntityFilter,
+  cashBankAccountFilter,
 } from "@/lib/permissions/scoped-queries";
+import { getCashSummary } from "@/lib/data/cash-management";
 import type { UserContext } from "@/lib/permissions/types";
 import {
   convertToOmr,
@@ -60,6 +61,7 @@ import {
   toNumber,
   weightedValue,
 } from "@/lib/reports/helpers";
+import { getPortfolioRollup } from "@/lib/portfolio/rollup";
 import type { ReportId, ReportParams, ReportResult } from "@/lib/reports/types";
 
 const COUNTABLE_ASSET_STATUSES = ["ACTIVE", "MONITOR"] as const;
@@ -83,58 +85,24 @@ function liabilityEntityFilter(ctx: UserContext) {
   return assetEntityFilter(ctx);
 }
 
+function bankAccountsReportFilter(ctx: UserContext) {
+  const assetsLevel = getModulePermission(ctx, "ASSETS");
+  if (assetsLevel === "FULL" || assetsLevel === "READ") return {};
+  if (assetsLevel === "FILTERED") return { entityId: { in: ctx.entityIds } };
+  return cashBankAccountFilter(ctx);
+}
+
 export async function buildNetWorthReport(
   ctx: UserContext,
   params: ReportParams,
 ): Promise<ReportResult> {
   const entityName = await resolveEntityName(params.entityId);
-  const assets = await db.asset.findMany({
-    where: {
-      ...entityWhere(params.entityId, assetEntityFilter(ctx)),
-      status: { in: [...COUNTABLE_ASSET_STATUSES] },
-    },
-    select: { id: true, currentValue: true, currency: true, ownershipPct: true },
-  });
+  const rollup = await getPortfolioRollup(ctx, { entityId: params.entityId });
 
-  const liabilities = await db.liability.findMany({
-    where: {
-      ...entityWhere(params.entityId, liabilityEntityFilter(ctx)),
-      status: "ACTIVE",
-    },
-    select: { amount: true, outstandingBalance: true, currency: true },
-  });
-
-  const portfolioMap = new Map<string, number>();
-  const liabilityMap = new Map<string, number>();
-  const assetValuesById = new Map<string, number>();
-
-  for (const asset of assets) {
-    const value = weightedValue(asset.currentValue, asset.ownershipPct);
-    assetValuesById.set(asset.id, value);
-    if (value > 0) {
-      portfolioMap.set(asset.currency, (portfolioMap.get(asset.currency) ?? 0) + value);
-    }
-  }
-
-  if (canAccess(ctx, "PRIVATE_EQUITY")) {
-    await ensurePeSchema();
-    const peCompanies = await listPeCompanies(ctx, params.entityId);
-    applyPeCarryingDelta(peCompanies, assetValuesById, (currency, delta) => {
-      portfolioMap.set(currency, (portfolioMap.get(currency) ?? 0) + delta);
-    });
-  }
-
-  for (const liability of liabilities) {
-    const balance = toNumber(liability.outstandingBalance) ?? toNumber(liability.amount) ?? 0;
-    if (balance > 0) {
-      liabilityMap.set(liability.currency, (liabilityMap.get(liability.currency) ?? 0) + balance);
-    }
-  }
-
-  const currencies = new Set([...portfolioMap.keys(), ...liabilityMap.keys()]);
+  const currencies = new Set([...rollup.portfolioMap.keys(), ...rollup.liabilityMap.keys()]);
   const rows = [...currencies].sort().map((currency) => {
-    const portfolio = portfolioMap.get(currency) ?? 0;
-    const liability = liabilityMap.get(currency) ?? 0;
+    const portfolio = rollup.portfolioMap.get(currency) ?? 0;
+    const liability = rollup.liabilityMap.get(currency) ?? 0;
     return {
       currency,
       portfolio: formatAmount(portfolio, currency),
@@ -143,8 +111,12 @@ export async function buildNetWorthReport(
     };
   });
 
-  const totalPortfolio = [...portfolioMap.values()].reduce((sum, v) => sum + v, 0);
-  const totalLiabilities = [...liabilityMap.values()].reduce((sum, v) => sum + v, 0);
+  const liabilities = await db.liability.count({
+    where: {
+      ...entityWhere(params.entityId, assetEntityFilter(ctx)),
+      status: "ACTIVE",
+    },
+  });
 
   return {
     ...baseResult(
@@ -154,8 +126,8 @@ export async function buildNetWorthReport(
       entityName,
     ),
     metrics: [
-      { label: "Asset count", value: assets.length.toString() },
-      { label: "Liability count", value: liabilities.length.toString() },
+      { label: "Asset count", value: rollup.assetCount.toString() },
+      { label: "Liability count", value: liabilities.toString() },
       {
         label: "Currencies",
         value: currencies.size.toString(),
@@ -170,11 +142,17 @@ export async function buildNetWorthReport(
     ],
     rows,
     footnotes: [
-      "Portfolio values are ownership-adjusted.",
+      "Portfolio values are ownership-adjusted and include synced bank balances from Cash Management.",
       "Private equity carrying values use the latest fair value, or invested capital when no valuation is recorded.",
       "Multi-currency totals are not summed without FX conversion — use Consolidated Net Worth (OMR) for a single-currency view.",
     ],
   };
+}
+
+function allocationCategoryLabel(categoryKey: string): string {
+  return categoryKey.startsWith("custom:")
+    ? categoryKey.slice("custom:".length)
+    : (ASSET_CATEGORY_LABELS[categoryKey] ?? categoryKey);
 }
 
 export async function buildConsolidatedOmrReport(
@@ -182,57 +160,20 @@ export async function buildConsolidatedOmrReport(
   params: ReportParams,
 ): Promise<ReportResult> {
   const entityName = await resolveEntityName(params.entityId);
-  const assets = await db.asset.findMany({
-    where: {
-      ...entityWhere(params.entityId, assetEntityFilter(ctx)),
-      status: { in: [...COUNTABLE_ASSET_STATUSES] },
-    },
-    select: { id: true, currentValue: true, currency: true, ownershipPct: true, category: true },
-  });
-
-  const liabilities = await db.liability.findMany({
-    where: {
-      ...entityWhere(params.entityId, liabilityEntityFilter(ctx)),
-      status: "ACTIVE",
-    },
-    select: { amount: true, outstandingBalance: true, currency: true },
-  });
-
-  let portfolioOmr = 0;
-  let liabilitiesOmr = 0;
+  const rollup = await getPortfolioRollup(ctx, { entityId: params.entityId });
   const categoryTotals = new Map<string, number>();
-  const assetValuesById = new Map<string, number>();
 
-  for (const asset of assets) {
-    const value = weightedValue(asset.currentValue, asset.ownershipPct);
-    assetValuesById.set(asset.id, value);
-    if (value <= 0) continue;
-    const omr = await convertToOmr(value, asset.currency);
-    portfolioOmr += omr;
-    const label = ASSET_CATEGORY_LABELS[asset.category] ?? asset.category;
-    categoryTotals.set(label, (categoryTotals.get(label) ?? 0) + omr);
-  }
-
-  if (canAccess(ctx, "PRIVATE_EQUITY")) {
-    await ensurePeSchema();
-    const peCompanies = await listPeCompanies(ctx, params.entityId);
-    const peDeltas: Array<{ currency: string; amount: number }> = [];
-    applyPeCarryingDelta(peCompanies, assetValuesById, (currency, delta) => {
-      peDeltas.push({ currency, amount: delta });
-    });
-    for (const { currency, amount } of peDeltas) {
-      const omr = await convertToOmr(amount, currency);
-      portfolioOmr += omr;
-      const label = ASSET_CATEGORY_LABELS.PRIVATE_EQUITY;
-      categoryTotals.set(label, (categoryTotals.get(label) ?? 0) + omr);
+  for (const [categoryKey, entry] of rollup.categoryMap) {
+    const label = allocationCategoryLabel(categoryKey);
+    let amountOmr = 0;
+    for (const [currency, amount] of entry.totals) {
+      amountOmr += await convertToOmr(amount, currency);
     }
+    categoryTotals.set(label, (categoryTotals.get(label) ?? 0) + amountOmr);
   }
 
-  for (const liability of liabilities) {
-    const balance = toNumber(liability.outstandingBalance) ?? toNumber(liability.amount) ?? 0;
-    if (balance <= 0) continue;
-    liabilitiesOmr += await convertToOmr(balance, liability.currency);
-  }
+  const portfolioOmr = rollup.portfolioTotalOmr;
+  const liabilitiesOmr = rollup.liabilityTotalOmr;
 
   const rows = [...categoryTotals.entries()]
     .sort((a, b) => b[1] - a[1])
@@ -255,7 +196,7 @@ export async function buildConsolidatedOmrReport(
     metrics: [
       { label: "Portfolio (OMR)", value: formatAmount(portfolioOmr, "OMR") },
       { label: "Liabilities (OMR)", value: formatAmount(liabilitiesOmr, "OMR") },
-      { label: "Net Worth (OMR)", value: formatAmount(portfolioOmr - liabilitiesOmr, "OMR") },
+      { label: "Net Worth (OMR)", value: formatAmount(rollup.netWorthTotalOmr, "OMR") },
     ],
     columns: [
       { key: "category", label: "Category" },
@@ -264,8 +205,9 @@ export async function buildConsolidatedOmrReport(
     ],
     rows,
     footnotes: [
-      "FX rates from FxRate table when available, otherwise fallback rates.",
-      "Portfolio values are ownership-adjusted before conversion.",
+      "Includes synced bank balances from Cash Management under the Cash category.",
+      "Private equity carrying values use the latest fair value, or invested capital when no valuation is recorded.",
+      "FX conversion uses the latest stored rates.",
     ],
   };
 }
@@ -326,35 +268,17 @@ export async function buildAssetAllocationReport(
   params: ReportParams,
 ): Promise<ReportResult> {
   const entityName = await resolveEntityName(params.entityId);
-  const assets = await db.asset.findMany({
-    where: {
-      ...entityWhere(params.entityId, assetEntityFilter(ctx)),
-      status: { in: [...COUNTABLE_ASSET_STATUSES] },
-    },
-    select: { id: true, category: true, currentValue: true, currency: true, ownershipPct: true },
-  });
-
+  const rollup = await getPortfolioRollup(ctx, { entityId: params.entityId });
   const totals = new Map<string, { count: number; value: number; currency: string }>();
-  const assetValuesById = new Map<string, number>();
 
-  for (const asset of assets) {
-    const label = ASSET_CATEGORY_LABELS[asset.category] ?? asset.category;
-    const value = weightedValue(asset.currentValue, asset.ownershipPct);
-    assetValuesById.set(asset.id, value);
-    const entry = totals.get(label) ?? { count: 0, value: 0, currency: asset.currency };
-    entry.count += 1;
-    entry.value += value;
-    totals.set(label, entry);
-  }
-
-  if (canAccess(ctx, "PRIVATE_EQUITY")) {
-    await ensurePeSchema();
-    const peCompanies = await listPeCompanies(ctx, params.entityId);
-    applyPeCarryingDelta(peCompanies, assetValuesById, (currency, delta) => {
-      const label = ASSET_CATEGORY_LABELS.PRIVATE_EQUITY;
-      const entry = totals.get(label) ?? { count: 0, value: 0, currency };
-      entry.value += delta;
-      totals.set(label, entry);
+  for (const [categoryKey, entry] of rollup.categoryMap) {
+    const label = allocationCategoryLabel(categoryKey);
+    const value = [...entry.totals.values()].reduce((sum, amount) => sum + amount, 0);
+    const currency = [...entry.totals.keys()][0] ?? "OMR";
+    totals.set(label, {
+      count: entry.count,
+      value,
+      currency,
     });
   }
 
@@ -378,7 +302,7 @@ export async function buildAssetAllocationReport(
     ),
     metrics: [
       { label: "Categories", value: totals.size.toString() },
-      { label: "Total assets", value: assets.length.toString() },
+      { label: "Total assets", value: rollup.assetCount.toString() },
     ],
     columns: [
       { key: "category", label: "Category" },
@@ -389,6 +313,7 @@ export async function buildAssetAllocationReport(
     rows,
     footnotes: [
       "Allocation uses native currency per category; not FX-converted.",
+      "Includes synced bank balances from Cash Management under the Cash category.",
       "Private equity carrying values use the latest fair value, or invested capital when no valuation is recorded.",
     ],
   };
@@ -1201,37 +1126,101 @@ export async function buildContactsDirectoryReport(
   };
 }
 
+export async function buildCashBalancesReport(
+  ctx: UserContext,
+  params: ReportParams,
+): Promise<ReportResult> {
+  const entityName = await resolveEntityName(params.entityId);
+  const summary = await getCashSummary(ctx);
+  const accounts = params.entityId
+    ? summary.accounts.filter((account) => account.entityId === params.entityId)
+    : summary.accounts;
+
+  const rows = accounts.map((account) => ({
+    entity: account.entityName ?? "—",
+    bankName: account.bankName,
+    accountName: account.accountName,
+    currency: account.currency,
+    balance:
+      account.currentBalance != null
+        ? formatAmount(account.currentBalance, account.currency)
+        : "—",
+    balanceAsOf: account.balanceAsOf ? formatDateValue(account.balanceAsOf) : "—",
+    omrEquivalent:
+      account.balanceOmr != null ? formatAmount(account.balanceOmr, "OMR") : "—",
+    stale: account.isStale ? "Yes" : "No",
+  }));
+
+  const totalOmr = accounts.reduce((sum, account) => sum + (account.balanceOmr ?? 0), 0);
+  const staleCount = accounts.filter((account) => account.isStale).length;
+
+  return {
+    ...baseResult(
+      "cash-balances",
+      "Cash & Bank Balances",
+      "Bank account balances with OMR equivalents and balance dates.",
+      entityName,
+    ),
+    metrics: [
+      { label: "Accounts", value: accounts.length.toString() },
+      { label: "Total (OMR)", value: formatAmount(totalOmr, "OMR") },
+      { label: "Stale balances", value: staleCount.toString() },
+    ],
+    columns: [
+      { key: "entity", label: "Entity" },
+      { key: "bankName", label: "Bank" },
+      { key: "accountName", label: "Account" },
+      { key: "currency", label: "Currency" },
+      { key: "balance", label: "Balance", align: "right" },
+      { key: "balanceAsOf", label: "Balance As Of" },
+      { key: "omrEquivalent", label: "OMR Equivalent", align: "right" },
+      { key: "stale", label: "Stale" },
+    ],
+    rows,
+    footnotes: [
+      "Balances are recorded via Cash Management.",
+      "Stale balances have not been updated within the configured freshness window.",
+    ],
+  };
+}
+
 export async function buildBankAccountsReport(
   ctx: UserContext,
   params: ReportParams,
 ): Promise<ReportResult> {
   const entityName = await resolveEntityName(params.entityId);
-  const level = getModulePermission(ctx, "ASSETS");
-  const bankFilter =
-    level === "FULL" || level === "READ"
-      ? {}
-      : level === "FILTERED"
-        ? { entityId: { in: ctx.entityIds } }
-        : { id: "__none__" };
 
   const accounts = await db.bankAccount.findMany({
     where: {
-      ...bankFilter,
+      ...bankAccountsReportFilter(ctx),
       ...(params.entityId ? { entityId: params.entityId } : {}),
     },
     include: { entity: { select: { name: true } } },
     orderBy: [{ entity: { name: "asc" } }, { bankName: "asc" }],
   });
 
-  const rows = accounts.map((account) => ({
-    entity: account.entity?.name ?? "—",
-    bankName: account.bankName,
-    accountName: account.accountName,
-    accountNumber: account.accountNumber ?? "—",
-    iban: account.iban ?? "—",
-    currency: account.currency,
-    swiftCode: account.swiftCode ?? "—",
-  }));
+  const rows = await Promise.all(
+    accounts.map(async (account) => {
+      const balance = toNumber(account.currentBalance);
+      const balanceOmr =
+        balance != null ? await convertToOmr(balance, account.currency) : null;
+
+      return {
+        entity: account.entity?.name ?? "—",
+        bankName: account.bankName,
+        accountName: account.accountName,
+        accountNumber: account.accountNumber ?? "—",
+        iban: account.iban ?? "—",
+        currency: account.currency,
+        swiftCode: account.swiftCode ?? "—",
+        balance: balance != null ? formatAmount(balance, account.currency) : "—",
+        balanceAsOf: account.balanceAsOf ? formatDateValue(account.balanceAsOf) : "—",
+        omrEquivalent: balanceOmr != null ? formatAmount(balanceOmr, "OMR") : "—",
+      };
+    }),
+  );
+
+  const withBalance = accounts.filter((account) => account.currentBalance != null).length;
 
   return {
     ...baseResult(
@@ -1240,7 +1229,10 @@ export async function buildBankAccountsReport(
       "Registered bank accounts across entities.",
       entityName,
     ),
-    metrics: [{ label: "Accounts", value: accounts.length.toString() }],
+    metrics: [
+      { label: "Accounts", value: accounts.length.toString() },
+      { label: "With balance", value: withBalance.toString() },
+    ],
     columns: [
       { key: "entity", label: "Entity" },
       { key: "bankName", label: "Bank" },
@@ -1248,10 +1240,13 @@ export async function buildBankAccountsReport(
       { key: "accountNumber", label: "Account #" },
       { key: "iban", label: "IBAN" },
       { key: "currency", label: "Currency" },
+      { key: "balance", label: "Balance", align: "right" },
+      { key: "balanceAsOf", label: "Balance As Of" },
+      { key: "omrEquivalent", label: "OMR Equivalent", align: "right" },
       { key: "swiftCode", label: "SWIFT" },
     ],
     rows,
-    footnotes: ["Reference list only — balances are not tracked."],
+    footnotes: ["Balances shown when recorded via Cash Management."],
   };
 }
 

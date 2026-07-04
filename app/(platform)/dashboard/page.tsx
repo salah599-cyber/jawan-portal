@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { formatDate, formatMoney } from "@/lib/format";
 import { getDashboardSummary } from "@/lib/data/dashboard";
-import { requireModuleAccess } from "@/lib/permissions/access";
+import { canAccess, requireModuleAccess } from "@/lib/permissions/access";
 import { DashboardWealthCards } from "@/components/dashboard/dashboard-wealth-cards";
 import { DashboardAssetAllocationChart } from "@/components/dashboard/dashboard-asset-allocation-chart";
 import { DashboardPerformanceCards } from "@/components/dashboard/dashboard-performance-cards";
@@ -53,6 +53,7 @@ export default async function DashboardPage() {
 
   const hasPortfolio = summary.portfolioTotalOmr > 0;
   const hasLiabilities = summary.liabilityTotals.length > 0;
+  const includesCashBalances = canAccess(ctx, "CASH_MANAGEMENT");
 
   return (
     <>
@@ -64,6 +65,7 @@ export default async function DashboardPage() {
             netWorthTotalOmr={summary.netWorthTotalOmr}
             hasPortfolio={hasPortfolio}
             hasLiabilities={hasLiabilities}
+            includesCashBalances={includesCashBalances}
           />
           <MetricCard
             label="Active Assets"
@@ -95,7 +97,10 @@ export default async function DashboardPage() {
           <Card className="lg:col-span-2">
             <CardHeader>
               <CardTitle>Asset Allocation</CardTitle>
-              <CardDescription>Portfolio breakdown by asset class</CardDescription>
+              <CardDescription>
+                Portfolio breakdown by asset class
+                {includesCashBalances ? " · includes synced bank balances" : ""}
+              </CardDescription>
             </CardHeader>
             <CardContent>
               {!hasPortfolio ? (
@@ -106,6 +111,7 @@ export default async function DashboardPage() {
                 <DashboardAssetAllocationChart
                   slices={summary.allocationSlices}
                   totalOmr={summary.portfolioTotalOmr}
+                  includesCashBalances={includesCashBalances}
                 />
               )}
             </CardContent>
