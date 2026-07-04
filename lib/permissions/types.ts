@@ -17,7 +17,9 @@ export type ModuleName =
   | "CASH_MANAGEMENT"
   | "CALENDAR"
   | "USERS"
-  | "AUDIT";
+  | "AUDIT"
+  | "FAMILY_MEMBERS"
+  | "SUCCESSION";
 
 export type PermissionLevel = "FULL" | "READ" | "FILTERED" | "NONE" | "SHARED_ONLY";
 

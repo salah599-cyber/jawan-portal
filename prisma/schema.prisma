@@ -43,6 +43,8 @@ enum ModuleName {
   CALENDAR
   USERS
   AUDIT
+  FAMILY_MEMBERS
+  SUCCESSION
 }
 
 enum LandDocumentType {
@@ -276,6 +278,7 @@ model User {
   assignedTasks       Task[]                   @relation("TaskAssignee")
   createdTasks        Task[]                   @relation("TaskCreator")
   completedTasks      Task[]                   @relation("TaskCompleter")
+  familyMember        FamilyMember?            @relation("FamilyMemberUser")
   createdAt           DateTime                 @default(now())
   updatedAt           DateTime                 @updatedAt
 }
@@ -340,6 +343,10 @@ model Entity {
   insurancePolicies   InsurancePolicy[]
   reProperties        ReProperty[]
   tasks               Task[]
+  familyOwnershipStakes FamilyOwnershipStake[]
+  familySignatoryRoles  FamilySignatoryRole[]
+  successionPlans       SuccessionPlan[]
+  successionDistributionInstructions SuccessionDistributionInstruction[]
   userAccess   UserEntityAccess[]
   createdAt    DateTime           @default(now())
   updatedAt    DateTime           @updatedAt
@@ -421,6 +428,10 @@ model Asset {
   lpCommitment      LpCommitment?
   reProperty        ReProperty?
   exit            AssetExit?
+  familyOwnershipStakes FamilyOwnershipStake[]
+  familySignatoryRoles  FamilySignatoryRole[]
+  beneficiaryDesignations BeneficiaryDesignation[]
+  successionDistributionInstructions SuccessionDistributionInstruction[]
   createdAt       DateTime              @default(now())
   updatedAt       DateTime              @updatedAt
   @@index([entityId, category, status])
@@ -481,6 +492,9 @@ model LandParcel {
   sale             LandSale?
   reProperty       ReProperty?
   insurancePolicies InsurancePolicy[]
+  familyOwnershipStakes FamilyOwnershipStake[]
+  beneficiaryDesignations BeneficiaryDesignation[]
+  successionDistributionInstructions SuccessionDistributionInstruction[]
   createdAt        DateTime       @default(now())
   updatedAt        DateTime       @updatedAt
   @@index([entityId, country, status])
@@ -585,6 +599,10 @@ model Vehicle {
   asset                  Asset?            @relation(fields: [assetId], references: [id])
   documents              VehicleDocument[]
   insurancePolicies      InsurancePolicy[]
+  familyOwnershipStakes FamilyOwnershipStake[]
+  familySignatoryRoles  FamilySignatoryRole[]
+  beneficiaryDesignations BeneficiaryDesignation[]
+  successionDistributionInstructions SuccessionDistributionInstruction[]
   createdAt              DateTime          @default(now())
   updatedAt              DateTime          @updatedAt
   @@index([entityId, governorate, status])
@@ -628,6 +646,10 @@ model RegisteredCompany {
   owners                 CompanyOwner[]
   documents              CompanyDocument[]
   insurancePolicies      InsurancePolicy[]
+  familyOwnershipStakes FamilyOwnershipStake[]
+  familySignatoryRoles  FamilySignatoryRole[]
+  beneficiaryDesignations BeneficiaryDesignation[]
+  successionDistributionInstructions SuccessionDistributionInstruction[]
   createdAt              DateTime            @default(now())
   updatedAt              DateTime            @updatedAt
 
@@ -1772,6 +1794,9 @@ model ReProperty {
   expenses                RePropertyExpense[]
   documents               RePropertyDocument[]
   insurancePolicies       InsurancePolicy[]
+  familyOwnershipStakes FamilyOwnershipStake[]
+  beneficiaryDesignations BeneficiaryDesignation[]
+  successionDistributionInstructions SuccessionDistributionInstruction[]
   createdAt               DateTime            @default(now())
   updatedAt               DateTime            @updatedAt
 
@@ -2272,6 +2297,7 @@ model InsurancePolicy {
   registeredCompany     RegisteredCompany?        @relation(fields: [registeredCompanyId], references: [id], onDelete: SetNull)
   notes                 String?
   documents             InsurancePolicyDocument[]
+  beneficiaryDesignations BeneficiaryDesignation[]
   createdAt             DateTime                  @default(now())
   updatedAt             DateTime                  @updatedAt
 
@@ -2295,4 +2321,330 @@ model InsurancePolicyDocument {
   createdAt    DateTime              @default(now())
 
   @@index([policyId, documentType])
+}
+
+// --- Family Members & Beneficiaries ---
+
+enum FamilyRelationship {
+  SPOUSE
+  CHILD
+  PARENT
+  SIBLING
+  GRANDCHILD
+  OTHER
+}
+
+enum FamilyMemberIdType {
+  OMANI_ID
+  PASSPORT
+  RESIDENCE_CARD
+  OTHER
+}
+
+enum FamilyKycStatus {
+  NOT_STARTED
+  IN_PROGRESS
+  COMPLETE
+  EXPIRED
+}
+
+enum FamilyMemberDocumentType {
+  PASSPORT
+  NATIONAL_ID
+  RESIDENCE
+  PROOF_OF_ADDRESS
+  BIRTH_CERTIFICATE
+  OTHER
+}
+
+enum FamilyOwnershipStakeType {
+  ECONOMIC
+  LEGAL_TITLE
+  BENEFICIAL
+}
+
+enum FamilySignatoryRoleType {
+  BANK_SIGNATORY
+  COMPANY_DIRECTOR
+  CHEQUE_SIGNATORY
+  POA_HOLDER
+  OTHER
+}
+
+enum BeneficiaryDesignationType {
+  PRIMARY
+  CONTINGENT
+  SPECIFIC_BEQUEST
+}
+
+model FamilyMember {
+  id                    String                  @id @default(cuid())
+  fullName              String
+  preferredName         String?
+  dateOfBirth           DateTime?
+  nationality           String?
+  relationship          FamilyRelationship?
+  idType                FamilyMemberIdType?
+  idNumber              String?
+  idExpiryDate          DateTime?
+  kycStatus             FamilyKycStatus         @default(NOT_STARTED)
+  kycNotes              String?
+  email                 String?
+  phonePrimary          String?
+  phoneSecondary        String?
+  address               String?
+  emergencyContactName  String?
+  emergencyContactPhone String?
+  isBeneficiary         Boolean                 @default(false)
+  deceased              Boolean                 @default(false)
+  dateOfDeath           DateTime?
+  userId                String?                 @unique
+  user                  User?                   @relation("FamilyMemberUser", fields: [userId], references: [id], onDelete: SetNull)
+  notes                 String?
+  documents             FamilyMemberDocument[]
+  ownershipStakes       FamilyOwnershipStake[]
+  signatoryRoles        FamilySignatoryRole[]
+  beneficiaryDesignations BeneficiaryDesignation[]
+  successionAppointments SuccessionAppointment[]
+  successionDistributionsAsBeneficiary SuccessionDistributionInstruction[] @relation("SuccessionBeneficiary")
+  createdAt             DateTime                @default(now())
+  updatedAt             DateTime                @updatedAt
+
+  @@index([fullName])
+  @@index([kycStatus])
+  @@index([isBeneficiary])
+}
+
+model FamilyMemberDocument {
+  id             String                   @id @default(cuid())
+  familyMemberId String
+  familyMember   FamilyMember             @relation(fields: [familyMemberId], references: [id], onDelete: Cascade)
+  documentType   FamilyMemberDocumentType @default(OTHER)
+  fileName       String
+  fileUrl        String
+  mimeType       String
+  fileSize       Int
+  expiryDate     DateTime?
+  notes          String?
+  uploadedById   String?
+  createdAt      DateTime                 @default(now())
+
+  @@index([familyMemberId, documentType])
+}
+
+model FamilyOwnershipStake {
+  id                  String                   @id @default(cuid())
+  familyMemberId      String
+  familyMember        FamilyMember             @relation(fields: [familyMemberId], references: [id], onDelete: Cascade)
+  entityId            String?
+  entity              Entity?                  @relation(fields: [entityId], references: [id], onDelete: SetNull)
+  assetId             String?
+  asset               Asset?                   @relation(fields: [assetId], references: [id], onDelete: SetNull)
+  landParcelId        String?
+  landParcel          LandParcel?              @relation(fields: [landParcelId], references: [id], onDelete: SetNull)
+  registeredCompanyId String?
+  registeredCompany   RegisteredCompany?       @relation(fields: [registeredCompanyId], references: [id], onDelete: SetNull)
+  rePropertyId        String?
+  reProperty          ReProperty?              @relation(fields: [rePropertyId], references: [id], onDelete: SetNull)
+  vehicleId           String?
+  vehicle             Vehicle?                 @relation(fields: [vehicleId], references: [id], onDelete: SetNull)
+  stakeType           FamilyOwnershipStakeType @default(ECONOMIC)
+  ownershipPct        Decimal?                 @db.Decimal(5, 2)
+  roleLabel           String?
+  notes               String?
+  sortOrder           Int                      @default(0)
+  createdAt           DateTime                 @default(now())
+  updatedAt           DateTime                 @updatedAt
+
+  @@index([familyMemberId])
+  @@index([entityId])
+}
+
+model FamilySignatoryRole {
+  id                  String                  @id @default(cuid())
+  familyMemberId      String
+  familyMember        FamilyMember            @relation(fields: [familyMemberId], references: [id], onDelete: Cascade)
+  entityId            String
+  entity              Entity                  @relation(fields: [entityId], references: [id])
+  registeredCompanyId String?
+  registeredCompany   RegisteredCompany?      @relation(fields: [registeredCompanyId], references: [id], onDelete: SetNull)
+  assetId             String?
+  asset               Asset?                  @relation(fields: [assetId], references: [id], onDelete: SetNull)
+  vehicleId           String?
+  vehicle             Vehicle?                @relation(fields: [vehicleId], references: [id], onDelete: SetNull)
+  roleType            FamilySignatoryRoleType @default(OTHER)
+  bankName            String?
+  accountRef          String?
+  effectiveFrom       DateTime?
+  effectiveTo         DateTime?
+  isActive            Boolean                 @default(true)
+  notes               String?
+  sortOrder           Int                     @default(0)
+  createdAt           DateTime                @default(now())
+  updatedAt           DateTime                @updatedAt
+
+  @@index([familyMemberId])
+  @@index([entityId])
+}
+
+model BeneficiaryDesignation {
+  id                  String                     @id @default(cuid())
+  familyMemberId      String
+  familyMember        FamilyMember               @relation(fields: [familyMemberId], references: [id], onDelete: Cascade)
+  insurancePolicyId   String?
+  insurancePolicy     InsurancePolicy?           @relation(fields: [insurancePolicyId], references: [id], onDelete: SetNull)
+  assetId             String?
+  asset               Asset?                     @relation(fields: [assetId], references: [id], onDelete: SetNull)
+  landParcelId        String?
+  landParcel          LandParcel?                @relation(fields: [landParcelId], references: [id], onDelete: SetNull)
+  registeredCompanyId String?
+  registeredCompany   RegisteredCompany?         @relation(fields: [registeredCompanyId], references: [id], onDelete: SetNull)
+  rePropertyId        String?
+  reProperty          ReProperty?                @relation(fields: [rePropertyId], references: [id], onDelete: SetNull)
+  vehicleId           String?
+  vehicle             Vehicle?                   @relation(fields: [vehicleId], references: [id], onDelete: SetNull)
+  designationType     BeneficiaryDesignationType @default(PRIMARY)
+  allocationPct       Decimal?                   @db.Decimal(5, 2)
+  effectiveDate       DateTime?
+  notes               String?
+  sortOrder           Int                        @default(0)
+  createdAt           DateTime                   @default(now())
+  updatedAt           DateTime                   @updatedAt
+
+  @@index([familyMemberId])
+}
+
+// --- Succession & Estate Planning ---
+
+enum SuccessionPlanStatus {
+  DRAFT
+  IN_PROGRESS
+  REVIEW_DUE
+  COMPLETE
+}
+
+enum SuccessionAppointmentRole {
+  EXECUTOR
+  TRUSTEE
+  GUARDIAN
+  POA_AGENT
+  ADVISOR
+}
+
+enum SuccessionDocumentType {
+  WILL
+  TRUST_DEED
+  LETTER_OF_WISHES
+  POA
+  LIVING_WILL
+  OTHER
+}
+
+enum SuccessionDocumentStatus {
+  DRAFT
+  SIGNED
+  FILED
+  MISSING
+}
+
+model SuccessionPlan {
+  id                    String                            @id @default(cuid())
+  title                 String
+  status                SuccessionPlanStatus              @default(DRAFT)
+  entityId              String?
+  entity                Entity?                           @relation(fields: [entityId], references: [id], onDelete: SetNull)
+  generalInstructions   String?
+  incapacitationNotes   String?
+  lastReviewDate        DateTime?
+  nextReviewDate        DateTime?
+  notes                 String?
+  distributionInstructions SuccessionDistributionInstruction[]
+  appointments          SuccessionAppointment[]
+  documents             SuccessionPlanDocument[]
+  checklistItems        SuccessionChecklistItem[]
+  createdAt             DateTime                          @default(now())
+  updatedAt             DateTime                          @updatedAt
+
+  @@index([status])
+  @@index([nextReviewDate])
+}
+
+model SuccessionDistributionInstruction {
+  id                   String         @id @default(cuid())
+  successionPlanId     String
+  successionPlan       SuccessionPlan @relation(fields: [successionPlanId], references: [id], onDelete: Cascade)
+  beneficiaryMemberId  String?
+  beneficiaryMember    FamilyMember?  @relation("SuccessionBeneficiary", fields: [beneficiaryMemberId], references: [id], onDelete: SetNull)
+  entityId             String?
+  entity               Entity?        @relation(fields: [entityId], references: [id], onDelete: SetNull)
+  assetId              String?
+  asset                Asset?         @relation(fields: [assetId], references: [id], onDelete: SetNull)
+  landParcelId         String?
+  landParcel           LandParcel?    @relation(fields: [landParcelId], references: [id], onDelete: SetNull)
+  registeredCompanyId  String?
+  registeredCompany    RegisteredCompany? @relation(fields: [registeredCompanyId], references: [id], onDelete: SetNull)
+  rePropertyId         String?
+  reProperty           ReProperty?    @relation(fields: [rePropertyId], references: [id], onDelete: SetNull)
+  vehicleId            String?
+  vehicle              Vehicle?       @relation(fields: [vehicleId], references: [id], onDelete: SetNull)
+  allocationPct        Decimal?       @db.Decimal(5, 2)
+  allocationAmount     Decimal?       @db.Decimal(18, 2)
+  currency             String         @default("OMR")
+  instructions         String?
+  sortOrder            Int            @default(0)
+  createdAt            DateTime       @default(now())
+  updatedAt            DateTime       @updatedAt
+
+  @@index([successionPlanId])
+}
+
+model SuccessionAppointment {
+  id               String                    @id @default(cuid())
+  successionPlanId String
+  successionPlan   SuccessionPlan            @relation(fields: [successionPlanId], references: [id], onDelete: Cascade)
+  familyMemberId   String
+  familyMember     FamilyMember              @relation(fields: [familyMemberId], references: [id], onDelete: Cascade)
+  role             SuccessionAppointmentRole
+  isPrimary        Boolean                   @default(false)
+  notes            String?
+  sortOrder        Int                       @default(0)
+  createdAt        DateTime                  @default(now())
+  updatedAt        DateTime                  @updatedAt
+
+  @@index([successionPlanId])
+}
+
+model SuccessionPlanDocument {
+  id               String                   @id @default(cuid())
+  successionPlanId String
+  successionPlan   SuccessionPlan           @relation(fields: [successionPlanId], references: [id], onDelete: Cascade)
+  documentType     SuccessionDocumentType   @default(OTHER)
+  status           SuccessionDocumentStatus @default(MISSING)
+  fileName         String?
+  fileUrl          String?
+  mimeType         String?
+  fileSize         Int?
+  signedDate       DateTime?
+  jurisdiction     String?
+  notes            String?
+  uploadedById     String?
+  createdAt        DateTime                 @default(now())
+  updatedAt        DateTime                 @updatedAt
+
+  @@index([successionPlanId, documentType])
+}
+
+model SuccessionChecklistItem {
+  id               String         @id @default(cuid())
+  successionPlanId String
+  successionPlan   SuccessionPlan @relation(fields: [successionPlanId], references: [id], onDelete: Cascade)
+  label            String
+  category         String?
+  isComplete       Boolean        @default(false)
+  dueDate          DateTime?
+  sortOrder        Int            @default(0)
+  createdAt        DateTime       @default(now())
+  updatedAt        DateTime       @updatedAt
+
+  @@index([successionPlanId])
 }

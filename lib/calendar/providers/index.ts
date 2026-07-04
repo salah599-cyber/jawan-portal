@@ -9,6 +9,8 @@ import { getLoanCalendarItems } from "@/lib/calendar/providers/loans";
 import { getPeMonitoringCalendarItems } from "@/lib/calendar/providers/pe-monitoring";
 import { getLpCapitalCallCalendarItems } from "@/lib/calendar/providers/lp-capital-calls";
 import { getInsuranceCalendarItems } from "@/lib/calendar/providers/insurance";
+import { getFamilyKycCalendarItems } from "@/lib/calendar/providers/family";
+import { getSuccessionCalendarItems } from "@/lib/calendar/providers/succession";
 import { getProposalCalendarItems } from "@/lib/calendar/providers/proposals";
 import { getRealEstateCalendarItems } from "@/lib/calendar/providers/real-estate";
 import { getVehicleCalendarItems } from "@/lib/calendar/providers/vehicles";
@@ -25,6 +27,8 @@ export async function getSystemCalendarItems(ctx: UserContext): Promise<Calendar
     getPeMonitoringCalendarItems(ctx),
     getLpCapitalCallCalendarItems(ctx),
     getInsuranceCalendarItems(ctx),
+    getFamilyKycCalendarItems(ctx),
+    getSuccessionCalendarItems(ctx),
     getProposalCalendarItems(ctx),
     getCashCalendarItems(ctx),
   ]);

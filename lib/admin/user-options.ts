@@ -21,6 +21,8 @@ export const MANAGEABLE_MODULES: { module: ModuleName; label: string }[] = [
   { module: "CALENDAR", label: "Calendar & Tasks" },
   { module: "USERS", label: "Users" },
   { module: "AUDIT", label: "Audit Log" },
+  { module: "FAMILY_MEMBERS", label: "Family Members & Beneficiaries" },
+  { module: "SUCCESSION", label: "Succession & Estate Planning" },
 ];
 
 export const USER_ROLE_OPTIONS: { value: UserRole; label: string }[] = [

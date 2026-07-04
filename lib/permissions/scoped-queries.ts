@@ -99,6 +99,18 @@ export function expenseEntityFilter(ctx: UserContext) {
   return { id: "__none__" };
 }
 
+export function familyMemberFilter(ctx: UserContext) {
+  const level = getModulePermission(ctx, "FAMILY_MEMBERS");
+  if (level === "FULL") return {};
+  return { id: "__none__" };
+}
+
+export function successionPlanFilter(ctx: UserContext) {
+  const level = getModulePermission(ctx, "SUCCESSION");
+  if (level === "FULL") return {};
+  return { id: "__none__" };
+}
+
 export function reportsEntityFilter(ctx: UserContext) {
   const level = getModulePermission(ctx, "REPORTS");
   if (level === "FULL" || level === "READ") return {};

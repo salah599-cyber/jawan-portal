@@ -11,6 +11,8 @@ export default async function PlatformLayout({ children }: { children: React.Rea
   const showCalendar = ctx ? canAccess(ctx, "CALENDAR") : false;
   const showDocumentsVault = ctx ? canAccess(ctx, "DOCUMENTS") : false;
   const showInsuranceRegister = ctx ? canAccess(ctx, "INSURANCE") : false;
+  const showFamilyMembers = ctx ? canAccess(ctx, "FAMILY_MEMBERS") : false;
+  const showSuccession = ctx ? canAccess(ctx, "SUCCESSION") : false;
 
   return (
     <SidebarProvider>
@@ -20,6 +22,8 @@ export default async function PlatformLayout({ children }: { children: React.Rea
         showCalendar={showCalendar}
         showDocumentsVault={showDocumentsVault}
         showInsuranceRegister={showInsuranceRegister}
+        showFamilyMembers={showFamilyMembers}
+        showSuccession={showSuccession}
       />
       <SidebarInset className="flex min-h-svh flex-col">{children}</SidebarInset>
     </SidebarProvider>
