@@ -1,3 +1,4 @@
+import { formatDate } from "@/lib/format";
 import { db } from "@/lib/db";
 import { getModulePermission } from "@/lib/permissions/access";
 import type { UserContext } from "@/lib/permissions/types";
@@ -38,7 +39,7 @@ export function formatAmount(value: number | null | undefined, currency = ""): s
 
 export function formatDateValue(value: Date | null | undefined): string {
   if (!value) return "—";
-  return value.toLocaleDateString("en-GB");
+  return formatDate(value);
 }
 
 export async function resolveEntityName(entityId?: string): Promise<string | undefined> {

@@ -1,4 +1,5 @@
 import type { CalendarItemKind } from "@/lib/calendar/types";
+import { formatDateUtc } from "@/lib/format";
 
 export type CalendarViewMode = "today" | "week" | "month" | "list";
 export type CalendarView = CalendarViewMode;
@@ -75,14 +76,7 @@ export function formatMonthLabel(date: Date): string {
 export function formatWeekRangeLabel(anchor: Date): string {
   const start = startOfWeek(anchor);
   const end = endOfWeek(anchor);
-  const startLabel = start.toLocaleDateString("en-GB", { day: "numeric", month: "short", timeZone: "UTC" });
-  const endLabel = end.toLocaleDateString("en-GB", {
-    day: "numeric",
-    month: "short",
-    year: start.getUTCFullYear() === end.getUTCFullYear() ? undefined : "numeric",
-    timeZone: "UTC",
-  });
-  return `${startLabel} – ${endLabel}`;
+  return `${formatDateUtc(start)} – ${formatDateUtc(end)}`;
 }
 
 export function weekDateKeys(anchor: Date): string[] {

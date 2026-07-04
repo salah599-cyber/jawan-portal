@@ -1,6 +1,7 @@
 import { formatWeekRangeLabel } from "@/lib/calendar/date-ranges";
 import { CalendarItemRow } from "@/components/calendar/calendar-item-row";
 import type { CalendarItem } from "@/lib/calendar/types";
+import { formatDateUtc } from "@/lib/format";
 
 export function CalendarWeekView({
   anchorDate,
@@ -21,12 +22,7 @@ export function CalendarWeekView({
       <div className="space-y-6">
         {orderedDates.map((dateKey) => {
           const items = itemsByDate[dateKey] ?? [];
-          const label = new Date(`${dateKey}T12:00:00.000Z`).toLocaleDateString("en-GB", {
-            weekday: "long",
-            day: "numeric",
-            month: "short",
-            timeZone: "UTC",
-          });
+          const label = formatDateUtc(new Date(`${dateKey}T12:00:00.000Z`));
 
           return (
             <section key={dateKey}>
