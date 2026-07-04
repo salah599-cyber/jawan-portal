@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { db } from "@/lib/db";
 import { logAudit } from "@/lib/audit/log";
+import { recordAssetValuation } from "@/lib/portfolio/valuations";
 import { parseAssetCategorySelection } from "@/lib/assets/category-display";
 import { createCustomAssetType, resolveCustomAssetType } from "@/lib/data/asset-types";
 import { canWrite, requireModuleAccess } from "@/lib/permissions/access";
@@ -297,6 +298,17 @@ export async function updateAsset(id: string, input: CreateAssetInput) {
     resourceId: id,
     metadata: { name: updated.name },
   });
+
+  if (currentValue) {
+    const value = parseFloat(currentValue);
+    if (!Number.isNaN(value) && value > 0) {
+      await recordAssetValuation({
+        assetId: id,
+        value,
+        currency: updated.currency,
+      });
+    }
+  }
 
   revalidatePath("/assets");
   revalidatePath("/assets/" + id + "/edit");

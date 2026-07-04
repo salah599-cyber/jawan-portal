@@ -1,5 +1,6 @@
 import { db } from "@/lib/db";
 import type { LpCommitmentStatus } from "@/lib/generated/prisma/client";
+import { recordAssetValuation } from "@/lib/portfolio/valuations";
 import { computeLpCommitmentMetrics } from "@/lib/lp/metrics";
 import { sumDecimals, toNumber } from "@/lib/lp/helpers";
 import { LP_PATH } from "@/lib/lp/constants";
@@ -60,6 +61,15 @@ export async function syncLpCommitmentAsset(commitmentId: string) {
           : null,
     },
   });
+
+  if (metrics.carryingValue > 0) {
+    await recordAssetValuation({
+      assetId: commitment.assetId,
+      value: metrics.carryingValue,
+      currency: commitment.commitmentCurrency,
+      valuedAt: metrics.latestNavDate ?? new Date(),
+    });
+  }
 }
 
 export async function refreshLpCapitalCallStatuses(commitmentId: string) {

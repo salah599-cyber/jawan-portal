@@ -1,5 +1,6 @@
 import { db } from "@/lib/db";
 import type { PeCompanyStatus } from "@/lib/generated/prisma/client";
+import { recordAssetValuation } from "@/lib/portfolio/valuations";
 import { sumDecimals, toNumber } from "./helpers";
 import { getPeCarryingValue } from "./valuation";
 
@@ -56,6 +57,15 @@ export async function syncPeCompanyAsset(companyId: string) {
       exitedAt: company.exit?.exitDate ?? (company.status === "EXITED" ? new Date() : null),
     },
   });
+
+  if (carryingValue > 0) {
+    await recordAssetValuation({
+      assetId: company.assetId,
+      value: carryingValue,
+      currency: company.reportingCurrency,
+      valuedAt: latestValuation?.valuationDate ?? new Date(),
+    });
+  }
 }
 
 export { PE_PATH };

@@ -7,6 +7,7 @@ import { revalidatePath } from "next/cache";
 import { db } from "@/lib/db";
 import { deleteBlobUrl } from "@/lib/blob";
 import { logAudit } from "@/lib/audit/log";
+import { recordAssetValuation } from "@/lib/portfolio/valuations";
 import { canWrite, requireModuleAccess } from "@/lib/permissions/access";
 import { landEntityFilter } from "@/lib/permissions/scoped-queries";
 import type { AssetStatus, LandDocumentType, LandLocationType, LandSaleDocumentType } from "@/lib/generated/prisma/client";
@@ -313,6 +314,18 @@ export async function createLand(formData: FormData) {
     },
   });
 
+  if (currentValue) {
+    const value = parseFloat(currentValue);
+    if (!Number.isNaN(value) && value > 0) {
+      await recordAssetValuation({
+        assetId: asset.id,
+        value,
+        currency,
+        valuedAt: acquisitionDate ?? new Date(),
+      });
+    }
+  }
+
   const land = await db.landParcel.create({
     data: {
       name,
@@ -614,6 +627,17 @@ export async function updateLand(id: string, formData: FormData) {
         },
       },
     });
+
+    if (currentValue) {
+      const value = parseFloat(currentValue);
+      if (!Number.isNaN(value) && value > 0) {
+        await recordAssetValuation({
+          assetId: land.assetId,
+          value,
+          currency,
+        });
+      }
+    }
   }
 
   await replaceLandHolders(id, holders);
