@@ -17,6 +17,11 @@ import type { ParseReportResult } from "@/lib/public-markets/types";
 
 const MARKET_BROKERS: Record<PublicMarket, BrokerSignature[]> = {
   MSX: [],
+  UAE: [],
+  SAUDI_ARABIA: [],
+  KUWAIT: [],
+  BAHRAIN: [],
+  QATAR: [],
   USA: US_BROKER_SIGNATURES,
   HONG_KONG: HK_BROKER_SIGNATURES,
   CHINA: CHINA_BROKER_SIGNATURES,

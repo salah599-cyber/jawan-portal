@@ -339,6 +339,11 @@ export const REPORT_CATEGORY_LABELS: Record<string, string> = {
 
 export const PUBLIC_MARKET_LABELS: Record<string, string> = {
   MSX: "MSX",
+  UAE: "UAE",
+  SAUDI_ARABIA: "Saudi Arabia",
+  KUWAIT: "Kuwait",
+  BAHRAIN: "Bahrain",
+  QATAR: "Qatar",
   USA: "USA",
   HONG_KONG: "Hong Kong",
   CHINA: "China",

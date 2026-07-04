@@ -1,6 +1,7 @@
 import { Client } from "pg";
 import {
   isIgnorablePublicMarketsSchemaError,
+  PUBLIC_MARKETS_ENUM_EXPANSION_STATEMENTS,
   PUBLIC_MARKETS_SCHEMA_COLUMN_CHECK_SQL,
   PUBLIC_MARKETS_SCHEMA_STATEMENTS,
 } from "@/lib/db/public-markets-schema-statements";
@@ -22,6 +23,18 @@ async function publicMarketsColumnExists(client: Client): Promise<boolean> {
   return Boolean(result.rows[0]?.exists);
 }
 
+async function runStatements(client: Client, statements: string[]) {
+  for (const statement of statements) {
+    try {
+      await client.query(statement);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      if (isIgnorablePublicMarketsSchemaError(message)) continue;
+      throw new Error(`Public markets schema statement failed: ${message}`);
+    }
+  }
+}
+
 async function applyPublicMarketsSchema() {
   const connectionString = getDatabaseUrl();
   if (!connectionString) {
@@ -32,24 +45,16 @@ async function applyPublicMarketsSchema() {
   await client.connect();
 
   try {
-    if (await publicMarketsColumnExists(client)) {
-      return;
-    }
-
-    for (const statement of PUBLIC_MARKETS_SCHEMA_STATEMENTS) {
-      try {
-        await client.query(statement);
-      } catch (error) {
-        const message = error instanceof Error ? error.message : String(error);
-        if (isIgnorablePublicMarketsSchemaError(message)) continue;
-        throw new Error(`Public markets schema statement failed: ${message}`);
-      }
-    }
+    await runStatements(client, PUBLIC_MARKETS_ENUM_EXPANSION_STATEMENTS);
 
     if (!(await publicMarketsColumnExists(client))) {
-      throw new Error(
-        "Public markets schema sync finished but PublicEquityHolding.priceFetchedAt is still missing.",
-      );
+      await runStatements(client, PUBLIC_MARKETS_SCHEMA_STATEMENTS);
+
+      if (!(await publicMarketsColumnExists(client))) {
+        throw new Error(
+          "Public markets schema sync finished but PublicEquityHolding.priceFetchedAt is still missing.",
+        );
+      }
     }
   } finally {
     await client.end();

@@ -9,6 +9,7 @@ import type { BrokerReportFile, ImportFileResult } from "@/lib/public-markets/ty
 import type { UserContext } from "@/lib/permissions/types";
 import { normalizeAndFormatHoldingValues } from "@/lib/public-markets/valuation";
 import { refreshPublicMarketPrices } from "@/lib/public-markets/refresh-prices";
+import { isYahooPriceSupported } from "@/lib/public-markets/prices/symbols";
 
 export async function ensurePortfolioAsset(entityId: string, market: PublicMarket) {
   const config = MARKET_CONFIG[market];
@@ -168,7 +169,7 @@ export async function importBrokerReportsForEntity(
 
   await refreshAssetValue(asset.id);
 
-  if (market !== "MSX") {
+  if (isYahooPriceSupported(market)) {
     try {
       await refreshPublicMarketPrices({ entityId, market });
     } catch {

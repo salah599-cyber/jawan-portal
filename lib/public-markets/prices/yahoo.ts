@@ -51,6 +51,18 @@ async function fetchChartQuote(requestedSymbol: string): Promise<YahooQuote | nu
   };
 }
 
+/** Yahoo returns Kuwait prices in fils (KWF); normalize to KWD for portfolio storage. */
+export function normalizeYahooQuote(quote: YahooQuote): YahooQuote {
+  if (quote.currency === "KWF") {
+    return {
+      ...quote,
+      price: quote.price / 1000,
+      currency: "KWD",
+    };
+  }
+  return quote;
+}
+
 async function mapWithConcurrency<T, R>(
   items: T[],
   limit: number,
@@ -79,7 +91,8 @@ export async function fetchYahooQuotes(symbols: string[]): Promise<Map<string, Y
 
   const fetched = await mapWithConcurrency(uniqueSymbols, CONCURRENCY, async (symbol) => {
     try {
-      return await fetchChartQuote(symbol);
+      const quote = await fetchChartQuote(symbol);
+      return quote ? normalizeYahooQuote(quote) : null;
     } catch {
       return null;
     }

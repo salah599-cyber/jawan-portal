@@ -8,6 +8,11 @@ const SKIP_ROW_PATTERN = /\b(total|grand\s*total|sub\s*total|summary|portfolio\s
 
 const SYMBOL_PATTERNS: Record<PublicMarket, RegExp> = {
   MSX: /^[A-Z]{2,6}$/,
+  UAE: /^[A-Z0-9]{1,12}$/,
+  SAUDI_ARABIA: /^[0-9]{4}$/,
+  KUWAIT: /^[A-Z0-9]{1,12}$/,
+  BAHRAIN: /^[A-Z0-9]{1,12}$/,
+  QATAR: /^[A-Z0-9]{1,12}$/,
   USA: /^[A-Z]{1,5}(\.[A-Z])?$/,
   HONG_KONG: /^[0-9]{4,5}$/,
   CHINA: /^[0-9]{6}$/,
@@ -54,7 +59,13 @@ function cleanSymbol(value: string, market: PublicMarket): string | undefined {
     .replace(/\.SZ$/, "")
     .replace(/\.NS$/, "")
     .replace(/\.BO$/, "")
-    .replace(/\.L$/, "");
+    .replace(/\.L$/, "")
+    .replace(/\.SR$/, "")
+    .replace(/\.AE$/, "")
+    .replace(/\.KW$/, "")
+    .replace(/\.QA$/, "")
+    .replace(/\.BH$/, "")
+    .replace(/\.SAU$/, "");
 
   if (market === "HONG_KONG" && /^\d+$/.test(symbol)) {
     return symbol.padStart(4, "0");

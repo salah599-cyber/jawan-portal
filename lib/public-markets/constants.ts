@@ -2,6 +2,11 @@ import type { PublicMarket } from "@/lib/generated/prisma/client";
 
 export type PublicMarketSlug =
   | "MSX"
+  | "AE"
+  | "SA"
+  | "KW"
+  | "BH"
+  | "QA"
   | "USA"
   | "HK"
   | "CN"
@@ -27,6 +32,11 @@ export const MSX_PORTFOLIO_ASSET_NAME = "MSX Portfolio";
 
 export const PUBLIC_MARKET_ORDER: PublicMarket[] = [
   "MSX",
+  "UAE",
+  "SAUDI_ARABIA",
+  "KUWAIT",
+  "BAHRAIN",
+  "QATAR",
   "USA",
   "HONG_KONG",
   "CHINA",
@@ -47,6 +57,66 @@ export const MARKET_CONFIG: Record<PublicMarket, MarketConfig> = {
     exchange: "MSX",
     description: "Oman listed equities via local brokerage statements.",
     marketDataUrl: "https://www.msx.om",
+  },
+  UAE: {
+    market: "UAE",
+    slug: "AE",
+    label: "United Arab Emirates",
+    shortLabel: "UAE",
+    assetName: "Public Markets — UAE",
+    currency: "AED",
+    country: "United Arab Emirates",
+    exchange: "DFM/ADX",
+    description: "UAE listed equities from Dubai (DFM) and Abu Dhabi (ADX). Yahoo live prices cover DFM only.",
+    marketDataUrl: "https://www.dfm.ae",
+  },
+  SAUDI_ARABIA: {
+    market: "SAUDI_ARABIA",
+    slug: "SA",
+    label: "Saudi Arabia",
+    shortLabel: "Saudi",
+    assetName: "Public Markets — Saudi Arabia",
+    currency: "SAR",
+    country: "Saudi Arabia",
+    exchange: "Tadawul",
+    description: "Saudi listed equities from Tadawul with Yahoo live price refresh.",
+    marketDataUrl: "https://www.saudiexchange.sa",
+  },
+  KUWAIT: {
+    market: "KUWAIT",
+    slug: "KW",
+    label: "Kuwait",
+    shortLabel: "Kuwait",
+    assetName: "Public Markets — Kuwait",
+    currency: "KWD",
+    country: "Kuwait",
+    exchange: "Boursa Kuwait",
+    description: "Kuwait listed equities from Boursa Kuwait with Yahoo live price refresh.",
+    marketDataUrl: "https://www.boursakuwait.com.kw",
+  },
+  BAHRAIN: {
+    market: "BAHRAIN",
+    slug: "BH",
+    label: "Bahrain",
+    shortLabel: "Bahrain",
+    assetName: "Public Markets — Bahrain",
+    currency: "BHD",
+    country: "Bahrain",
+    exchange: "Bahrain Bourse",
+    description: "Bahrain listed equities via broker imports. Yahoo live prices are not available.",
+    marketDataUrl: "https://www.bahrainbourse.com",
+  },
+  QATAR: {
+    market: "QATAR",
+    slug: "QA",
+    label: "Qatar",
+    shortLabel: "Qatar",
+    assetName: "Public Markets — Qatar",
+    currency: "QAR",
+    country: "Qatar",
+    exchange: "QSE",
+    description: "Qatar listed equities from Qatar Stock Exchange with partial Yahoo live price coverage.",
+    marketDataUrl: "https://www.qe.com.qa",
   },
   USA: {
     market: "USA",
@@ -117,6 +187,11 @@ export const MARKET_CONFIG: Record<PublicMarket, MarketConfig> = {
 
 const SLUG_TO_MARKET: Record<PublicMarketSlug, PublicMarket | null> = {
   MSX: "MSX",
+  AE: "UAE",
+  SA: "SAUDI_ARABIA",
+  KW: "KUWAIT",
+  BH: "BAHRAIN",
+  QA: "QATAR",
   USA: "USA",
   HK: "HONG_KONG",
   CN: "CHINA",
@@ -138,6 +213,19 @@ export function slugFromMarket(market: PublicMarket): PublicMarketSlug {
 
 export function isAllMarketsSlug(slug?: string | null): boolean {
   return slug?.toUpperCase() === "ALL";
+}
+
+export function getMarketPricingNote(market: PublicMarket): string | null {
+  switch (market) {
+    case "MSX":
+      return "Live prices via Yahoo are not available for MSX-listed stocks; import broker statements for current prices.";
+    case "BAHRAIN":
+      return "Live Yahoo prices are not available for Bahrain-listed stocks; use broker imports or manual prices.";
+    case "UAE":
+      return "Yahoo live prices cover Dubai (DFM) listings only. Abu Dhabi (ADX) holdings require broker imports or manual prices.";
+    default:
+      return null;
+  }
 }
 
 export const COLUMN_ALIASES: Record<string, string[]> = {

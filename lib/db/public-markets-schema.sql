@@ -1,7 +1,7 @@
 -- Public Markets schema extensions (idempotent ALTERs for existing deployments)
 -- Runtime/build sync executes statements from public-markets-schema-statements.ts
 
-CREATE TYPE "PublicMarket" AS ENUM ('MSX', 'USA', 'HONG_KONG', 'CHINA', 'INDIA', 'UK', 'OTHER');
+CREATE TYPE "PublicMarket" AS ENUM ('MSX', 'UAE', 'SAUDI_ARABIA', 'KUWAIT', 'BAHRAIN', 'QATAR', 'USA', 'HONG_KONG', 'CHINA', 'INDIA', 'UK', 'OTHER');
 CREATE TYPE "PublicHoldingSource" AS ENUM ('IMPORT', 'MANUAL');
 
 ALTER TABLE "PublicEquityHolding" ADD COLUMN IF NOT EXISTS "market" "PublicMarket" NOT NULL DEFAULT 'MSX';

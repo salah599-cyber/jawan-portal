@@ -38,7 +38,7 @@ export function RefreshPricesButton({
         } else {
           setMessage(
             `Updated ${result.updated} holding${result.updated === 1 ? "" : "s"}` +
-              (result.skipped > 0 ? ` · ${result.skipped} MSX skipped` : "") +
+              (result.skipped > 0 ? ` · ${result.skipped} non-Yahoo skipped` : "") +
               (result.failed > 0 ? ` · ${result.failed} failed` : ""),
           );
         }

@@ -11,6 +11,11 @@ const FALLBACK_RATES_TO_OMR: Record<string, number> = {
   INR: 0.0046,
   GBP: 0.49,
   EUR: 0.42,
+  SAR: 0.103,
+  AED: 0.105,
+  KWD: 1.25,
+  BHD: 1.02,
+  QAR: 0.106,
 };
 
 export async function getRateToOmr(fromCurrency: string): Promise<number> {

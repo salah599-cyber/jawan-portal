@@ -81,6 +81,11 @@ enum CompanyDocumentType {
 
 enum PublicMarket {
   MSX
+  UAE
+  SAUDI_ARABIA
+  KUWAIT
+  BAHRAIN
+  QATAR
   USA
   HONG_KONG
   CHINA
