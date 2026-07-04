@@ -1,12 +1,11 @@
+import { selectExchangeEodQuotes, type ExchangeEodQuote } from "@/lib/public-markets/prices/eod";
+
 const MSX_MARKET_TICKER_URL = "https://www.msx.om/api.aspx/MarketTicker";
 const USER_AGENT =
   "Mozilla/5.0 (compatible; JawanPortal/1.0; +https://github.com/salah599-cyber/jawan-portal)";
 
-export type MsxQuote = {
-  symbol: string;
-  closePrice: number;
+export type MsxQuote = ExchangeEodQuote & {
   ltp: number;
-  currency: "OMR";
 };
 
 type MsxMarketTickerRow = {
@@ -39,7 +38,7 @@ function rowToQuote(row: MsxMarketTickerRow): MsxQuote | null {
     closePrice: closePrice ?? price,
     ltp: ltp ?? price,
     currency: "OMR",
-  };
+  } satisfies MsxQuote;
 }
 
 /** Fetches all listed MSX securities from the official MarketTicker endpoint. */
@@ -72,23 +71,10 @@ export async function fetchMsxMarketTicker(): Promise<Map<string, MsxQuote>> {
 }
 
 export async function fetchMsxEodQuotes(symbols: string[]): Promise<Map<string, MsxQuote>> {
-  const uniqueSymbols = [
-    ...new Set(symbols.map((symbol) => symbol.trim().toUpperCase()).filter(Boolean)),
-  ];
-
-  if (uniqueSymbols.length === 0) {
+  if (symbols.length === 0) {
     return new Map();
   }
 
   const allQuotes = await fetchMsxMarketTicker();
-  const selected = new Map<string, MsxQuote>();
-
-  for (const symbol of uniqueSymbols) {
-    const quote = allQuotes.get(symbol);
-    if (quote) {
-      selected.set(symbol, quote);
-    }
-  }
-
-  return selected;
+  return selectExchangeEodQuotes(allQuotes, symbols) as Map<string, MsxQuote>;
 }

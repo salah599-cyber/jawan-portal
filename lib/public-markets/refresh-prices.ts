@@ -2,11 +2,15 @@ import { db } from "@/lib/db";
 import type { PublicMarket } from "@/lib/generated/prisma/client";
 import { ensurePublicMarketsSchema } from "@/lib/db/ensure-public-markets-schema";
 import { normalizeAndFormatHoldingValues } from "@/lib/public-markets/valuation";
+import { fetchDfmEodQuotes } from "@/lib/public-markets/prices/dfm";
 import { fetchMsxEodQuotes } from "@/lib/public-markets/prices/msx";
 import { fetchYahooQuotes } from "@/lib/public-markets/prices/yahoo";
 import {
+  getExchangeEodPriceSource,
   hasAutomaticPriceRefresh,
+  isExchangeEodPriceSupported,
   isMsxEodPriceSupported,
+  isUaeDfmEodPriceSupported,
   isYahooPriceSupported,
   toYahooSymbol,
 } from "@/lib/public-markets/prices/symbols";
@@ -30,6 +34,13 @@ type HoldingForRefresh = {
   costBasis: { toString(): string } | null;
 };
 
+type RefreshSliceResult = {
+  updated: number;
+  failed: number;
+  assetIds: Set<string>;
+  updatedHoldingIds: Set<string>;
+};
+
 function toNumber(value: { toString(): string } | null | undefined): number {
   if (value == null) return 0;
   const num = parseFloat(value.toString());
@@ -41,6 +52,7 @@ async function applyQuoteToHolding(
   marketPrice: number,
   priceSource: string,
   assetIds: Set<string>,
+  updatedHoldingIds: Set<string>,
 ): Promise<boolean> {
   const quantity = toNumber(holding.quantity);
   const { decimals } = normalizeAndFormatHoldingValues(
@@ -68,13 +80,14 @@ async function applyQuoteToHolding(
     });
 
     assetIds.add(holding.assetId);
+    updatedHoldingIds.add(holding.id);
     return true;
   } catch {
     return false;
   }
 }
 
-async function refreshYahooHoldings(holdings: HoldingForRefresh[]) {
+async function refreshYahooHoldings(holdings: HoldingForRefresh[]): Promise<RefreshSliceResult> {
   const refreshable = holdings.filter((holding) => isYahooPriceSupported(holding.market));
   const yahooSymbolByHoldingId = new Map<string, string>();
 
@@ -98,6 +111,7 @@ async function refreshYahooHoldings(holdings: HoldingForRefresh[]) {
   }
 
   const assetIds = new Set<string>();
+  const updatedHoldingIds = new Set<string>();
   let updated = 0;
   let failed = 0;
 
@@ -114,7 +128,13 @@ async function refreshYahooHoldings(holdings: HoldingForRefresh[]) {
       continue;
     }
 
-    const success = await applyQuoteToHolding(holding, quote.price, "YAHOO", assetIds);
+    const success = await applyQuoteToHolding(
+      holding,
+      quote.price,
+      "YAHOO",
+      assetIds,
+      updatedHoldingIds,
+    );
     if (success) {
       updated += 1;
     } else {
@@ -122,25 +142,39 @@ async function refreshYahooHoldings(holdings: HoldingForRefresh[]) {
     }
   }
 
-  return { updated, failed, assetIds };
+  return { updated, failed, assetIds, updatedHoldingIds };
 }
 
-async function refreshMsxHoldings(holdings: HoldingForRefresh[]) {
-  const refreshable = holdings.filter((holding) => isMsxEodPriceSupported(holding.market));
+async function refreshMsxEodHoldings(
+  holdings: HoldingForRefresh[],
+  updatedHoldingIds: Set<string>,
+): Promise<RefreshSliceResult> {
+  const refreshable = holdings.filter(
+    (holding) =>
+      isMsxEodPriceSupported(holding.market) && !updatedHoldingIds.has(holding.id),
+  );
   const assetIds = new Set<string>();
+  const sliceUpdatedHoldingIds = new Set<string>();
   let updated = 0;
   let failed = 0;
 
   if (refreshable.length === 0) {
-    return { updated, failed, assetIds };
+    return { updated, failed, assetIds, updatedHoldingIds: sliceUpdatedHoldingIds };
   }
 
   let quotes: Awaited<ReturnType<typeof fetchMsxEodQuotes>>;
   try {
     quotes = await fetchMsxEodQuotes(refreshable.map((holding) => holding.symbol));
   } catch {
-    return { updated: 0, failed: refreshable.length, assetIds };
+    return {
+      updated: 0,
+      failed: refreshable.length,
+      assetIds,
+      updatedHoldingIds: sliceUpdatedHoldingIds,
+    };
   }
+
+  const priceSource = getExchangeEodPriceSource("MSX") ?? "MSX_EOD";
 
   for (const holding of refreshable) {
     const quote = quotes.get(holding.symbol.trim().toUpperCase());
@@ -152,8 +186,9 @@ async function refreshMsxHoldings(holdings: HoldingForRefresh[]) {
     const success = await applyQuoteToHolding(
       holding,
       quote.closePrice,
-      "MSX_EOD",
+      priceSource,
       assetIds,
+      sliceUpdatedHoldingIds,
     );
     if (success) {
       updated += 1;
@@ -162,7 +197,89 @@ async function refreshMsxHoldings(holdings: HoldingForRefresh[]) {
     }
   }
 
-  return { updated, failed, assetIds };
+  return { updated, failed, assetIds, updatedHoldingIds: sliceUpdatedHoldingIds };
+}
+
+async function refreshUaeDfmEodHoldings(
+  holdings: HoldingForRefresh[],
+  updatedHoldingIds: Set<string>,
+): Promise<RefreshSliceResult> {
+  const refreshable = holdings.filter(
+    (holding) =>
+      isUaeDfmEodPriceSupported(holding.market, holding.exchange) &&
+      !updatedHoldingIds.has(holding.id),
+  );
+  const assetIds = new Set<string>();
+  const sliceUpdatedHoldingIds = new Set<string>();
+  let updated = 0;
+  let failed = 0;
+
+  if (refreshable.length === 0) {
+    return { updated, failed, assetIds, updatedHoldingIds: sliceUpdatedHoldingIds };
+  }
+
+  let quotes: Awaited<ReturnType<typeof fetchDfmEodQuotes>>;
+  try {
+    quotes = await fetchDfmEodQuotes(refreshable.map((holding) => holding.symbol));
+  } catch {
+    return {
+      updated: 0,
+      failed: refreshable.length,
+      assetIds,
+      updatedHoldingIds: sliceUpdatedHoldingIds,
+    };
+  }
+
+  const priceSource = getExchangeEodPriceSource("UAE") ?? "DFM_EOD";
+
+  for (const holding of refreshable) {
+    const quote = quotes.get(holding.symbol.trim().toUpperCase());
+    if (!quote) {
+      failed += 1;
+      continue;
+    }
+
+    const success = await applyQuoteToHolding(
+      holding,
+      quote.closePrice,
+      priceSource,
+      assetIds,
+      sliceUpdatedHoldingIds,
+    );
+    if (success) {
+      updated += 1;
+    } else {
+      failed += 1;
+    }
+  }
+
+  return { updated, failed, assetIds, updatedHoldingIds: sliceUpdatedHoldingIds };
+}
+
+async function refreshExchangeEodHoldings(
+  holdings: HoldingForRefresh[],
+  updatedHoldingIds: Set<string> = new Set(),
+): Promise<RefreshSliceResult> {
+  const [msxResult, uaeDfmResult] = await Promise.all([
+    refreshMsxEodHoldings(holdings, updatedHoldingIds),
+    refreshUaeDfmEodHoldings(holdings, updatedHoldingIds),
+  ]);
+
+  return {
+    updated: msxResult.updated + uaeDfmResult.updated,
+    failed: msxResult.failed + uaeDfmResult.failed,
+    assetIds: new Set([...msxResult.assetIds, ...uaeDfmResult.assetIds]),
+    updatedHoldingIds: new Set([
+      ...msxResult.updatedHoldingIds,
+      ...uaeDfmResult.updatedHoldingIds,
+    ]),
+  };
+}
+
+function countSkippedHoldings(holdings: HoldingForRefresh[]): number {
+  return holdings.filter(
+    (holding) => !hasAutomaticPriceRefresh(holding.market, holding.exchange),
+  ).length;
 }
 
 export async function refreshPublicMarketPrices(options?: {
@@ -193,23 +310,62 @@ export async function refreshPublicMarketPrices(options?: {
     },
   });
 
-  const [yahooResult, msxResult] = await Promise.all([
-    refreshYahooHoldings(holdings),
-    refreshMsxHoldings(holdings),
-  ]);
+  const yahooResult = await refreshYahooHoldings(holdings);
+  const eodResult = await refreshExchangeEodHoldings(holdings, yahooResult.updatedHoldingIds);
 
-  const assetIds = new Set<string>([...yahooResult.assetIds, ...msxResult.assetIds]);
+  const assetIds = new Set<string>([...yahooResult.assetIds, ...eodResult.assetIds]);
   await Promise.all([...assetIds].map((assetId) => refreshAssetValue(assetId)));
-
-  const refreshableCount = holdings.filter((holding) =>
-    hasAutomaticPriceRefresh(holding.market),
-  ).length;
 
   return {
     scanned: holdings.length,
-    updated: yahooResult.updated + msxResult.updated,
-    skipped: holdings.length - refreshableCount,
-    failed: yahooResult.failed + msxResult.failed,
+    updated: yahooResult.updated + eodResult.updated,
+    skipped: countSkippedHoldings(holdings),
+    failed: yahooResult.failed + eodResult.failed,
+    assetIds: [...assetIds],
+  };
+}
+
+export async function refreshGccEodPrices(options?: {
+  entityId?: string;
+  market?: PublicMarket;
+}): Promise<PriceRefreshResult> {
+  await ensurePublicMarketsSchema();
+
+  const holdings = await db.publicEquityHolding.findMany({
+    where: {
+      ...(options?.market ? { market: options.market } : {}),
+      ...(options?.entityId
+        ? {
+            asset: {
+              entityId: options.entityId,
+            },
+          }
+        : {}),
+    },
+    select: {
+      id: true,
+      assetId: true,
+      market: true,
+      symbol: true,
+      exchange: true,
+      quantity: true,
+      costBasis: true,
+    },
+  });
+
+  const eodHoldings = holdings.filter((holding) =>
+    isExchangeEodPriceSupported(holding.market, holding.exchange),
+  );
+  const eodResult = await refreshExchangeEodHoldings(eodHoldings);
+
+  const assetIds = new Set<string>([...eodResult.assetIds]);
+  await Promise.all([...assetIds].map((assetId) => refreshAssetValue(assetId)));
+
+  return {
+    scanned: holdings.length,
+    updated: eodResult.updated,
+    skipped: holdings.length - eodHoldings.length,
+    failed: eodResult.failed,
     assetIds: [...assetIds],
   };
 }
@@ -217,5 +373,5 @@ export async function refreshPublicMarketPrices(options?: {
 export async function refreshMsxEodPrices(options?: {
   entityId?: string;
 }): Promise<PriceRefreshResult> {
-  return refreshPublicMarketPrices({ ...options, market: "MSX" });
+  return refreshGccEodPrices({ ...options, market: "MSX" });
 }

@@ -219,10 +219,10 @@ export function getMarketPricingNote(market: PublicMarket): string | null {
   switch (market) {
     case "MSX":
       return "Yahoo live prices are not available for MSX. Closing prices sync automatically from msx.om after market close (Sun–Thu); you can also refresh manually or import broker statements.";
+    case "UAE":
+      return "Yahoo live prices cover Dubai (DFM) listings. DFM closing prices also sync from dfm.ae after market close. Abu Dhabi (ADX) holdings require broker imports or manual prices.";
     case "BAHRAIN":
       return "Live Yahoo prices are not available for Bahrain-listed stocks; use broker imports or manual prices.";
-    case "UAE":
-      return "Yahoo live prices cover Dubai (DFM) listings only. Abu Dhabi (ADX) holdings require broker imports or manual prices.";
     default:
       return null;
   }
