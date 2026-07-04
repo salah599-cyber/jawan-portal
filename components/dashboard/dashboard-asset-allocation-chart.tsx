@@ -21,11 +21,13 @@ const CHART_COLORS = [
 type DashboardAssetAllocationChartProps = {
   slices: AllocationSlice[];
   totalOmr: number;
+  includesCashBalances?: boolean;
 };
 
 export function DashboardAssetAllocationChart({
   slices,
   totalOmr,
+  includesCashBalances = false,
 }: DashboardAssetAllocationChartProps) {
   if (slices.length === 0) {
     return (
@@ -52,8 +54,9 @@ export function DashboardAssetAllocationChart({
   }));
 
   return (
-    <div className="flex flex-col gap-6 md:flex-row md:items-center">
-      <div className="relative mx-auto w-full max-w-[280px]">
+    <div className="space-y-3">
+      <div className="flex flex-col gap-6 md:flex-row md:items-center">
+        <div className="relative mx-auto w-full max-w-[280px]">
         <ChartContainer
           config={chartConfig}
           className="aspect-square h-[260px] w-full"
@@ -122,6 +125,12 @@ export function DashboardAssetAllocationChart({
           </li>
         ))}
       </ul>
+      </div>
+      {includesCashBalances ? (
+        <p className="text-xs text-muted-foreground">
+          Cash includes bank balances synced from Cash Management.
+        </p>
+      ) : null}
     </div>
   );
 }

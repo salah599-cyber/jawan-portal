@@ -19,7 +19,6 @@ import {
   rePropertyEntityFilter,
 } from "@/lib/permissions/scoped-queries";
 import type { UserContext } from "@/lib/permissions/types";
-import { getAssetCategoryKey } from "@/lib/assets/category-display";
 import { listPeCompanies } from "@/lib/data/pe-portfolio";
 import { ensureLpFundSchema } from "@/lib/db/ensure-lp-fund-schema";
 import { listLpCommitments } from "@/lib/data/lp-fund";
@@ -31,13 +30,13 @@ import { isExpiringWithinDays, resolvePolicyStatus } from "@/lib/insurance/helpe
 import { isExpiringWithinDays as isFamilyIdExpiring } from "@/lib/family/helpers";
 import { isFollowUpDueWithinDays } from "@/lib/contacts/helpers";
 import {
-  applyPeCarryingDelta,
   countActivePeCompanies,
   formatPeCarryingDetail,
 } from "@/lib/pe/portfolio-rollup";
 import { convertToOmr } from "@/lib/reports/helpers";
 import { ASSET_CATEGORY_LABELS } from "@/lib/labels";
 import { getPortfolioPerformance, type PortfolioPerformance } from "@/lib/portfolio/performance";
+import { getPortfolioRollup } from "@/lib/portfolio/rollup";
 
 export type { PortfolioPerformance };
 
@@ -120,24 +119,6 @@ export type DashboardSummary = {
   pendingProposals: DashboardPendingProposal[];
 };
 
-const COUNTABLE_ASSET_STATUSES = ["ACTIVE", "MONITOR"] as const;
-
-function weightedValue(
-  amount: { toString(): string } | null | undefined,
-  ownershipPct: { toString(): string },
-): number {
-  if (!amount) return 0;
-  const value = parseFloat(amount.toString());
-  const pct = parseFloat(ownershipPct.toString());
-  if (Number.isNaN(value) || Number.isNaN(pct)) return 0;
-  return (value * pct) / 100;
-}
-
-function addToCurrencyMap(map: Map<string, number>, currency: string, amount: number) {
-  if (amount <= 0) return;
-  map.set(currency, (map.get(currency) ?? 0) + amount);
-}
-
 function mapToTotals(map: Map<string, number>): CurrencyTotal[] {
   return [...map.entries()]
     .map(([currency, amount]) => ({ currency, amount }))
@@ -196,13 +177,6 @@ async function buildAllocationSlices(
     .sort((a, b) => b.amountOmr - a.amountOmr);
 }
 
-function liabilityEntityFilter(ctx: UserContext) {
-  const level = getModulePermission(ctx, "ASSETS");
-  if (level === "FULL" || level === "READ") return {};
-  if (level === "FILTERED") return { entityId: { in: ctx.entityIds } };
-  return { id: "__none__" };
-}
-
 function bankAccountFilter(ctx: UserContext) {
   const level = getModulePermission(ctx, "ASSETS");
   if (level === "FULL" || level === "READ") return {};
@@ -216,22 +190,6 @@ function daysUntil(date: Date) {
   const target = new Date(date);
   target.setHours(0, 0, 0, 0);
   return Math.ceil((target.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
-}
-
-function reconcilePePortfolioOnDashboard(
-  companies: Awaited<ReturnType<typeof listPeCompanies>>,
-  assetValuesById: Map<string, number>,
-  portfolioMap: Map<string, number>,
-  categoryMap: Map<string, { count: number; totals: Map<string, number> }>,
-) {
-  applyPeCarryingDelta(companies, assetValuesById, (currency, delta) => {
-    addToCurrencyMap(portfolioMap, currency, delta);
-
-    const categoryKey = "PRIVATE_EQUITY";
-    const entry = categoryMap.get(categoryKey) ?? { count: 0, totals: new Map<string, number>() };
-    addToCurrencyMap(entry.totals, currency, delta);
-    categoryMap.set(categoryKey, entry);
-  });
 }
 
 export async function getDashboardSummary(ctx: UserContext): Promise<DashboardSummary> {
@@ -253,44 +211,13 @@ export async function getDashboardSummary(ctx: UserContext): Promise<DashboardSu
   const assetValuesById = new Map<string, number>();
 
   if (canAccess(ctx, "ASSETS")) {
-    const assets = await db.asset.findMany({
-      where: {
-        ...assetEntityFilter(ctx),
-        status: { in: [...COUNTABLE_ASSET_STATUSES] },
-      },
-      select: {
-        id: true,
-        category: true,
-        assetType: { select: { name: true } },
-        status: true,
-        currentValue: true,
-        currency: true,
-        ownershipPct: true,
-      },
-    });
-
-    activeAssetCount = assets.filter((a) => a.status === "ACTIVE").length;
-
-    for (const asset of assets) {
-      const value = weightedValue(asset.currentValue, asset.ownershipPct);
-      assetValuesById.set(asset.id, value);
-      addToCurrencyMap(portfolioMap, asset.currency, value);
-
-      const categoryKey = getAssetCategoryKey(asset);
-      const entry = categoryMap.get(categoryKey) ?? { count: 0, totals: new Map<string, number>() };
-      entry.count += 1;
-      addToCurrencyMap(entry.totals, asset.currency, value);
-      categoryMap.set(categoryKey, entry);
-    }
-
     const bankAccountCount = await db.bankAccount.count({ where: bankAccountFilter(ctx) });
 
     moduleSummaries.push({
       module: "ASSETS",
       label: "Assets",
       href: "/assets",
-      count: assets.length,
-      detail: activeAssetCount + " active",
+      count: 0,
     });
 
     moduleSummaries.push({
@@ -299,16 +226,6 @@ export async function getDashboardSummary(ctx: UserContext): Promise<DashboardSu
       href: "/assets/bank-details",
       count: bankAccountCount,
     });
-
-    const liabilities = await db.liability.findMany({
-      where: { ...liabilityEntityFilter(ctx), status: "ACTIVE" },
-      select: { amount: true, outstandingBalance: true, currency: true },
-    });
-
-    for (const liability of liabilities) {
-      const balance = liability.outstandingBalance ?? liability.amount;
-      addToCurrencyMap(liabilityMap, liability.currency, parseFloat(balance.toString()));
-    }
 
     const exitHorizon = new Date();
     exitHorizon.setMonth(exitHorizon.getMonth() - 12);
@@ -625,10 +542,6 @@ export async function getDashboardSummary(ctx: UserContext): Promise<DashboardSu
         count: activeCount,
         detail: formatPeCarryingDetail(peCompanies) ?? (peCompanies.length > 0 ? `${peCompanies.length} companies` : undefined),
       });
-
-      if (canAccess(ctx, "ASSETS")) {
-        reconcilePePortfolioOnDashboard(peCompanies, assetValuesById, portfolioMap, categoryMap);
-      }
     } catch (error) {
       console.error("PE portfolio summary unavailable:", error);
       moduleSummaries.push({
@@ -671,19 +584,6 @@ export async function getDashboardSummary(ctx: UserContext): Promise<DashboardSu
             ? `${formatOmr(navOmr)} NAV · ${commitments.length} commitment${commitments.length === 1 ? "" : "s"}`
             : undefined,
       });
-
-      if (canAccess(ctx, "ASSETS")) {
-        for (const row of commitments) {
-          if (!row.assetId || row.latestNav == null) continue;
-          const categoryKey = "FUND_LP";
-          const entry = categoryMap.get(categoryKey) ?? { count: 0, totals: new Map<string, number>() };
-          const currency = row.commitmentCurrency;
-          const current = entry.totals.get(currency) ?? 0;
-          entry.totals.set(currency, current + row.latestNav);
-          entry.count += 1;
-          categoryMap.set(categoryKey, entry);
-        }
-      }
     } catch (error) {
       console.error("Fund LP portfolio summary unavailable:", error);
       moduleSummaries.push({
@@ -1050,6 +950,21 @@ export async function getDashboardSummary(ctx: UserContext): Promise<DashboardSu
     if (!b.date) return -1;
     return a.date.getTime() - b.date.getTime();
   });
+
+  if (canAccess(ctx, "ASSETS")) {
+    const rollup = await getPortfolioRollup(ctx);
+    rollup.portfolioMap.forEach((amount, currency) => portfolioMap.set(currency, amount));
+    rollup.liabilityMap.forEach((amount, currency) => liabilityMap.set(currency, amount));
+    rollup.categoryMap.forEach((entry, category) => categoryMap.set(category, entry));
+    rollup.assetValuesById.forEach((value, id) => assetValuesById.set(id, value));
+    activeAssetCount = rollup.activeAssetCount;
+
+    const assetsSummary = moduleSummaries.find((item) => item.module === "ASSETS");
+    if (assetsSummary) {
+      assetsSummary.count = rollup.assetCount;
+      assetsSummary.detail = `${rollup.activeAssetCount} active`;
+    }
+  }
 
   const portfolioTotals = mapToTotals(portfolioMap);
   const liabilityTotals = mapToTotals(liabilityMap);

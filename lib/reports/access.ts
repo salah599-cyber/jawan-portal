@@ -9,6 +9,10 @@ export function canRunReport(ctx: UserContext, reportId: ReportId): boolean {
   const definition = REPORT_CATALOG.find((report) => report.id === reportId);
   if (!definition) return false;
 
+  if (definition.requiredModulesAny?.length) {
+    return definition.requiredModulesAny.some((module) => canAccess(ctx, module));
+  }
+
   return definition.requiredModules.every((module) => canAccess(ctx, module));
 }
 

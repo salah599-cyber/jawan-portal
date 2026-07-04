@@ -6,6 +6,7 @@ import { logAudit } from "@/lib/audit/log";
 import { ensureCashManagementSchema } from "@/lib/db/ensure-cash-management-schema";
 import { canWrite, requireModuleAccess } from "@/lib/permissions/access";
 import { cashBankAccountFilter } from "@/lib/permissions/scoped-queries";
+import { syncBankBalancesToCashAssets } from "@/lib/portfolio/cash-sync";
 
 export type CashAccountInput = {
   accountName: string;
@@ -43,6 +44,7 @@ function assertEntityAccess(
 }
 
 function revalidateCashPaths(accountId?: string) {
+  revalidatePath("/dashboard");
   revalidatePath("/cash");
   revalidatePath("/assets/bank-details");
   if (accountId) {
@@ -204,6 +206,7 @@ export async function recordCashBalance(formData: FormData) {
     },
   });
 
+  await syncBankBalancesToCashAssets(ctx);
   revalidateCashPaths(bankAccountId);
 }
 
@@ -233,5 +236,6 @@ export async function deactivateCashAccount(id: string) {
     metadata: { action: "deactivate", accountName: account.accountName },
   });
 
+  await syncBankBalancesToCashAssets(ctx);
   revalidateCashPaths(id);
 }

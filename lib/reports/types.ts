@@ -21,6 +21,7 @@ export type ReportId =
   | "succession-status"
   | "contacts-directory"
   | "bank-accounts"
+  | "cash-balances"
   | "proposals"
   | "valuation-history"
   | "re-portfolio"
@@ -43,6 +44,7 @@ export type ReportDefinition = {
   description: string;
   category: ReportCategory;
   requiredModules: ModuleName[];
+  requiredModulesAny?: ModuleName[];
   supportsEntityFilter: boolean;
   supportsDateRange: boolean;
 };

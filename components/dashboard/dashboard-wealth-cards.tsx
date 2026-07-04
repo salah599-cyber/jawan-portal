@@ -30,11 +30,13 @@ export function DashboardWealthCards({
   netWorthTotalOmr,
   hasPortfolio,
   hasLiabilities,
+  includesCashBalances = false,
 }: {
   portfolioTotalOmr: number;
   netWorthTotalOmr: number;
   hasPortfolio: boolean;
   hasLiabilities: boolean;
+  includesCashBalances?: boolean;
 }) {
   const [displayCurrency, setDisplayCurrency] = useState<DisplayCurrency>(DEFAULT_DISPLAY_CURRENCY);
   const [rates, setRates] = useState<Record<string, number> | null>(null);
@@ -126,7 +128,9 @@ export function DashboardWealthCards({
           }
           detail={
             hasPortfolio
-              ? "Active & monitored assets, converted to OMR"
+              ? includesCashBalances
+                ? "Active & monitored assets, including synced bank balances, converted to OMR"
+                : "Active & monitored assets, converted to OMR"
               : "Add assets to track portfolio value"
           }
         />
