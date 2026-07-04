@@ -1,7 +1,7 @@
 import Link from "next/link";
 import type { CalendarItem } from "@/lib/calendar/types";
 import { KIND_LABELS } from "@/lib/calendar/date-ranges";
-import { formatDate } from "@/lib/format";
+import { formatDateUtc } from "@/lib/format";
 import { Badge } from "@/components/ui/badge";
 import { CompleteTaskButton } from "@/components/calendar/complete-task-button";
 
@@ -45,7 +45,7 @@ export function CalendarItemRow({
         <p className="font-medium">{item.title}</p>
         {item.subtitle ? <p className="text-sm text-muted-foreground">{item.subtitle}</p> : null}
         <div className="flex flex-wrap gap-3 text-xs text-muted-foreground">
-          <span>{formatDate(item.date)}</span>
+          <span>{formatDateUtc(item.date)}</span>
           {item.assigneeName ? <span>Assigned to {item.assigneeName}</span> : null}
         </div>
       </div>

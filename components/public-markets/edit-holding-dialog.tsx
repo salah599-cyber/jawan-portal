@@ -17,6 +17,7 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { formatDateTime } from "@/lib/format";
 import { Pencil } from "lucide-react";
 
 function formatDateInput(value: Date | null): string {
@@ -214,7 +215,7 @@ export function EditHoldingDialog({ holding }: { holding: PublicHoldingRow }) {
             <p className="text-xs text-muted-foreground">
               Price source: {holding.priceSource}
               {holding.priceFetchedAt
-                ? ` · last fetched ${holding.priceFetchedAt.toLocaleString()}`
+                ? ` · last fetched ${formatDateTime(holding.priceFetchedAt)}`
                 : ""}
             </p>
           ) : null}

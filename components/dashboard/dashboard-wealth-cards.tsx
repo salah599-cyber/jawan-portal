@@ -9,7 +9,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { formatMoney, formatOmr } from "@/lib/format";
+import { formatDateTime, formatMoney, formatOmr } from "@/lib/format";
 import { convertFromOmrSync } from "@/lib/fx/convert";
 import {
   DEFAULT_DISPLAY_CURRENCY,
@@ -93,12 +93,7 @@ export function DashboardWealthCards({
     : null;
 
   const ratesCaption = ratesUpdatedAt
-    ? `Rates via Yahoo Finance · updated ${new Date(ratesUpdatedAt).toLocaleString("en-GB", {
-        day: "numeric",
-        month: "short",
-        hour: "2-digit",
-        minute: "2-digit",
-      })}`
+    ? `Rates via Yahoo Finance · updated ${formatDateTime(ratesUpdatedAt)}`
     : ratesLoading
       ? "Loading exchange rates…"
       : "Rates via Yahoo Finance";

@@ -1,5 +1,6 @@
 import { CalendarItemRow } from "@/components/calendar/calendar-item-row";
 import type { CalendarItem } from "@/lib/calendar/types";
+import { formatDateUtc } from "@/lib/format";
 
 export function CalendarListView({
   items,
@@ -31,13 +32,7 @@ export function CalendarListView({
           <li key={item.id}>
             {showDate && (
               <div className="border-b border-border bg-muted/30 px-4 py-2 text-xs font-medium text-muted-foreground">
-                {item.date.toLocaleDateString("en-GB", {
-                  weekday: "short",
-                  day: "numeric",
-                  month: "short",
-                  year: "numeric",
-                  timeZone: "UTC",
-                })}
+                {formatDateUtc(item.date)}
               </div>
             )}
             <CalendarItemRow
