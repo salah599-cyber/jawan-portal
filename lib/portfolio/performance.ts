@@ -3,7 +3,7 @@ import { startOfMonth } from "@/lib/calendar/date-ranges";
 import { backfillAssetValuations, getAssetValueAtDate } from "@/lib/portfolio/valuations";
 import { assetEntityFilter } from "@/lib/permissions/scoped-queries";
 import type { UserContext } from "@/lib/permissions/types";
-import { convertToOmr } from "@/lib/reports/helpers";
+import { convertToOmr, entityWhere } from "@/lib/reports/helpers";
 
 const COUNTABLE_ASSET_STATUSES = ["ACTIVE", "MONITOR"] as const;
 
@@ -11,6 +11,15 @@ export type AssetPerformer = {
   name: string;
   returnPct: number;
   href: string;
+};
+
+export type AssetPerformanceRow = {
+  id: string;
+  name: string;
+  href: string;
+  currentValueOmr: number;
+  monthStartValueOmr: number;
+  monthReturnPct: number | null;
 };
 
 export type PortfolioPerformance = {
@@ -21,6 +30,11 @@ export type PortfolioPerformance = {
   bestPerformer: AssetPerformer | null;
   worstPerformer: AssetPerformer | null;
   hasSufficientData: boolean;
+  assetRows: AssetPerformanceRow[];
+};
+
+export type PortfolioPerformanceOptions = {
+  entityId?: string;
 };
 
 function weightedValue(
@@ -69,7 +83,10 @@ async function getWeightedOmrAtDate(
   return convertToOmr(weighted, snapshot.currency);
 }
 
-export async function computePortfolioPerformance(ctx: UserContext): Promise<PortfolioPerformance> {
+export async function computePortfolioPerformance(
+  ctx: UserContext,
+  options: PortfolioPerformanceOptions = {},
+): Promise<PortfolioPerformance> {
   const empty: PortfolioPerformance = {
     monthReturnOmr: null,
     monthReturnPct: null,
@@ -78,11 +95,12 @@ export async function computePortfolioPerformance(ctx: UserContext): Promise<Por
     bestPerformer: null,
     worstPerformer: null,
     hasSufficientData: false,
+    assetRows: [],
   };
 
   const assets = await db.asset.findMany({
     where: {
-      ...assetEntityFilter(ctx),
+      ...entityWhere(options.entityId, assetEntityFilter(ctx)),
       status: { in: [...COUNTABLE_ASSET_STATUSES] },
     },
     select: {
@@ -105,6 +123,7 @@ export async function computePortfolioPerformance(ctx: UserContext): Promise<Por
   let ytdBaselineTotalOmr = 0;
 
   const monthPerformers: AssetPerformer[] = [];
+  const assetRows: AssetPerformanceRow[] = [];
 
   for (const asset of assets) {
     const currentWeighted = weightedValue(asset.currentValue, asset.ownershipPct);
@@ -118,11 +137,22 @@ export async function computePortfolioPerformance(ctx: UserContext): Promise<Por
     monthBaselineTotalOmr += monthBaselineOmr;
     ytdBaselineTotalOmr += ytdBaselineOmr;
 
-    if (monthBaselineOmr > 0) {
-      const returnPct = ((currentOmr - monthBaselineOmr) / monthBaselineOmr) * 100;
+    const monthReturnPct =
+      monthBaselineOmr > 0 ? ((currentOmr - monthBaselineOmr) / monthBaselineOmr) * 100 : null;
+
+    assetRows.push({
+      id: asset.id,
+      name: asset.name,
+      href: `/assets/${asset.id}`,
+      currentValueOmr: currentOmr,
+      monthStartValueOmr: monthBaselineOmr,
+      monthReturnPct,
+    });
+
+    if (monthBaselineOmr > 0 && monthReturnPct != null) {
       monthPerformers.push({
         name: asset.name,
-        returnPct,
+        returnPct: monthReturnPct,
         href: `/assets/${asset.id}`,
       });
     }
@@ -136,6 +166,8 @@ export async function computePortfolioPerformance(ctx: UserContext): Promise<Por
   const worstPerformer =
     sortedPerformers.length > 1 ? sortedPerformers[sortedPerformers.length - 1] : null;
 
+  assetRows.sort((a, b) => (b.monthReturnPct ?? -Infinity) - (a.monthReturnPct ?? -Infinity));
+
   return {
     monthReturnOmr: monthReturn?.returnOmr ?? null,
     monthReturnPct: monthReturn?.returnPct ?? null,
@@ -147,10 +179,14 @@ export async function computePortfolioPerformance(ctx: UserContext): Promise<Por
         ? worstPerformer
         : null,
     hasSufficientData: monthBaselineTotalOmr > 0 || ytdBaselineTotalOmr > 0,
+    assetRows,
   };
 }
 
-export async function getPortfolioPerformance(ctx: UserContext): Promise<PortfolioPerformance> {
+export async function getPortfolioPerformance(
+  ctx: UserContext,
+  options: PortfolioPerformanceOptions = {},
+): Promise<PortfolioPerformance> {
   await backfillAssetValuations(ctx);
-  return computePortfolioPerformance(ctx);
+  return computePortfolioPerformance(ctx, options);
 }

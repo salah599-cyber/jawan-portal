@@ -62,6 +62,7 @@ import {
   weightedValue,
 } from "@/lib/reports/helpers";
 import { getPortfolioRollup } from "@/lib/portfolio/rollup";
+import { getPortfolioPerformance } from "@/lib/portfolio/performance";
 import type { ReportId, ReportParams, ReportResult } from "@/lib/reports/types";
 
 const COUNTABLE_ASSET_STATUSES = ["ACTIVE", "MONITOR"] as const;
@@ -1358,6 +1359,160 @@ export async function buildValuationHistoryReport(
     footnotes: [
       "Valuations are recorded when asset values are updated.",
       "Default period is last 2 years when no date range is selected.",
+    ],
+  };
+}
+
+function formatReturnPct(value: number | null): string {
+  if (value == null) return "—";
+  const sign = value > 0 ? "+" : "";
+  return `${sign}${value.toFixed(1)}%`;
+}
+
+export async function buildPortfolioPerformanceReport(
+  ctx: UserContext,
+  params: ReportParams,
+): Promise<ReportResult> {
+  const entityName = await resolveEntityName(params.entityId);
+  const [performance, rollup] = await Promise.all([
+    getPortfolioPerformance(ctx, { entityId: params.entityId }),
+    getPortfolioRollup(ctx, { entityId: params.entityId }),
+  ]);
+
+  const rows = performance.assetRows.map((asset) => ({
+    asset: asset.name,
+    currentValue: formatAmount(asset.currentValueOmr, "OMR"),
+    monthStartValue: formatAmount(asset.monthStartValueOmr, "OMR"),
+    monthReturn: formatReturnPct(asset.monthReturnPct),
+  }));
+
+  return {
+    ...baseResult(
+      "portfolio-performance",
+      "Portfolio Performance Report",
+      "Valuation-based portfolio returns and per-asset month-to-date performance.",
+      entityName,
+    ),
+    metrics: [
+      { label: "Portfolio Value", value: formatAmount(rollup.portfolioTotalOmr, "OMR") },
+      {
+        label: "MTD Return",
+        value: formatReturnPct(performance.monthReturnPct),
+        detail:
+          performance.monthReturnOmr != null
+            ? formatAmount(performance.monthReturnOmr, "OMR")
+            : undefined,
+      },
+      {
+        label: "YTD Return",
+        value: formatReturnPct(performance.ytdReturnPct),
+        detail:
+          performance.ytdReturnOmr != null
+            ? formatAmount(performance.ytdReturnOmr, "OMR")
+            : undefined,
+      },
+    ],
+    columns: [
+      { key: "asset", label: "Asset" },
+      { key: "currentValue", label: "Current Value (OMR)", align: "right" },
+      { key: "monthStartValue", label: "Month Start (OMR)", align: "right" },
+      { key: "monthReturn", label: "MTD Return", align: "right" },
+    ],
+    rows,
+    footnotes: [
+      "Returns are valuation-based, not cash-flow or time-weighted.",
+      "Same methodology as the dashboard performance cards.",
+      "Income and distributions do not adjust return calculations.",
+    ],
+  };
+}
+
+export async function buildCashPositionReport(
+  ctx: UserContext,
+  params: ReportParams,
+): Promise<ReportResult> {
+  const entityName = await resolveEntityName(params.entityId);
+  const summary = await getCashSummary(ctx);
+  const accounts = params.entityId
+    ? summary.accounts.filter((account) => account.entityId === params.entityId)
+    : summary.accounts;
+
+  type PositionGroup = {
+    entity: string;
+    currency: string;
+    accountCount: number;
+    nativeTotal: number;
+    omrTotal: number;
+    latestBalanceAsOf: Date | null;
+  };
+
+  const groups = new Map<string, PositionGroup>();
+
+  for (const account of accounts) {
+    if (account.currentBalance == null) continue;
+
+    const entityLabel = account.entityName ?? "Unassigned";
+    const key = `${entityLabel}:${account.currency}`;
+    const existing = groups.get(key) ?? {
+      entity: entityLabel,
+      currency: account.currency,
+      accountCount: 0,
+      nativeTotal: 0,
+      omrTotal: 0,
+      latestBalanceAsOf: null,
+    };
+
+    existing.accountCount += 1;
+    existing.nativeTotal += account.currentBalance;
+    existing.omrTotal += account.balanceOmr ?? 0;
+    if (
+      account.balanceAsOf &&
+      (!existing.latestBalanceAsOf || account.balanceAsOf > existing.latestBalanceAsOf)
+    ) {
+      existing.latestBalanceAsOf = account.balanceAsOf;
+    }
+    groups.set(key, existing);
+  }
+
+  const positionRows = [...groups.values()].sort((a, b) => b.omrTotal - a.omrTotal);
+
+  const rows = positionRows.map((group) => ({
+    entity: group.entity,
+    currency: group.currency,
+    accounts: group.accountCount.toString(),
+    nativeTotal: formatAmount(group.nativeTotal, group.currency),
+    omrEquivalent: formatAmount(group.omrTotal, "OMR"),
+    balanceAsOf: formatDateValue(group.latestBalanceAsOf),
+  }));
+
+  const totalOmr = positionRows.reduce((sum, group) => sum + group.omrTotal, 0);
+  const accountCount = accounts.filter((account) => account.currentBalance != null).length;
+  const staleCount = accounts.filter((account) => account.isStale).length;
+
+  return {
+    ...baseResult(
+      "cash-position",
+      "Cash Position Report",
+      "Aggregated cash positions by entity and currency.",
+      entityName,
+    ),
+    metrics: [
+      { label: "Total Cash (OMR)", value: formatAmount(totalOmr, "OMR") },
+      { label: "Accounts with balance", value: accountCount.toString() },
+      { label: "Stale balances", value: staleCount.toString() },
+    ],
+    columns: [
+      { key: "entity", label: "Entity" },
+      { key: "currency", label: "Currency" },
+      { key: "accounts", label: "Accounts", align: "right" },
+      { key: "nativeTotal", label: "Native Total", align: "right" },
+      { key: "omrEquivalent", label: "OMR Equivalent", align: "right" },
+      { key: "balanceAsOf", label: "Latest Balance As Of" },
+    ],
+    rows,
+    footnotes: [
+      "Summary view by entity and currency — distinct from Cash & Bank Balances (account-level detail).",
+      "Positions reflect the latest balances recorded via Cash Management.",
     ],
   };
 }

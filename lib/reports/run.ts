@@ -5,6 +5,7 @@ import {
   buildAssetRegisterReport,
   buildBankAccountsReport,
   buildCashBalancesReport,
+  buildCashPositionReport,
   buildChequesReport,
   buildCompaniesReport,
   buildConsolidatedOmrReport,
@@ -20,6 +21,7 @@ import {
   buildLpFundPortfolioReport,
   buildNetWorthReport,
   buildPePortfolioReport,
+  buildPortfolioPerformanceReport,
   buildProposalsReport,
   buildPublicEquityReport,
   buildValuationHistoryReport,
@@ -32,6 +34,11 @@ import {
   buildReRentRegisterReport,
   buildReValuationHistoryReport,
 } from "@/lib/reports/builders/real-estate";
+import {
+  buildDividendDistributionIncomeReport,
+  buildRentalIncomeReport,
+  buildTotalPortfolioIncomeReport,
+} from "@/lib/reports/builders/income";
 import type { ReportId, ReportParams, ReportResult } from "@/lib/reports/types";
 
 const BUILDERS: Record<
@@ -59,7 +66,12 @@ const BUILDERS: Record<
   "contacts-directory": buildContactsDirectoryReport,
   "bank-accounts": buildBankAccountsReport,
   "cash-balances": buildCashBalancesReport,
+  "cash-position": buildCashPositionReport,
   proposals: buildProposalsReport,
+  "rental-income": buildRentalIncomeReport,
+  "dividend-distribution-income": buildDividendDistributionIncomeReport,
+  "total-portfolio-income": buildTotalPortfolioIncomeReport,
+  "portfolio-performance": buildPortfolioPerformanceReport,
   "valuation-history": buildValuationHistoryReport,
   "re-portfolio": buildRePortfolioReport,
   "re-rent-register": buildReRentRegisterReport,
