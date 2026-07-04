@@ -23,6 +23,7 @@ export const ROLE_MATRIX: Record<UserRole, Record<ModuleName, PermissionLevel>> 
     AUDIT: "FULL",
     FAMILY_MEMBERS: "FULL",
     SUCCESSION: "FULL",
+    CONTACTS: "FULL",
   },
   SIGNATORY: {
     DASHBOARD: "FULL",
@@ -46,6 +47,7 @@ export const ROLE_MATRIX: Record<UserRole, Record<ModuleName, PermissionLevel>> 
     AUDIT: "NONE",
     FAMILY_MEMBERS: "NONE",
     SUCCESSION: "NONE",
+    CONTACTS: "READ",
   },
   FINANCE: {
     DASHBOARD: "READ",
@@ -69,6 +71,7 @@ export const ROLE_MATRIX: Record<UserRole, Record<ModuleName, PermissionLevel>> 
     AUDIT: "NONE",
     FAMILY_MEMBERS: "NONE",
     SUCCESSION: "NONE",
+    CONTACTS: "FULL",
   },
   DIRECTOR: {
     DASHBOARD: "READ",
@@ -92,6 +95,7 @@ export const ROLE_MATRIX: Record<UserRole, Record<ModuleName, PermissionLevel>> 
     AUDIT: "NONE",
     FAMILY_MEMBERS: "NONE",
     SUCCESSION: "NONE",
+    CONTACTS: "FILTERED",
   },
   EXTERNAL: {
     DASHBOARD: "NONE",
@@ -115,5 +119,6 @@ export const ROLE_MATRIX: Record<UserRole, Record<ModuleName, PermissionLevel>> 
     AUDIT: "NONE",
     FAMILY_MEMBERS: "NONE",
     SUCCESSION: "NONE",
+    CONTACTS: "NONE",
   },
 };

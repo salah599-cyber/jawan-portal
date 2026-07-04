@@ -10,6 +10,7 @@ import {
   insurancePolicyEntityFilter,
   familyMemberFilter,
   successionPlanFilter,
+  contactEntityFilter,
   expenseEntityFilter,
   loanEntityFilter,
   chequeEntityFilter,
@@ -25,8 +26,10 @@ import { listLpCommitments } from "@/lib/data/lp-fund";
 import { ACTIVE_LP_COMMITMENT_STATUSES } from "@/lib/lp/constants";
 import { ensureInsuranceSchema } from "@/lib/db/ensure-insurance-schema";
 import { ensureFamilySchema } from "@/lib/db/ensure-family-schema";
+import { ensureContactsSchema } from "@/lib/db/ensure-contacts-schema";
 import { isExpiringWithinDays, resolvePolicyStatus } from "@/lib/insurance/helpers";
 import { isExpiringWithinDays as isFamilyIdExpiring } from "@/lib/family/helpers";
+import { isFollowUpDueWithinDays } from "@/lib/contacts/helpers";
 import {
   applyPeCarryingDelta,
   countActivePeCompanies,
@@ -806,6 +809,57 @@ export async function getDashboardSummary(ctx: UserContext): Promise<DashboardSu
         module: "SUCCESSION",
         label: "Succession & Estate",
         href: "/family/succession",
+        count: 0,
+        detail: "Database migration pending",
+      });
+    }
+  }
+
+  if (canAccess(ctx, "CONTACTS")) {
+    try {
+      await ensureContactsSchema();
+      const contacts = await db.directoryContact.findMany({
+        where: { ...contactEntityFilter(ctx), isActive: true },
+        select: {
+          id: true,
+          fullName: true,
+          organization: true,
+          nextFollowUpDate: true,
+        },
+      });
+
+      const followUpsDue = contacts.filter((c) => isFollowUpDueWithinDays(c.nextFollowUpDate, 14));
+
+      moduleSummaries.push({
+        module: "CONTACTS",
+        label: "Contacts Directory",
+        href: "/contacts",
+        count: contacts.length,
+        detail: followUpsDue.length
+          ? `${followUpsDue.length} follow-up${followUpsDue.length === 1 ? "" : "s"} within 14 days`
+          : undefined,
+      });
+
+      for (const contact of followUpsDue) {
+        if (!contact.nextFollowUpDate) continue;
+        pushReminder({
+          id: `contact-follow-up-${contact.id}`,
+          kind: "document",
+          title: contact.fullName,
+          subtitle: contact.organization
+            ? `${contact.organization} · Contact follow-up`
+            : "Contact follow-up",
+          date: contact.nextFollowUpDate,
+          href: `/contacts/${contact.id}`,
+          severity: contact.nextFollowUpDate < new Date() ? "danger" : "warning",
+        });
+      }
+    } catch (error) {
+      console.error("Contacts directory summary unavailable:", error);
+      moduleSummaries.push({
+        module: "CONTACTS",
+        label: "Contacts Directory",
+        href: "/contacts",
         count: 0,
         detail: "Database migration pending",
       });

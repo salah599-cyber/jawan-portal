@@ -23,6 +23,7 @@ export const MANAGEABLE_MODULES: { module: ModuleName; label: string }[] = [
   { module: "AUDIT", label: "Audit Log" },
   { module: "FAMILY_MEMBERS", label: "Family Members & Beneficiaries" },
   { module: "SUCCESSION", label: "Succession & Estate Planning" },
+  { module: "CONTACTS", label: "Contacts Directory" },
 ];
 
 export const USER_ROLE_OPTIONS: { value: UserRole; label: string }[] = [

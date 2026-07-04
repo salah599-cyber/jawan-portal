@@ -4,9 +4,11 @@ import { ensurePeSchema } from "@/lib/db/ensure-pe-schema";
 import { ensureLpFundSchema } from "@/lib/db/ensure-lp-fund-schema";
 import { ensureInsuranceSchema } from "@/lib/db/ensure-insurance-schema";
 import { ensureFamilySchema } from "@/lib/db/ensure-family-schema";
+import { ensureContactsSchema } from "@/lib/db/ensure-contacts-schema";
 import { listInsurancePolicies } from "@/lib/actions/insurance";
 import { listFamilyMembers } from "@/lib/actions/family-members";
 import { listSuccessionPlans } from "@/lib/actions/succession";
+import { listDirectoryContacts } from "@/lib/actions/contacts";
 import {
   INSURANCE_POLICY_STATUS_LABELS,
   INSURANCE_POLICY_TYPE_LABELS,
@@ -14,6 +16,7 @@ import {
   FAMILY_KYC_STATUS_LABELS,
   FAMILY_RELATIONSHIP_LABELS,
   SUCCESSION_PLAN_STATUS_LABELS,
+  DIRECTORY_CONTACT_TYPE_LABELS,
 } from "@/lib/labels";
 import { getPePortfolioSummary, listPeCompanies } from "@/lib/data/pe-portfolio";
 import { getLpPortfolioSummary, listLpCommitments } from "@/lib/data/lp-fund";
@@ -1142,6 +1145,59 @@ export async function buildSuccessionStatusReport(
     ],
     rows,
     footnotes: ["Internal record of intentions — not legal advice."],
+  };
+}
+
+export async function buildContactsDirectoryReport(
+  ctx: UserContext,
+  params: ReportParams,
+): Promise<ReportResult> {
+  void ctx;
+  const entityName = await resolveEntityName(params.entityId);
+  await ensureContactsSchema();
+
+  let contacts = await listDirectoryContacts({
+    entityId: params.entityId,
+    activeOnly: false,
+  });
+
+  const rows = contacts.map((contact) => ({
+    name: contact.fullName,
+    type: DIRECTORY_CONTACT_TYPE_LABELS[contact.contactType] ?? contact.contactType,
+    organization: contact.organization ?? "—",
+    entity: contact.entityName ?? "Global",
+    email: contact.email ?? "—",
+    phone: contact.phonePrimary ?? "—",
+    followUp: formatDateValue(contact.nextFollowUpDate),
+    status: contact.isActive ? "Active" : "Inactive",
+  }));
+
+  const followUpsDue = contacts.filter((c) => c.followUpDue || c.followUpOverdue);
+
+  return {
+    ...baseResult(
+      "contacts-directory",
+      "Contacts Directory",
+      "External contacts with follow-up dates, organizations, and entity assignments.",
+      entityName,
+    ),
+    metrics: [
+      { label: "Contacts", value: contacts.length.toString() },
+      { label: "Active", value: contacts.filter((c) => c.isActive).length.toString() },
+      { label: "Follow-ups Due", value: followUpsDue.length.toString() },
+    ],
+    columns: [
+      { key: "name", label: "Name" },
+      { key: "type", label: "Type" },
+      { key: "organization", label: "Organization" },
+      { key: "entity", label: "Entity" },
+      { key: "email", label: "Email" },
+      { key: "phone", label: "Phone" },
+      { key: "followUp", label: "Next Follow-up" },
+      { key: "status", label: "Status" },
+    ],
+    rows,
+    footnotes: ["Global contacts have no entity assignment."],
   };
 }
 

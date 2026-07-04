@@ -19,7 +19,8 @@ export type ModuleName =
   | "USERS"
   | "AUDIT"
   | "FAMILY_MEMBERS"
-  | "SUCCESSION";
+  | "SUCCESSION"
+  | "CONTACTS";
 
 export type PermissionLevel = "FULL" | "READ" | "FILTERED" | "NONE" | "SHARED_ONLY";
 

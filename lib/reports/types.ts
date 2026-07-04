@@ -19,6 +19,7 @@ export type ReportId =
   | "insurance-register"
   | "family-register"
   | "succession-status"
+  | "contacts-directory"
   | "bank-accounts"
   | "proposals"
   | "valuation-history"
