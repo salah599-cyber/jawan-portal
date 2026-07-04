@@ -3,9 +3,10 @@ import { PlatformHeader } from "@/components/platform/platform-header";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { formatDate, formatMoney, formatOmr } from "@/lib/format";
+import { formatDate, formatMoney } from "@/lib/format";
 import { getDashboardSummary } from "@/lib/data/dashboard";
 import { requireModuleAccess } from "@/lib/permissions/access";
+import { DashboardWealthCards } from "@/components/dashboard/dashboard-wealth-cards";
 import { EXIT_TYPE_LABELS } from "@/lib/labels";
 import { formatUserName } from "@/lib/proposals/users";
 import {
@@ -48,34 +49,19 @@ export default async function DashboardPage() {
   const ctx = await requireModuleAccess("DASHBOARD");
   const summary = await getDashboardSummary(ctx);
 
-  const portfolioDisplay = formatOmr(summary.portfolioTotalOmr);
-  const netWorthDisplay = formatOmr(summary.netWorthTotalOmr);
   const hasPortfolio = summary.portfolioTotalOmr > 0;
+  const hasLiabilities = summary.liabilityTotals.length > 0;
 
   return (
     <>
       <PlatformHeader title="Dashboard" />
       <main className="flex flex-1 flex-col gap-4 p-4 md:p-6">
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-          <MetricCard
-            label="Portfolio Value"
-            value={portfolioDisplay}
-            detail={
-              hasPortfolio
-                ? "Active & monitored assets, converted to OMR"
-                : "Add assets to track portfolio value"
-            }
-          />
-          <MetricCard
-            label="Net Worth"
-            value={netWorthDisplay}
-            detail={
-              summary.liabilityTotals.length
-                ? "Portfolio minus liabilities, converted to OMR"
-                : hasPortfolio
-                  ? "No active liabilities recorded"
-                  : "Calculated from assets and liabilities"
-            }
+          <DashboardWealthCards
+            portfolioTotalOmr={summary.portfolioTotalOmr}
+            netWorthTotalOmr={summary.netWorthTotalOmr}
+            hasPortfolio={hasPortfolio}
+            hasLiabilities={hasLiabilities}
           />
           <MetricCard
             label="Active Assets"
