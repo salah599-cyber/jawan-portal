@@ -37,6 +37,9 @@ import {
 } from "@/lib/pe/portfolio-rollup";
 import { convertToOmr } from "@/lib/reports/helpers";
 import { ASSET_CATEGORY_LABELS } from "@/lib/labels";
+import { getPortfolioPerformance, type PortfolioPerformance } from "@/lib/portfolio/performance";
+
+export type { PortfolioPerformance };
 
 export type CurrencyTotal = {
   currency: string;
@@ -110,6 +113,7 @@ export type DashboardSummary = {
   reminderCount: number;
   categoryBreakdown: CategoryBreakdown[];
   allocationSlices: AllocationSlice[];
+  portfolioPerformance: PortfolioPerformance;
   moduleSummaries: ModuleSummary[];
   reminders: DashboardReminder[];
   recentExits: DashboardRecentExit[];
@@ -1064,6 +1068,7 @@ export async function getDashboardSummary(ctx: UserContext): Promise<DashboardSu
       return bTotal - aTotal;
     });
   const allocationSlices = await buildAllocationSlices(categoryMap, portfolioTotalOmr);
+  const portfolioPerformance = await getPortfolioPerformance(ctx);
 
   return {
     portfolioTotals,
@@ -1075,6 +1080,7 @@ export async function getDashboardSummary(ctx: UserContext): Promise<DashboardSu
     reminderCount: reminders.length,
     categoryBreakdown,
     allocationSlices,
+    portfolioPerformance,
     moduleSummaries,
     reminders: reminders.slice(0, 12),
     recentExits,

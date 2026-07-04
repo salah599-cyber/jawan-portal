@@ -8,6 +8,7 @@ import { parseMarketReport } from "@/lib/public-markets/parsers/router";
 import type { BrokerReportFile, ImportFileResult } from "@/lib/public-markets/types";
 import type { UserContext } from "@/lib/permissions/types";
 import { normalizeAndFormatHoldingValues } from "@/lib/public-markets/valuation";
+import { recordAssetValuation } from "@/lib/portfolio/valuations";
 import { refreshPublicMarketPrices } from "@/lib/public-markets/refresh-prices";
 import { hasAutomaticPriceRefresh } from "@/lib/public-markets/prices/symbols";
 
@@ -44,6 +45,12 @@ export async function refreshAssetValue(assetId: string) {
     return sum + (Number.isNaN(value) ? 0 : value);
   }, 0);
 
+  const asset = await db.asset.findUnique({
+    where: { id: assetId },
+    select: { currency: true },
+  });
+  if (!asset) return;
+
   await db.asset.update({
     where: { id: assetId },
     data: {
@@ -51,6 +58,14 @@ export async function refreshAssetValue(assetId: string) {
       valueUpdatedAt: new Date(),
     },
   });
+
+  if (total > 0) {
+    await recordAssetValuation({
+      assetId,
+      value: total,
+      currency: asset.currency,
+    });
+  }
 }
 
 async function importSingleReport(

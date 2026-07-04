@@ -6,6 +6,7 @@ import { revalidatePath } from "next/cache";
 import { db } from "@/lib/db";
 import { deleteBlobUrl } from "@/lib/blob";
 import { logAudit } from "@/lib/audit/log";
+import { recordAssetValuation } from "@/lib/portfolio/valuations";
 import { canWrite, requireModuleAccess } from "@/lib/permissions/access";
 import { carEntityFilter } from "@/lib/permissions/scoped-queries";
 import type { AssetStatus, VehicleDocumentType } from "@/lib/generated/prisma/client";
@@ -189,6 +190,18 @@ export async function createCar(formData: FormData) {
     },
   });
 
+  if (data.currentValue) {
+    const value = parseFloat(data.currentValue);
+    if (!Number.isNaN(value) && value > 0) {
+      await recordAssetValuation({
+        assetId: asset.id,
+        value,
+        currency: data.currency,
+        valuedAt: data.acquisitionDate ?? new Date(),
+      });
+    }
+  }
+
   const vehicle = await db.vehicle.create({
     data: {
       ...data,
@@ -260,6 +273,17 @@ export async function updateCar(id: string, formData: FormData) {
         },
       },
     });
+
+    if (data.currentValue) {
+      const value = parseFloat(data.currentValue);
+      if (!Number.isNaN(value) && value > 0) {
+        await recordAssetValuation({
+          assetId: existing.assetId,
+          value,
+          currency: data.currency,
+        });
+      }
+    }
   }
 
   await logAudit({
