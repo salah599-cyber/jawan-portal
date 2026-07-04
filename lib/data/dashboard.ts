@@ -8,6 +8,8 @@ import {
   companyEntityFilter,
   documentFilter,
   insurancePolicyEntityFilter,
+  familyMemberFilter,
+  successionPlanFilter,
   expenseEntityFilter,
   loanEntityFilter,
   chequeEntityFilter,
@@ -22,7 +24,9 @@ import { ensureLpFundSchema } from "@/lib/db/ensure-lp-fund-schema";
 import { listLpCommitments } from "@/lib/data/lp-fund";
 import { ACTIVE_LP_COMMITMENT_STATUSES } from "@/lib/lp/constants";
 import { ensureInsuranceSchema } from "@/lib/db/ensure-insurance-schema";
+import { ensureFamilySchema } from "@/lib/db/ensure-family-schema";
 import { isExpiringWithinDays, resolvePolicyStatus } from "@/lib/insurance/helpers";
+import { isExpiringWithinDays as isFamilyIdExpiring } from "@/lib/family/helpers";
 import {
   applyPeCarryingDelta,
   countActivePeCompanies,
@@ -694,6 +698,114 @@ export async function getDashboardSummary(ctx: UserContext): Promise<DashboardSu
         module: "INSURANCE",
         label: "Insurance Register",
         href: "/documents/insurance",
+        count: 0,
+        detail: "Database migration pending",
+      });
+    }
+  }
+
+  if (canAccess(ctx, "FAMILY_MEMBERS")) {
+    try {
+      await ensureFamilySchema();
+      const members = await db.familyMember.findMany({
+        where: { ...familyMemberFilter(ctx), deceased: false },
+        select: {
+          id: true,
+          fullName: true,
+          idExpiryDate: true,
+          kycStatus: true,
+          isBeneficiary: true,
+        },
+      });
+
+      const kycExpiring = members.filter((m) => isFamilyIdExpiring(m.idExpiryDate, 30));
+
+      moduleSummaries.push({
+        module: "FAMILY_MEMBERS",
+        label: "Family Members",
+        href: "/family/members",
+        count: members.length,
+        detail: kycExpiring.length
+          ? `${kycExpiring.length} ID expiring within 30 days`
+          : undefined,
+      });
+
+      for (const member of kycExpiring) {
+        if (!member.idExpiryDate) continue;
+        pushReminder({
+          id: `family-kyc-${member.id}`,
+          kind: "document",
+          title: member.fullName,
+          subtitle: "Family member ID expiry",
+          date: member.idExpiryDate,
+          href: `/family/members/${member.id}`,
+          severity: member.idExpiryDate < new Date() ? "danger" : "warning",
+        });
+      }
+    } catch (error) {
+      console.error("Family members summary unavailable:", error);
+      moduleSummaries.push({
+        module: "FAMILY_MEMBERS",
+        label: "Family Members",
+        href: "/family/members",
+        count: 0,
+        detail: "Database migration pending",
+      });
+    }
+  }
+
+  if (canAccess(ctx, "SUCCESSION")) {
+    try {
+      await ensureFamilySchema();
+      const plans = await db.successionPlan.findMany({
+        where: successionPlanFilter(ctx),
+        select: {
+          id: true,
+          title: true,
+          status: true,
+          nextReviewDate: true,
+          checklistItems: { select: { isComplete: true } },
+        },
+      });
+
+      const reviewDue = plans.filter(
+        (p) => p.status !== "COMPLETE" && p.nextReviewDate && p.nextReviewDate <= new Date(),
+      );
+      const incomplete = plans.filter((p) => {
+        if (p.checklistItems.length === 0) return false;
+        return p.checklistItems.some((item) => !item.isComplete);
+      });
+
+      moduleSummaries.push({
+        module: "SUCCESSION",
+        label: "Succession & Estate",
+        href: "/family/succession",
+        count: plans.length,
+        detail: reviewDue.length
+          ? `${reviewDue.length} review${reviewDue.length === 1 ? "" : "s"} due`
+          : incomplete.length
+            ? `${incomplete.length} plan${incomplete.length === 1 ? "" : "s"} incomplete`
+            : undefined,
+      });
+
+      for (const plan of reviewDue) {
+        if (!plan.nextReviewDate) continue;
+        pushReminder({
+          id: `succession-review-${plan.id}`,
+          kind: "document",
+          title: plan.title,
+          subtitle: "Succession plan review due",
+          date: plan.nextReviewDate,
+          href: `/family/succession/${plan.id}`,
+          severity: "warning",
+        });
+      }
+    } catch (error) {
+      console.error("Succession planning summary unavailable:", error);
+      moduleSummaries.push({
+        module: "SUCCESSION",
+        label: "Succession & Estate",
+        href: "/family/succession",
         count: 0,
         detail: "Database migration pending",
       });

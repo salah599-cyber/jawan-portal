@@ -544,3 +544,86 @@ export const INSURANCE_DOCUMENT_TYPE_LABELS: Record<string, string> = {
   RENEWAL_NOTICE: "Renewal Notice",
   OTHER: "Other",
 };
+
+export const FAMILY_RELATIONSHIP_LABELS: Record<string, string> = {
+  SPOUSE: "Spouse",
+  CHILD: "Child",
+  PARENT: "Parent",
+  SIBLING: "Sibling",
+  GRANDCHILD: "Grandchild",
+  OTHER: "Other",
+};
+
+export const FAMILY_MEMBER_ID_TYPE_LABELS: Record<string, string> = {
+  OMANI_ID: "Omani ID",
+  PASSPORT: "Passport",
+  RESIDENCE_CARD: "Residence Card",
+  OTHER: "Other",
+};
+
+export const FAMILY_KYC_STATUS_LABELS: Record<string, string> = {
+  NOT_STARTED: "Not Started",
+  IN_PROGRESS: "In Progress",
+  COMPLETE: "Complete",
+  EXPIRED: "Expired",
+};
+
+export const FAMILY_MEMBER_DOCUMENT_TYPE_LABELS: Record<string, string> = {
+  PASSPORT: "Passport",
+  NATIONAL_ID: "National ID",
+  RESIDENCE: "Residence",
+  PROOF_OF_ADDRESS: "Proof of Address",
+  BIRTH_CERTIFICATE: "Birth Certificate",
+  OTHER: "Other",
+};
+
+export const FAMILY_OWNERSHIP_STAKE_TYPE_LABELS: Record<string, string> = {
+  ECONOMIC: "Economic",
+  LEGAL_TITLE: "Legal Title",
+  BENEFICIAL: "Beneficial",
+};
+
+export const FAMILY_SIGNATORY_ROLE_TYPE_LABELS: Record<string, string> = {
+  BANK_SIGNATORY: "Bank Signatory",
+  COMPANY_DIRECTOR: "Company Director",
+  CHEQUE_SIGNATORY: "Cheque Signatory",
+  POA_HOLDER: "POA Holder",
+  OTHER: "Other",
+};
+
+export const BENEFICIARY_DESIGNATION_TYPE_LABELS: Record<string, string> = {
+  PRIMARY: "Primary",
+  CONTINGENT: "Contingent",
+  SPECIFIC_BEQUEST: "Specific Bequest",
+};
+
+export const SUCCESSION_PLAN_STATUS_LABELS: Record<string, string> = {
+  DRAFT: "Draft",
+  IN_PROGRESS: "In Progress",
+  REVIEW_DUE: "Review Due",
+  COMPLETE: "Complete",
+};
+
+export const SUCCESSION_APPOINTMENT_ROLE_LABELS: Record<string, string> = {
+  EXECUTOR: "Executor",
+  TRUSTEE: "Trustee",
+  GUARDIAN: "Guardian",
+  POA_AGENT: "POA Agent",
+  ADVISOR: "Advisor",
+};
+
+export const SUCCESSION_DOCUMENT_TYPE_LABELS: Record<string, string> = {
+  WILL: "Will",
+  TRUST_DEED: "Trust Deed",
+  LETTER_OF_WISHES: "Letter of Wishes",
+  POA: "Power of Attorney",
+  LIVING_WILL: "Living Will",
+  OTHER: "Other",
+};
+
+export const SUCCESSION_DOCUMENT_STATUS_LABELS: Record<string, string> = {
+  DRAFT: "Draft",
+  SIGNED: "Signed",
+  FILED: "Filed",
+  MISSING: "Missing",
+};

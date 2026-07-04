@@ -12,6 +12,7 @@ if [ -n "$DB_URL" ]; then
   node scripts/sync-calendar-schema.cjs || echo "WARNING: Calendar schema sync failed during build; runtime sync will retry."
   node scripts/sync-lp-fund-schema.cjs || echo "WARNING: LP fund schema sync failed during build; runtime sync will retry."
   node scripts/sync-insurance-schema.cjs || echo "WARNING: Insurance schema sync failed during build; runtime sync will retry."
+  node scripts/sync-family-schema.cjs || echo "WARNING: Family schema sync failed during build; runtime sync will retry."
 fi
 
 exec npx next build

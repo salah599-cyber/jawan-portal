@@ -17,6 +17,8 @@ export type ReportId =
   | "companies"
   | "document-expiry"
   | "insurance-register"
+  | "family-register"
+  | "succession-status"
   | "bank-accounts"
   | "proposals"
   | "valuation-history"

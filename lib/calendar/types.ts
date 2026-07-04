@@ -16,6 +16,8 @@ export type CalendarItemKind =
   | "LP_CAPITAL_CALL_DUE"
   | "PROPOSAL_APPROVAL"
   | "CASH_STALE"
+  | "FAMILY_KYC_EXPIRY"
+  | "SUCCESSION_REVIEW_DUE"
   | "TASK";
 
 export type CalendarItemSeverity = "info" | "warning" | "danger";

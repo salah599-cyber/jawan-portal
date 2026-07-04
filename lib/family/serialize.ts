@@ -1,0 +1,112 @@
+import { resolveKycStatus } from "@/lib/family/helpers";
+import type { FamilyMemberDetail } from "@/lib/actions/family-members";
+
+function dec(value: { toString(): string } | number | null | undefined): string | null {
+  if (value == null) return null;
+  return value.toString();
+}
+
+export type SerializedFamilyMember = ReturnType<typeof serializeFamilyMember>;
+
+export function serializeFamilyMember(member: FamilyMemberDetail) {
+  const effectiveKycStatus = resolveKycStatus(member.kycStatus, member.idExpiryDate);
+
+  return {
+    id: member.id,
+    fullName: member.fullName,
+    preferredName: member.preferredName,
+    dateOfBirth: member.dateOfBirth?.toISOString() ?? null,
+    nationality: member.nationality,
+    relationship: member.relationship,
+    idType: member.idType,
+    idNumber: member.idNumber,
+    idExpiryDate: member.idExpiryDate?.toISOString() ?? null,
+    kycStatus: member.kycStatus,
+    effectiveKycStatus,
+    kycNotes: member.kycNotes,
+    email: member.email,
+    phonePrimary: member.phonePrimary,
+    phoneSecondary: member.phoneSecondary,
+    address: member.address,
+    emergencyContactName: member.emergencyContactName,
+    emergencyContactPhone: member.emergencyContactPhone,
+    isBeneficiary: member.isBeneficiary,
+    deceased: member.deceased,
+    dateOfDeath: member.dateOfDeath?.toISOString() ?? null,
+    userId: member.userId,
+    notes: member.notes,
+    documents: member.documents.map((doc) => ({
+      id: doc.id,
+      documentType: doc.documentType,
+      fileName: doc.fileName,
+      fileUrl: doc.fileUrl,
+      mimeType: doc.mimeType,
+      fileSize: doc.fileSize,
+      expiryDate: doc.expiryDate?.toISOString() ?? null,
+      notes: doc.notes,
+      createdAt: doc.createdAt.toISOString(),
+    })),
+    ownershipStakes: member.ownershipStakes.map((stake) => ({
+      id: stake.id,
+      entityId: stake.entityId,
+      entityName: stake.entity?.name ?? null,
+      assetId: stake.assetId,
+      assetName: stake.asset?.name ?? null,
+      landParcelId: stake.landParcelId,
+      landParcelName: stake.landParcel?.name ?? null,
+      registeredCompanyId: stake.registeredCompanyId,
+      registeredCompanyName: stake.registeredCompany?.name ?? null,
+      rePropertyId: stake.rePropertyId,
+      rePropertyName: stake.reProperty?.name ?? null,
+      vehicleId: stake.vehicleId,
+      vehicleName: stake.vehicle?.name ?? null,
+      stakeType: stake.stakeType,
+      ownershipPct: dec(stake.ownershipPct),
+      roleLabel: stake.roleLabel,
+      notes: stake.notes,
+      sortOrder: stake.sortOrder,
+    })),
+    signatoryRoles: member.signatoryRoles.map((role) => ({
+      id: role.id,
+      entityId: role.entityId,
+      entityName: role.entity.name,
+      registeredCompanyId: role.registeredCompanyId,
+      registeredCompanyName: role.registeredCompany?.name ?? null,
+      assetId: role.assetId,
+      assetName: role.asset?.name ?? null,
+      vehicleId: role.vehicleId,
+      vehicleName: role.vehicle?.name ?? null,
+      roleType: role.roleType,
+      bankName: role.bankName,
+      accountRef: role.accountRef,
+      effectiveFrom: role.effectiveFrom?.toISOString() ?? null,
+      effectiveTo: role.effectiveTo?.toISOString() ?? null,
+      isActive: role.isActive,
+      notes: role.notes,
+      sortOrder: role.sortOrder,
+    })),
+    beneficiaryDesignations: member.beneficiaryDesignations.map((d) => ({
+      id: d.id,
+      insurancePolicyId: d.insurancePolicyId,
+      insuranceLabel: d.insurancePolicy
+        ? `${d.insurancePolicy.insurer} — ${d.insurancePolicy.policyNumber}`
+        : null,
+      assetId: d.assetId,
+      assetName: d.asset?.name ?? null,
+      landParcelId: d.landParcelId,
+      landParcelName: d.landParcel?.name ?? null,
+      registeredCompanyId: d.registeredCompanyId,
+      registeredCompanyName: d.registeredCompany?.name ?? null,
+      rePropertyId: d.rePropertyId,
+      rePropertyName: d.reProperty?.name ?? null,
+      vehicleId: d.vehicleId,
+      vehicleName: d.vehicle?.name ?? null,
+      designationType: d.designationType,
+      allocationPct: dec(d.allocationPct),
+      effectiveDate: d.effectiveDate?.toISOString() ?? null,
+      notes: d.notes,
+      sortOrder: d.sortOrder,
+    })),
+    updatedAt: member.updatedAt.toISOString(),
+  };
+}

@@ -3,11 +3,17 @@ import { MSX_PORTFOLIO_ASSET_NAME } from "@/lib/msx/constants";
 import { ensurePeSchema } from "@/lib/db/ensure-pe-schema";
 import { ensureLpFundSchema } from "@/lib/db/ensure-lp-fund-schema";
 import { ensureInsuranceSchema } from "@/lib/db/ensure-insurance-schema";
+import { ensureFamilySchema } from "@/lib/db/ensure-family-schema";
 import { listInsurancePolicies } from "@/lib/actions/insurance";
+import { listFamilyMembers } from "@/lib/actions/family-members";
+import { listSuccessionPlans } from "@/lib/actions/succession";
 import {
   INSURANCE_POLICY_STATUS_LABELS,
   INSURANCE_POLICY_TYPE_LABELS,
   INSURANCE_PREMIUM_FREQUENCY_LABELS,
+  FAMILY_KYC_STATUS_LABELS,
+  FAMILY_RELATIONSHIP_LABELS,
+  SUCCESSION_PLAN_STATUS_LABELS,
 } from "@/lib/labels";
 import { getPePortfolioSummary, listPeCompanies } from "@/lib/data/pe-portfolio";
 import { getLpPortfolioSummary, listLpCommitments } from "@/lib/data/lp-fund";
@@ -1034,6 +1040,108 @@ export async function buildInsuranceRegisterReport(
     ],
     rows,
     footnotes: ["Status reflects expiry date when past due."],
+  };
+}
+
+export async function buildFamilyRegisterReport(
+  ctx: UserContext,
+  params: ReportParams,
+): Promise<ReportResult> {
+  void params;
+  await ensureFamilySchema();
+  const members = await listFamilyMembers();
+
+  const rows = members.map((member) => ({
+    name: member.fullName,
+    relationship: member.relationship
+      ? FAMILY_RELATIONSHIP_LABELS[member.relationship] ?? member.relationship
+      : "—",
+    kyc: FAMILY_KYC_STATUS_LABELS[member.effectiveKycStatus] ?? member.effectiveKycStatus,
+    beneficiary: member.isBeneficiary ? "Yes" : "No",
+    stakes: member.stakeCount.toString(),
+    designations: member.designationCount.toString(),
+    documents: member.documentCount.toString(),
+    idExpiry: formatDateValue(member.idExpiryDate),
+  }));
+
+  const kycExpiring = members.filter((m) => m.idExpiryDate && m.idExpiryDate <= new Date(Date.now() + 30 * 86400000));
+
+  return {
+    ...baseResult(
+      "family-register",
+      "Family Register",
+      "Family members with KYC status, beneficiary flags, and ownership stake counts.",
+    ),
+    metrics: [
+      { label: "Members", value: members.length.toString() },
+      { label: "Beneficiaries", value: members.filter((m) => m.isBeneficiary).length.toString() },
+      { label: "ID Expiring (30d)", value: kycExpiring.length.toString() },
+    ],
+    columns: [
+      { key: "name", label: "Name" },
+      { key: "relationship", label: "Relationship" },
+      { key: "kyc", label: "KYC Status" },
+      { key: "beneficiary", label: "Beneficiary" },
+      { key: "stakes", label: "Stakes", align: "right" },
+      { key: "designations", label: "Designations", align: "right" },
+      { key: "documents", label: "Documents", align: "right" },
+      { key: "idExpiry", label: "ID Expiry" },
+    ],
+    rows,
+    footnotes: ["Principal-only module. Ownership stakes are counted per member."],
+  };
+}
+
+export async function buildSuccessionStatusReport(
+  ctx: UserContext,
+  params: ReportParams,
+): Promise<ReportResult> {
+  const entityName = await resolveEntityName(params.entityId);
+  await ensureFamilySchema();
+
+  let plans = await listSuccessionPlans();
+  if (params.entityId) {
+    const entityPlans = await db.successionPlan.findMany({
+      where: { entityId: params.entityId },
+      select: { id: true },
+    });
+    const ids = new Set(entityPlans.map((p) => p.id));
+    plans = plans.filter((p) => ids.has(p.id));
+  }
+
+  const rows = plans.map((plan) => ({
+    title: plan.title,
+    entity: plan.entityName ?? "—",
+    status: SUCCESSION_PLAN_STATUS_LABELS[plan.effectiveStatus] ?? plan.effectiveStatus,
+    checklist: `${plan.checklistCompletionPct}%`,
+    missingDocs: plan.missingDocsCount.toString(),
+    nextReview: formatDateValue(plan.nextReviewDate),
+  }));
+
+  const reviewDue = plans.filter((p) => p.effectiveStatus === "REVIEW_DUE");
+
+  return {
+    ...baseResult(
+      "succession-status",
+      "Succession Plan Status",
+      "Estate plans with review dates, checklist completion, and missing legal documents.",
+      entityName,
+    ),
+    metrics: [
+      { label: "Plans", value: plans.length.toString() },
+      { label: "Review Due", value: reviewDue.length.toString() },
+      { label: "Missing Docs", value: plans.reduce((s, p) => s + p.missingDocsCount, 0).toString() },
+    ],
+    columns: [
+      { key: "title", label: "Plan" },
+      { key: "entity", label: "Entity" },
+      { key: "status", label: "Status" },
+      { key: "checklist", label: "Checklist" },
+      { key: "missingDocs", label: "Missing Docs", align: "right" },
+      { key: "nextReview", label: "Next Review" },
+    ],
+    rows,
+    footnotes: ["Internal record of intentions — not legal advice."],
   };
 }
 

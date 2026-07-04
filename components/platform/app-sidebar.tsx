@@ -23,6 +23,8 @@ import {
   Wallet,
   CalendarDays,
   Shield,
+  Heart,
+  Scroll,
   type LucideIcon,
 } from "lucide-react";
 import {
@@ -44,7 +46,8 @@ type NavItem = {
   href: string;
   label: string;
   icon: LucideIcon;
-  children?: { href: string; label: string }[];
+  groupPrefix?: string;
+  children?: { href: string; label: string; icon?: "file" | "shield" | "users" | "scroll" }[];
 };
 
 const platformNav: NavItem[] = [
@@ -67,12 +70,23 @@ const platformNav: NavItem[] = [
     href: "/documents",
     label: "Documents",
     icon: FileText,
+    groupPrefix: "/documents",
     children: [
-      { href: "/documents", label: "Document Vault" },
-      { href: "/documents/insurance", label: "Insurance Register" },
+      { href: "/documents", label: "Document Vault", icon: "file" as const },
+      { href: "/documents/insurance", label: "Insurance Register", icon: "shield" as const },
     ],
   },
   { href: "/expenses", label: "Expenses", icon: Receipt },
+  {
+    href: "/family/members",
+    label: "Family",
+    icon: Heart,
+    groupPrefix: "/family",
+    children: [
+      { href: "/family/members", label: "Members & Beneficiaries", icon: "users" as const },
+      { href: "/family/succession", label: "Succession & Estate", icon: "scroll" as const },
+    ],
+  },
   { href: "/reports", label: "Reports", icon: BarChart3 },
 ];
 
@@ -88,8 +102,23 @@ function isActive(pathname: string, href: string) {
   return pathname === href || pathname.startsWith(href + "/");
 }
 
+function isGroupActive(pathname: string, prefix: string) {
+  return pathname === prefix || pathname.startsWith(prefix + "/");
+}
+
 function isDocumentsGroupActive(pathname: string) {
-  return pathname === "/documents" || pathname.startsWith("/documents/");
+  return isGroupActive(pathname, "/documents");
+}
+
+function isFamilyGroupActive(pathname: string) {
+  return isGroupActive(pathname, "/family");
+}
+
+function childIcon(icon?: "file" | "shield" | "users" | "scroll") {
+  if (icon === "shield") return Shield;
+  if (icon === "users") return Users;
+  if (icon === "scroll") return Scroll;
+  return FileText;
 }
 
 export function AppSidebar({
@@ -98,27 +127,42 @@ export function AppSidebar({
   showCalendar = true,
   showDocumentsVault = true,
   showInsuranceRegister = true,
+  showFamilyMembers = false,
+  showSuccession = false,
 }: {
   showAdmin?: boolean;
   showReports?: boolean;
   showCalendar?: boolean;
   showDocumentsVault?: boolean;
   showInsuranceRegister?: boolean;
+  showFamilyMembers?: boolean;
+  showSuccession?: boolean;
 }) {
   const pathname = usePathname();
 
   let items = platformNav
     .map((item) => {
-      if (item.href !== "/documents" || !item.children) return item;
+      if (item.href === "/documents" && item.children) {
+        const children = item.children.filter((child) => {
+          if (child.href === "/documents") return showDocumentsVault;
+          if (child.href === "/documents/insurance") return showInsuranceRegister;
+          return true;
+        });
+        if (children.length === 0) return null;
+        return { ...item, children };
+      }
 
-      const children = item.children.filter((child) => {
-        if (child.href === "/documents") return showDocumentsVault;
-        if (child.href === "/documents/insurance") return showInsuranceRegister;
-        return true;
-      });
+      if (item.href === "/family/members" && item.children) {
+        const children = item.children.filter((child) => {
+          if (child.href === "/family/members") return showFamilyMembers;
+          if (child.href === "/family/succession") return showSuccession;
+          return true;
+        });
+        if (children.length === 0) return null;
+        return { ...item, children };
+      }
 
-      if (children.length === 0) return null;
-      return { ...item, children };
+      return item;
     })
     .filter((item): item is NavItem => item != null);
 
@@ -141,7 +185,10 @@ export function AppSidebar({
             <SidebarMenu>
               {nav.map((item) => {
                 if (item.children && item.children.length > 0) {
-                  const groupActive = isDocumentsGroupActive(pathname);
+                  const groupActive =
+                    item.groupPrefix === "/family"
+                      ? isFamilyGroupActive(pathname)
+                      : isDocumentsGroupActive(pathname);
                   return (
                     <SidebarMenuItem key={item.href}>
                       <SidebarMenuButton asChild isActive={groupActive}>
@@ -151,23 +198,22 @@ export function AppSidebar({
                         </Link>
                       </SidebarMenuButton>
                       <SidebarMenuSub>
-                        {item.children.map((child) => (
-                          <SidebarMenuSubItem key={child.href}>
-                            <SidebarMenuSubButton
-                              asChild
-                              isActive={isActive(pathname, child.href)}
-                            >
-                              <Link href={child.href}>
-                                {child.href === "/documents/insurance" ? (
-                                  <Shield className="size-4" />
-                                ) : (
-                                  <FileText className="size-4" />
-                                )}
-                                <span>{child.label}</span>
-                              </Link>
-                            </SidebarMenuSubButton>
-                          </SidebarMenuSubItem>
-                        ))}
+                        {item.children.map((child) => {
+                          const ChildIcon = childIcon(child.icon);
+                          return (
+                            <SidebarMenuSubItem key={child.href}>
+                              <SidebarMenuSubButton
+                                asChild
+                                isActive={isActive(pathname, child.href)}
+                              >
+                                <Link href={child.href}>
+                                  <ChildIcon className="size-4" />
+                                  <span>{child.label}</span>
+                                </Link>
+                              </SidebarMenuSubButton>
+                            </SidebarMenuSubItem>
+                          );
+                        })}
                       </SidebarMenuSub>
                     </SidebarMenuItem>
                   );
