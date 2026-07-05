@@ -35,10 +35,11 @@ import {
 } from "@/lib/pe/portfolio-rollup";
 import { convertToOmr } from "@/lib/reports/helpers";
 import { ASSET_CATEGORY_LABELS } from "@/lib/labels";
+import { getNetWorthTrend, type NetWorthTrend } from "@/lib/portfolio/net-worth-trend";
 import { getPortfolioPerformance, type PortfolioPerformance } from "@/lib/portfolio/performance";
 import { getPortfolioRollup } from "@/lib/portfolio/rollup";
 
-export type { PortfolioPerformance };
+export type { NetWorthTrend, PortfolioPerformance };
 
 export type CurrencyTotal = {
   currency: string;
@@ -113,6 +114,7 @@ export type DashboardSummary = {
   categoryBreakdown: CategoryBreakdown[];
   allocationSlices: AllocationSlice[];
   portfolioPerformance: PortfolioPerformance;
+  netWorthTrend: NetWorthTrend | null;
   moduleSummaries: ModuleSummary[];
   reminders: DashboardReminder[];
   recentExits: DashboardRecentExit[];
@@ -951,6 +953,8 @@ export async function getDashboardSummary(ctx: UserContext): Promise<DashboardSu
     return a.date.getTime() - b.date.getTime();
   });
 
+  let netWorthTrend: NetWorthTrend | null = null;
+
   if (canAccess(ctx, "ASSETS")) {
     const rollup = await getPortfolioRollup(ctx);
     rollup.portfolioMap.forEach((amount, currency) => portfolioMap.set(currency, amount));
@@ -963,6 +967,10 @@ export async function getDashboardSummary(ctx: UserContext): Promise<DashboardSu
     if (assetsSummary) {
       assetsSummary.count = rollup.assetCount;
       assetsSummary.detail = `${rollup.activeAssetCount} active`;
+    }
+
+    if (rollup.portfolioTotalOmr > 0 || rollup.liabilityTotalOmr > 0) {
+      netWorthTrend = await getNetWorthTrend(ctx, rollup);
     }
   }
 
@@ -996,6 +1004,7 @@ export async function getDashboardSummary(ctx: UserContext): Promise<DashboardSu
     categoryBreakdown,
     allocationSlices,
     portfolioPerformance,
+    netWorthTrend,
     moduleSummaries,
     reminders: reminders.slice(0, 12),
     recentExits,

@@ -8,6 +8,7 @@ import { getDashboardSummary } from "@/lib/data/dashboard";
 import { canAccess, requireModuleAccess } from "@/lib/permissions/access";
 import { DashboardWealthCards } from "@/components/dashboard/dashboard-wealth-cards";
 import { DashboardAssetAllocationChart } from "@/components/dashboard/dashboard-asset-allocation-chart";
+import { DashboardNetWorthTrendChart } from "@/components/dashboard/dashboard-net-worth-trend-chart";
 import { DashboardPerformanceCards } from "@/components/dashboard/dashboard-performance-cards";
 import { EXIT_TYPE_LABELS } from "@/lib/labels";
 import { formatUserName } from "@/lib/proposals/users";
@@ -92,6 +93,11 @@ export default async function DashboardPage() {
           performance={summary.portfolioPerformance}
           hasPortfolio={hasPortfolio}
         />
+
+
+        {summary.netWorthTrend ? (
+          <DashboardNetWorthTrendChart trend={summary.netWorthTrend} />
+        ) : null}
 
         <div className="grid gap-4 lg:grid-cols-3">
           <Card className="lg:col-span-2">
