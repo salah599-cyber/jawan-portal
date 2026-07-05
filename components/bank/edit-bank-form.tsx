@@ -10,6 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { EntitySelect, type EntityOption } from "@/components/platform/entity-select";
+import { BankAccountUsageField } from "@/components/bank/bank-account-usage-field";
 
 type BankRecord = {
   id: string;
@@ -22,6 +23,7 @@ type BankRecord = {
   currency: string;
   entityId: string | null;
   notes: string | null;
+  includeInCashPosition: boolean;
 };
 
 export function EditBankForm({ account, entities }: { account: BankRecord; entities: EntityOption[] }) {
@@ -30,6 +32,7 @@ export function EditBankForm({ account, entities }: { account: BankRecord; entit
   const [error, setError] = useState<string | null>(null);
   const [currency, setCurrency] = useState(account.currency);
   const [entityId, setEntityId] = useState(account.entityId ?? "none");
+  const [includeInCashPosition, setIncludeInCashPosition] = useState(account.includeInCashPosition);
 
   function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -46,6 +49,7 @@ export function EditBankForm({ account, entities }: { account: BankRecord; entit
       currency,
       entityId: entityId === "none" ? undefined : entityId,
       notes: String(form.get("notes") ?? ""),
+      includeInCashPosition,
     };
 
     startTransition(async () => {
@@ -83,6 +87,10 @@ export function EditBankForm({ account, entities }: { account: BankRecord; entit
             <Label>Entity (optional)</Label>
             <EntitySelect entities={entities} value={entityId} onValueChange={setEntityId} allowNone />
           </div>
+          <BankAccountUsageField
+            value={includeInCashPosition}
+            onChange={setIncludeInCashPosition}
+          />
           <div className="space-y-2 md:col-span-2"><Label htmlFor="notes">Notes</Label><Textarea id="notes" name="notes" rows={3} defaultValue={account.notes ?? ""} /></div>
           {error ? <p className="text-sm text-destructive md:col-span-2">{error}</p> : null}
           <div className="flex gap-2 md:col-span-2">

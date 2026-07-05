@@ -8,6 +8,7 @@ import { StaleBalanceBadge } from "@/components/cash/stale-balance-badge";
 import { getCashAccount, getCashBalanceHistory } from "@/lib/data/cash-management";
 import { canWrite, requireModuleAccess } from "@/lib/permissions/access";
 import { formatDate, formatMoney, formatOmr } from "@/lib/format";
+import { BankAccountUsageBadge } from "@/components/bank/bank-account-usage-badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 
@@ -55,6 +56,19 @@ export default async function CashAccountDetailPage({
               <Detail label="Entity" value={account.entityName ?? "—"} />
               <Detail label="Currency" value={account.currency} />
               <Detail
+                label="Usage"
+                value={
+                  <div className="space-y-1">
+                    <BankAccountUsageBadge includeInCashPosition={account.includeInCashPosition} />
+                    <p className="text-xs text-muted-foreground">
+                      {account.includeInCashPosition
+                        ? "Included in cash position and net worth."
+                        : "Excluded from cash position totals."}
+                    </p>
+                  </div>
+                }
+              />
+              <Detail
                 label="Current Balance"
                 value={
                   account.currentBalance != null
@@ -92,11 +106,11 @@ export default async function CashAccountDetailPage({
   );
 }
 
-function Detail({ label, value }: { label: string; value?: string }) {
+function Detail({ label, value }: { label: string; value?: React.ReactNode }) {
   return (
     <div>
       <p className="text-sm font-medium text-muted-foreground">{label}</p>
-      <p className="mt-1 text-sm">{value ?? "—"}</p>
+      <div className="mt-1 text-sm">{value ?? "—"}</div>
     </div>
   );
 }

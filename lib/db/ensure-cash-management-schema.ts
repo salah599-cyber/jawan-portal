@@ -33,6 +33,32 @@ async function tableExists(client: Client, tableName: string) {
   return Boolean(result.rows[0]?.exists);
 }
 
+async function columnExists(client: Client, tableName: string, columnName: string) {
+  const result = await client.query(
+    `SELECT EXISTS (
+      SELECT 1
+      FROM information_schema.columns
+      WHERE table_schema = 'public'
+        AND table_name = $1
+        AND column_name = $2
+    )`,
+    [tableName, columnName],
+  );
+  return Boolean(result.rows[0]?.exists);
+}
+
+async function runStatements(client: Client, statements: string[]) {
+  for (const statement of statements) {
+    try {
+      await client.query(statement);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      if (isIgnorableSchemaError(message)) continue;
+      throw new Error(`Cash management schema statement failed: ${message}`);
+    }
+  }
+}
+
 async function applyCashManagementSchema() {
   const connectionString = getDatabaseUrl();
   if (!connectionString) return;
@@ -41,22 +67,28 @@ async function applyCashManagementSchema() {
   await client.connect();
 
   try {
-    if (await tableExists(client, "BankBalanceEntry")) {
+    const hasBalanceEntryTable = await tableExists(client, "BankBalanceEntry");
+    const hasIncludeInCashPosition = await columnExists(
+      client,
+      "BankAccount",
+      "includeInCashPosition",
+    );
+
+    if (!hasBalanceEntryTable) {
+      await runStatements(client, CASH_MANAGEMENT_SCHEMA_STATEMENTS);
+
+      if (!(await tableExists(client, "BankBalanceEntry"))) {
+        throw new Error(
+          "Cash management schema sync finished but BankBalanceEntry table is still missing.",
+        );
+      }
       return;
     }
 
-    for (const statement of CASH_MANAGEMENT_SCHEMA_STATEMENTS) {
-      try {
-        await client.query(statement);
-      } catch (error) {
-        const message = error instanceof Error ? error.message : String(error);
-        if (isIgnorableSchemaError(message)) continue;
-        throw new Error(`Cash management schema statement failed: ${message}`);
-      }
-    }
-
-    if (!(await tableExists(client, "BankBalanceEntry"))) {
-      throw new Error("Cash management schema sync finished but BankBalanceEntry table is still missing.");
+    if (!hasIncludeInCashPosition) {
+      await runStatements(client, [
+        `ALTER TABLE "BankAccount" ADD COLUMN IF NOT EXISTS "includeInCashPosition" BOOLEAN NOT NULL DEFAULT true`,
+      ]);
     }
   } finally {
     await client.end();

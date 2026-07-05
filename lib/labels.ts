@@ -180,6 +180,11 @@ export const LOAN_PAYMENT_METHOD_LABELS: Record<string, string> = {
   OTHER: "Other",
 };
 
+export const BANK_ACCOUNT_USAGE_LABELS: Record<string, string> = {
+  true: "Cash position",
+  false: "Info only",
+};
+
 export const CHEQUE_DIRECTION_LABELS: Record<string, string> = {
   ISSUED: "Issued (outgoing)",
   RECEIVED: "Received (incoming)",
