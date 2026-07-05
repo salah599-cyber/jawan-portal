@@ -34,9 +34,10 @@ export async function getPropertyAlerts(propertyId: string): Promise<ReAlert[]> 
 
   const property = await db.reProperty.findUnique({
     where: { id: propertyId },
-    select: { id: true, name: true },
+    select: { id: true, name: true, portfolioTrack: true },
   });
   if (!property) return [];
+  if (property.portfolioTrack === "PRIVATE") return [];
 
   const alerts: ReAlert[] = [];
   const baseHref = `/real-estate/${propertyId}`;
@@ -250,7 +251,7 @@ export async function getPropertyAlerts(propertyId: string): Promise<ReAlert[]> 
 
 export async function getPortfolioAlerts(entityFilter: { entityId?: { in: string[] } }) {
   const properties = await db.reProperty.findMany({
-    where: { ...entityFilter, status: { not: "SOLD" } },
+    where: { ...entityFilter, portfolioTrack: "INVESTMENT", status: { not: "SOLD" } },
     select: { id: true },
   });
   const all: ReAlert[] = [];

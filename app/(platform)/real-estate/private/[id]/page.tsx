@@ -1,22 +1,24 @@
 import Link from "next/link";
-import { notFound, redirect } from "next/navigation";
+import { notFound } from "next/navigation";
 import { PlatformHeader } from "@/components/platform/platform-header";
-import { RePropertyHub } from "@/components/real-estate/re-property-hub";
-import { ReAlertsBanner } from "@/components/real-estate/re-alerts-banner";
-import { getProperty } from "@/lib/data/real-estate";
-import { serializeReProperty } from "@/lib/real-estate/serialize";
+import { RePrivatePropertyHub } from "@/components/real-estate/private/re-private-property-hub";
+import {
+  getPrivateProperty,
+  listPrivateFamilyMembers,
+  listPrivateMortgageOptions,
+} from "@/lib/data/private-real-estate";
+import { serializePrivateProperty } from "@/lib/real-estate/serialize-private";
 import { canWrite, requireModuleAccess } from "@/lib/permissions/access";
 import {
   RE_OWNERSHIP_STATUS_LABELS,
   RE_PROPERTY_STATUS_LABELS,
-  RE_PROPERTY_TYPE_LABELS,
 } from "@/lib/labels";
 import { formatOmr } from "@/lib/format";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { ExternalLink } from "lucide-react";
 
-export default async function PropertyDetailPage({
+export default async function PrivatePropertyDetailPage({
   params,
   searchParams,
 }: {
@@ -27,11 +29,15 @@ export default async function PropertyDetailPage({
   const { tab } = await searchParams;
   const ctx = await requireModuleAccess("REAL_ESTATE");
 
-  const property = await getProperty(id, ctx);
+  const property = await getPrivateProperty(id, ctx);
   if (!property) notFound();
-  if (property.portfolioTrack === "PRIVATE") redirect(`/real-estate/private/${id}`);
 
-  const serialized = serializeReProperty(property);
+  const [mortgageOptions, familyMembers] = await Promise.all([
+    listPrivateMortgageOptions(ctx, property.entityId),
+    listPrivateFamilyMembers(ctx),
+  ]);
+
+  const serialized = serializePrivateProperty(property);
   const canEdit = canWrite(ctx, "REAL_ESTATE");
   const location = [property.area, property.wilayat, property.governorate]
     .filter(Boolean)
@@ -45,24 +51,23 @@ export default async function PropertyDetailPage({
           <div className="space-y-2">
             <div className="flex flex-wrap items-center gap-2">
               <h2 className="text-xl font-semibold">{property.name}</h2>
-              <Badge variant="secondary">
-                {RE_PROPERTY_TYPE_LABELS[property.propertyType] ?? property.propertyType}
-              </Badge>
+              <Badge variant="secondary">Family Villa</Badge>
               <Badge variant="outline">
                 {RE_PROPERTY_STATUS_LABELS[property.status] ?? property.status}
               </Badge>
               <Badge variant="outline">
                 {RE_OWNERSHIP_STATUS_LABELS[property.ownershipStatus] ?? property.ownershipStatus}
               </Badge>
+              {property.ownerDiscrepancy ? (
+                <Badge variant="destructive">Owner discrepancy</Badge>
+              ) : null}
             </div>
             {location ? <p className="text-sm text-muted-foreground">{location}</p> : null}
             <div className="flex flex-wrap gap-4 text-sm text-muted-foreground">
-              <span>
-                {property.metrics.occupiedUnits}/{property.metrics.totalUnits} units occupied
-              </span>
-              <span>{formatOmr(property.metrics.grossMonthlyRentOmr)}/mo rent</span>
-              {property.metrics.grossYieldPct != null ? (
-                <span>{property.metrics.grossYieldPct.toFixed(1)}% gross yield</span>
+              <span>{formatOmr(property.monthlyRunningCostOmr)}/mo running costs</span>
+              <span>{property.privateStaff.length} staff</span>
+              {property.currentValuationOmr != null ? (
+                <span>Valuation {formatOmr(Number(property.currentValuationOmr))}</span>
               ) : null}
             </div>
           </div>
@@ -77,18 +82,29 @@ export default async function PropertyDetailPage({
             ) : null}
             {canEdit ? (
               <Button variant="outline" size="sm" asChild>
-                <Link href={`/real-estate/${id}/edit`}>Edit</Link>
+                <Link href={`/real-estate/private/${id}/edit`}>Edit</Link>
               </Button>
             ) : null}
             <Button variant="outline" size="sm" asChild>
-              <Link href="/real-estate">Back</Link>
+              <Link href="/real-estate/private">Back</Link>
             </Button>
           </div>
         </div>
 
-        {property.alerts.length > 0 ? <ReAlertsBanner alerts={property.alerts} /> : null}
-
-        <RePropertyHub property={serialized} canEdit={canEdit} defaultTab={tab} />
+        <RePrivatePropertyHub
+          property={serialized}
+          canEdit={canEdit}
+          mortgageOptions={mortgageOptions.map((loan) => ({
+            id: loan.id,
+            name: loan.name,
+            lender: loan.lender,
+            outstandingBalance: loan.outstandingBalance?.toString() ?? null,
+            amount: loan.amount.toString(),
+            currency: loan.currency,
+          }))}
+          familyMembers={familyMembers}
+          defaultTab={tab}
+        />
       </main>
     </>
   );

@@ -14,6 +14,7 @@ import { getSuccessionCalendarItems } from "@/lib/calendar/providers/succession"
 import { getContactsCalendarItems } from "@/lib/calendar/providers/contacts";
 import { getProposalCalendarItems } from "@/lib/calendar/providers/proposals";
 import { getRealEstateCalendarItems } from "@/lib/calendar/providers/real-estate";
+import { getPrivateRealEstateCalendarItems } from "@/lib/calendar/providers/private-real-estate";
 import { getVehicleCalendarItems } from "@/lib/calendar/providers/vehicles";
 
 export async function getSystemCalendarItems(ctx: UserContext): Promise<CalendarItem[]> {
@@ -25,6 +26,7 @@ export async function getSystemCalendarItems(ctx: UserContext): Promise<Calendar
     getVehicleCalendarItems(ctx),
     getCompanyCalendarItems(ctx),
     getRealEstateCalendarItems(ctx),
+    getPrivateRealEstateCalendarItems(ctx),
     getPeMonitoringCalendarItems(ctx),
     getLpCapitalCallCalendarItems(ctx),
     getInsuranceCalendarItems(ctx),

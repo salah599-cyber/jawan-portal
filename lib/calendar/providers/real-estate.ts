@@ -15,7 +15,7 @@ export async function getRealEstateCalendarItems(ctx: UserContext): Promise<Cale
   const entityFilter = rePropertyEntityFilter(ctx);
 
   const properties = await db.reProperty.findMany({
-    where: { ...entityFilter, status: { not: "SOLD" } },
+    where: { ...entityFilter, portfolioTrack: "INVESTMENT", status: { not: "SOLD" } },
     select: {
       id: true,
       name: true,

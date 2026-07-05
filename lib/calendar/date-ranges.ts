@@ -124,6 +124,8 @@ export const KIND_LABELS: Record<CalendarItemKind, string> = {
   RE_LEASE_EXPIRY: "Lease",
   RE_MUNICIPALITY: "Municipality",
   RE_DOCUMENT_EXPIRY: "RE Document",
+  RE_STAFF_VISA_EXPIRY: "Staff Visa",
+  RE_STAFF_CONTRACT_EXPIRY: "Staff Contract",
   PE_MONITORING_DUE: "PE Monitoring",
   LP_CAPITAL_CALL_DUE: "LP Capital Call",
   PROPOSAL_APPROVAL: "Proposal",
