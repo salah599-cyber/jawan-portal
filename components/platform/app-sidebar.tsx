@@ -59,7 +59,10 @@ const platformNav: NavItem[] = [
   { href: "/portfolio/pe", label: "PE / VC Portfolio", icon: Briefcase },
   { href: "/portfolio/fund-lp", label: "Fund LP Investments", icon: Landmark },
   { href: "/lands", label: "Lands", icon: Map },
-  { href: "/real-estate", label: "Real Estate", icon: Home },
+  { href: "/real-estate", label: "Real Estate", icon: Home, groupPrefix: "/real-estate", children: [
+    { href: "/real-estate", label: "Investment Portfolio" },
+    { href: "/real-estate/private", label: "Private Real Estate" },
+  ]},
   { href: "/cars", label: "Cars", icon: Car },
   { href: "/companies", label: "Companies", icon: Factory },
   { href: "/loans", label: "Loans", icon: HandCoins },
@@ -101,6 +104,12 @@ function isActive(pathname: string, href: string) {
   if (href === "/documents") {
     return pathname === "/documents" || pathname === "/documents/";
   }
+  if (href === "/real-estate") {
+    return (
+      pathname === "/real-estate" ||
+      (pathname.startsWith("/real-estate/") && !pathname.startsWith("/real-estate/private"))
+    );
+  }
   return pathname === href || pathname.startsWith(href + "/");
 }
 
@@ -114,6 +123,10 @@ function isDocumentsGroupActive(pathname: string) {
 
 function isFamilyGroupActive(pathname: string) {
   return isGroupActive(pathname, "/family");
+}
+
+function isRealEstateGroupActive(pathname: string) {
+  return isGroupActive(pathname, "/real-estate");
 }
 
 function childIcon(icon?: "file" | "shield" | "users" | "scroll") {
@@ -193,7 +206,9 @@ export function AppSidebar({
                   const groupActive =
                     item.groupPrefix === "/family"
                       ? isFamilyGroupActive(pathname)
-                      : isDocumentsGroupActive(pathname);
+                      : item.groupPrefix === "/real-estate"
+                        ? isRealEstateGroupActive(pathname)
+                        : isDocumentsGroupActive(pathname);
                   return (
                     <SidebarMenuItem key={item.href}>
                       <SidebarMenuButton asChild isActive={groupActive}>

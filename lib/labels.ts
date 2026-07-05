@@ -381,6 +381,65 @@ export const RE_PROPERTY_STATUS_LABELS: Record<string, string> = {
   SOLD: "Sold",
 };
 
+export const RE_PORTFOLIO_TRACK_LABELS: Record<string, string> = {
+  INVESTMENT: "Investment",
+  PRIVATE: "Private",
+};
+
+export const RE_PRIVATE_COST_CATEGORY_LABELS: Record<string, string> = {
+  ELECTRICITY: "Electricity",
+  WATER: "Water",
+  MUNICIPALITY_FEES: "Municipality Fees",
+  INTERNET_TELECOM: "Internet / Telecoms",
+  SECURITY: "Security",
+  HOUSEKEEPING: "Housekeeping / Cleaning",
+  GARDENING: "Gardening / Landscaping",
+  POOL_MAINTENANCE: "Pool Maintenance",
+  PEST_CONTROL: "Pest Control",
+  AC_MAINTENANCE: "AC Maintenance",
+  GENERAL_MAINTENANCE_RESERVE: "General Maintenance Reserve",
+};
+
+export const RE_PRIVATE_STAFF_ROLE_LABELS: Record<string, string> = {
+  DRIVER: "Driver",
+  HOUSEKEEPER: "Housekeeper",
+  COOK: "Cook",
+  SECURITY_GUARD: "Security Guard",
+  GARDENER: "Gardener",
+  OTHER: "Other",
+};
+
+export const RE_PRIVATE_STAFF_ARRANGEMENT_LABELS: Record<string, string> = {
+  LIVE_IN: "Live-in",
+  LIVE_OUT: "Live-out",
+};
+
+export const RE_FINISHING_QUALITY_LABELS: Record<string, string> = {
+  STANDARD: "Standard",
+  HIGH_END: "High-end",
+  LUXURY: "Luxury",
+};
+
+export const RE_PROPERTY_CONDITION_LABELS: Record<string, string> = {
+  EXCELLENT: "Excellent",
+  GOOD: "Good",
+  FAIR: "Fair",
+  NEEDS_RENOVATION: "Needs Renovation",
+};
+
+export const RE_PRIVATE_DOCUMENT_TYPE_LABELS: Record<string, string> = {
+  TITLE_DEED: "Title Deed",
+  FLOOR_PLAN: "Floor Plans",
+  ARCHITECTURAL_DRAWING: "Architectural Drawings",
+  COMPLETION_CERTIFICATE: "Completion Certificate",
+  INSURANCE_POLICY: "Insurance Policy",
+  MORTGAGE_DOCUMENT: "Mortgage Document",
+  RENOVATION_CONTRACT: "Renovation Contracts & Invoices",
+  UTILITY_ACCOUNT: "Utility Account Documents",
+  STAFF_CONTRACT: "Staff Contracts",
+  OTHER: "Other",
+};
+
 export const RE_UNIT_TYPE_LABELS: Record<string, string> = {
   FLAT: "Flat",
   APARTMENT: "Apartment",

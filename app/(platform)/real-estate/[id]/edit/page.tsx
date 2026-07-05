@@ -17,6 +17,7 @@ export default async function EditPropertyPage({ params }: { params: Promise<{ i
     listRePortfolioEntities(ctx),
   ]);
   if (!property) notFound();
+  if (property.portfolioTrack === "PRIVATE") redirect(`/real-estate/private/${id}/edit`);
 
   return (
     <>

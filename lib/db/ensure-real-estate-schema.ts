@@ -1,6 +1,13 @@
 import fs from "node:fs";
 import path from "node:path";
 import { Client } from "pg";
+import {
+  isIgnorablePrivateReSchemaError,
+  PRIVATE_RE_DOCUMENT_ENUM_STATEMENTS,
+  PRIVATE_RE_ENUM_STATEMENTS,
+  PRIVATE_RE_SCHEMA_COLUMN_CHECK_SQL,
+  PRIVATE_RE_SCHEMA_STATEMENTS,
+} from "@/lib/db/real-estate-private-schema-statements";
 
 let ensurePromise: Promise<void> | null = null;
 
@@ -47,6 +54,67 @@ async function tableExists(client: Client, tableName: string) {
   return Boolean(result.rows[0]?.exists);
 }
 
+async function privateReColumnExists(client: Client): Promise<boolean> {
+  const result = await client.query(PRIVATE_RE_SCHEMA_COLUMN_CHECK_SQL);
+  return Boolean(result.rows[0]?.exists);
+}
+
+async function runStatements(client: Client, statements: string[], ignorable = isIgnorableSchemaError) {
+  for (const statement of statements) {
+    try {
+      await client.query(statement);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      if (ignorable(message)) continue;
+      throw new Error(`Real estate schema statement failed: ${message}`);
+    }
+  }
+}
+
+async function applyBaseRealEstateSchema(client: Client) {
+  if (await tableExists(client, "ReProperty")) {
+    return;
+  }
+
+  const sqlPath = path.join(process.cwd(), "lib/db/real-estate-schema.sql");
+  const sql = fs.readFileSync(sqlPath, "utf8");
+  const statements = splitSqlStatements(sql);
+
+  for (const statement of statements) {
+    try {
+      await client.query(statement);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      if (isIgnorableSchemaError(message)) continue;
+      throw new Error(`Real estate schema statement failed: ${message}`);
+    }
+  }
+
+  if (!(await tableExists(client, "ReProperty"))) {
+    throw new Error("Real estate schema sync finished but ReProperty table is still missing.");
+  }
+}
+
+async function applyPrivateRealEstateSchema(client: Client) {
+  if (!(await tableExists(client, "ReProperty"))) {
+    return;
+  }
+
+  if (await privateReColumnExists(client)) {
+    return;
+  }
+
+  await runStatements(client, PRIVATE_RE_ENUM_STATEMENTS, isIgnorablePrivateReSchemaError);
+  await runStatements(client, PRIVATE_RE_DOCUMENT_ENUM_STATEMENTS, isIgnorablePrivateReSchemaError);
+  await runStatements(client, PRIVATE_RE_SCHEMA_STATEMENTS, isIgnorablePrivateReSchemaError);
+
+  if (!(await privateReColumnExists(client))) {
+    throw new Error(
+      "Private real estate schema sync finished but ReProperty.portfolioTrack is still missing.",
+    );
+  }
+}
+
 async function applyRealEstateSchema() {
   const connectionString = getDatabaseUrl();
   if (!connectionString) return;
@@ -55,27 +123,8 @@ async function applyRealEstateSchema() {
   await client.connect();
 
   try {
-    if (await tableExists(client, "ReProperty")) {
-      return;
-    }
-
-    const sqlPath = path.join(process.cwd(), "lib/db/real-estate-schema.sql");
-    const sql = fs.readFileSync(sqlPath, "utf8");
-    const statements = splitSqlStatements(sql);
-
-    for (const statement of statements) {
-      try {
-        await client.query(statement);
-      } catch (error) {
-        const message = error instanceof Error ? error.message : String(error);
-        if (isIgnorableSchemaError(message)) continue;
-        throw new Error(`Real estate schema statement failed: ${message}`);
-      }
-    }
-
-    if (!(await tableExists(client, "ReProperty"))) {
-      throw new Error("Real estate schema sync finished but ReProperty table is still missing.");
-    }
+    await applyBaseRealEstateSchema(client);
+    await applyPrivateRealEstateSchema(client);
   } finally {
     await client.end();
   }

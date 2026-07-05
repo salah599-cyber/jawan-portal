@@ -843,6 +843,7 @@ model Liability {
   asset              Asset?             @relation(fields: [assetId], references: [id])
   documents          LoanDocument[]
   payments           LoanPayment[]
+  reProperties       ReProperty[]
   lastPaymentAt      DateTime?
   createdAt          DateTime           @default(now())
   updatedAt          DateTime           @updatedAt
@@ -1558,6 +1559,52 @@ model PeCompanyDocument {
 
   @@index([companyId, documentType])
 }
+enum RePortfolioTrack {
+  INVESTMENT
+  PRIVATE
+}
+
+enum ReFinishingQuality {
+  STANDARD
+  HIGH_END
+  LUXURY
+}
+
+enum RePropertyCondition {
+  EXCELLENT
+  GOOD
+  FAIR
+  NEEDS_RENOVATION
+}
+
+enum RePrivateCostCategory {
+  ELECTRICITY
+  WATER
+  MUNICIPALITY_FEES
+  INTERNET_TELECOM
+  SECURITY
+  HOUSEKEEPING
+  GARDENING
+  POOL_MAINTENANCE
+  PEST_CONTROL
+  AC_MAINTENANCE
+  GENERAL_MAINTENANCE_RESERVE
+}
+
+enum RePrivateStaffRole {
+  DRIVER
+  HOUSEKEEPER
+  COOK
+  SECURITY_GUARD
+  GARDENER
+  OTHER
+}
+
+enum RePrivateStaffArrangement {
+  LIVE_IN
+  LIVE_OUT
+}
+
 enum RePropertyType {
   VILLA
   APARTMENT_BUILDING
@@ -1756,6 +1803,11 @@ enum RePropertyDocumentType {
   TENANT_ID
   FLOOR_PLAN
   PHOTO
+  COMPLETION_CERTIFICATE
+  ARCHITECTURAL_DRAWING
+  RENOVATION_CONTRACT
+  UTILITY_ACCOUNT
+  STAFF_CONTRACT
   OTHER
 }
 
@@ -1763,11 +1815,14 @@ model ReProperty {
   id                      String              @id @default(cuid())
   name                    String
   propertyType            RePropertyType
+  portfolioTrack            RePortfolioTrack    @default(INVESTMENT)
   ownershipStatus         ReOwnershipStatus   @default(OWNED)
   entityId                String
   entity                  Entity              @relation(fields: [entityId], references: [id])
   assetId                 String?             @unique
   asset                   Asset?              @relation(fields: [assetId], references: [id])
+  liabilityId             String?
+  liability               Liability?          @relation(fields: [liabilityId], references: [id], onDelete: SetNull)
   landParcelId            String?             @unique
   landParcel              LandParcel?         @relation(fields: [landParcelId], references: [id])
   purchaseDate            DateTime?
@@ -1801,6 +1856,9 @@ model ReProperty {
   expenses                RePropertyExpense[]
   documents               RePropertyDocument[]
   insurancePolicies       InsurancePolicy[]
+  privateDetail           RePrivatePropertyDetail?
+  privateRunningCosts     RePrivateRunningCost[]
+  privateStaff            RePrivateStaff[]
   familyOwnershipStakes FamilyOwnershipStake[]
   beneficiaryDesignations BeneficiaryDesignation[]
   successionDistributionInstructions SuccessionDistributionInstruction[]
@@ -1809,6 +1867,72 @@ model ReProperty {
 
   @@index([entityId, status])
   @@index([entityId, governorate, wilayat])
+  @@index([entityId, portfolioTrack])
+}
+
+model RePrivatePropertyDetail {
+  id                    String               @id @default(cuid())
+  propertyId            String               @unique
+  property              ReProperty           @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  titleDeedNumber       String?
+  registeredOwner       String?
+  beneficialOwner       String?
+  numBedrooms           Int?
+  numBathrooms          Int?
+  numParkingSpaces      Int?
+  constructionType      String?
+  finishingQuality      ReFinishingQuality?
+  furnishingStatus      ReFurnishingStatus?
+  hasPool               Boolean              @default(false)
+  hasGardenLandscaping  Boolean              @default(false)
+  hasSmartHome          Boolean              @default(false)
+  condition             RePropertyCondition?
+  lastRenovationDate    DateTime?
+  lastRenovationCostOmr Decimal?             @db.Decimal(18, 3)
+  wasiyyaConditions     String?
+  createdAt             DateTime             @default(now())
+  updatedAt             DateTime             @updatedAt
+}
+
+model RePrivateRunningCost {
+  id              String                @id @default(cuid())
+  propertyId      String
+  property        ReProperty            @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  category        RePrivateCostCategory
+  provider        String?
+  meterNumber     String?
+  accountNumber   String?
+  frequency       ReRecurrenceFrequency?
+  monthlyCostOmr  Decimal?              @db.Decimal(18, 3)
+  annualCostOmr   Decimal?              @db.Decimal(18, 3)
+  paymentStatus   String?
+  notes           String?
+  createdAt       DateTime              @default(now())
+  updatedAt       DateTime              @updatedAt
+
+  @@unique([propertyId, category])
+  @@index([propertyId])
+}
+
+model RePrivateStaff {
+  id              String                    @id @default(cuid())
+  propertyId      String
+  property        ReProperty                @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  fullName        String
+  nationality     String?
+  idNumber        String?
+  role            RePrivateStaffRole        @default(OTHER)
+  arrangement     RePrivateStaffArrangement?
+  contractExpiry  DateTime?
+  visaExpiry      DateTime?
+  monthlySalaryOmr Decimal?                 @db.Decimal(18, 3)
+  notes           String?
+  createdAt       DateTime                  @default(now())
+  updatedAt       DateTime                  @updatedAt
+
+  @@index([propertyId])
+  @@index([visaExpiry])
+  @@index([contractExpiry])
 }
 
 model ReUnit {

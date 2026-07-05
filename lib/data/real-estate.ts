@@ -4,6 +4,7 @@ import { ensureDefaultEntity, listEntities } from "@/lib/data/entities";
 import { rePropertyEntityFilter } from "@/lib/permissions/scoped-queries";
 import type { UserContext } from "@/lib/permissions/types";
 import type {
+  RePortfolioTrack,
   RePropertyStatus,
   RePropertyType,
   ReRentPaymentStatus,
@@ -48,7 +49,12 @@ export type RePropertyFilters = {
   status?: RePropertyStatus;
   search?: string;
   entityId?: string;
+  portfolioTrack?: RePortfolioTrack;
 };
+
+function defaultPortfolioTrack(filters?: RePropertyFilters): RePortfolioTrack {
+  return filters?.portfolioTrack ?? "INVESTMENT";
+}
 
 export type ReRentDashboardFilters = RePropertyFilters & {
   paymentStatus?: ReRentPaymentStatus | ReRentPaymentStatus[];
@@ -167,6 +173,7 @@ function buildPropertyWhere(ctx: UserContext, filters?: RePropertyFilters) {
   const search = filters?.search?.trim();
   return {
     ...rePropertyEntityFilter(ctx),
+    portfolioTrack: defaultPortfolioTrack(filters),
     ...(filters?.entityId ? { entityId: filters.entityId } : {}),
     ...(filters?.governorate ? { governorate: filters.governorate } : {}),
     ...(filters?.propertyType ? { propertyType: filters.propertyType } : {}),
