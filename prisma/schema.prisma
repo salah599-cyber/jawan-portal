@@ -797,8 +797,9 @@ model BankAccount {
   notes          String?
   currentBalance Decimal?            @db.Decimal(18, 3)
   balanceAsOf    DateTime?
-  isActive       Boolean             @default(true)
-  cheques        Cheque[]
+  isActive               Boolean             @default(true)
+  includeInCashPosition  Boolean             @default(true)
+  cheques                Cheque[]
   balanceEntries BankBalanceEntry[]
   createdAt      DateTime            @default(now())
   updatedAt      DateTime            @updatedAt

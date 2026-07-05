@@ -6,6 +6,7 @@ import { EditLinkButton } from "@/components/platform/edit-link-button";
 import { getBankAccount, deleteBankAccount } from "@/lib/actions/bank-accounts";
 import { canWrite, requireModuleAccess } from "@/lib/permissions/access";
 import { CHEQUE_DIRECTION_LABELS, CHEQUE_STATUS_LABELS } from "@/lib/labels";
+import { BankAccountUsageBadge } from "@/components/bank/bank-account-usage-badge";
 import { formatMoney, formatDate } from "@/lib/format";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -62,6 +63,19 @@ export default async function BankAccountDetailPage({ params }: { params: Promis
             <Detail label="Bank" value={account.bankName} />
             <Detail label="Account Number" value={account.accountNumber} />
             <Detail label="Currency" value={account.currency} />
+            <Detail
+              label="Usage"
+              value={
+                <div className="space-y-1">
+                  <BankAccountUsageBadge includeInCashPosition={account.includeInCashPosition} />
+                  <p className="text-xs text-muted-foreground">
+                    {account.includeInCashPosition
+                      ? "This account balance is included in cash position and net worth."
+                      : "This account is stored for reference only and is excluded from cash position."}
+                  </p>
+                </div>
+              }
+            />
             <Detail label="IBAN" value={account.iban} />
             <Detail label="SWIFT / BIC" value={account.swiftCode} />
             <Detail label="Sort Code" value={account.sortCode} />

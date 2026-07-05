@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { StaleBalanceBadge } from "@/components/cash/stale-balance-badge";
+import { BankAccountUsageBadge } from "@/components/bank/bank-account-usage-badge";
 import { formatDate, formatMoney, formatOmr } from "@/lib/format";
 import type { CashAccountRow } from "@/lib/data/cash-management";
 import {
@@ -29,6 +30,7 @@ export function CashAccountsTable({
           <TableHead>Account</TableHead>
           <TableHead>Bank</TableHead>
           <TableHead>Entity</TableHead>
+          <TableHead>Usage</TableHead>
           <TableHead className="text-right">Balance</TableHead>
           <TableHead className="text-right">OMR Equivalent</TableHead>
           <TableHead>As of</TableHead>
@@ -47,6 +49,9 @@ export function CashAccountsTable({
             </TableCell>
             <TableCell>{account.bankName}</TableCell>
             <TableCell>{account.entityName ?? "—"}</TableCell>
+            <TableCell>
+              <BankAccountUsageBadge includeInCashPosition={account.includeInCashPosition} />
+            </TableCell>
             <TableCell className="text-right tabular-nums">
               {account.currentBalance != null
                 ? formatMoney(account.currentBalance, account.currency)

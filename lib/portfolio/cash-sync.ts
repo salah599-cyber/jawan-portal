@@ -35,6 +35,7 @@ async function buildCashGroups(ctx: UserContext): Promise<CashGroup[]> {
   const groups = new Map<string, CashGroup>();
 
   for (const account of accounts) {
+    if (!account.includeInCashPosition) continue;
     if (!account.currentBalance) continue;
 
     const balance = parseFloat(account.currentBalance.toString());

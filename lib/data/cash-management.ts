@@ -19,6 +19,7 @@ export type CashAccountRow = {
   balanceAsOf: Date | null;
   isStale: boolean;
   notes: string | null;
+  includeInCashPosition: boolean;
 };
 
 export type CashBreakdownRow = {
@@ -64,6 +65,7 @@ async function accountToRow(
     currentBalance: { toString(): string } | null;
     balanceAsOf: Date | null;
     notes: string | null;
+    includeInCashPosition: boolean;
   },
 ): Promise<CashAccountRow> {
   const currentBalance = toNumber(account.currentBalance);
@@ -84,6 +86,7 @@ async function accountToRow(
     balanceAsOf: account.balanceAsOf,
     isStale: isStaleBalance(account.balanceAsOf),
     notes: account.notes,
+    includeInCashPosition: account.includeInCashPosition,
   };
 }
 
@@ -111,12 +114,16 @@ export async function getCashSummary(ctx: UserContext): Promise<CashSummary> {
   let lastUpdated: Date | null = null;
 
   for (const row of accountRows) {
-    const omr = row.balanceOmr ?? 0;
-    totalOmr += omr;
-    if (row.isStale) staleCount += 1;
-    if (row.balanceAsOf && (!lastUpdated || row.balanceAsOf > lastUpdated)) {
-      lastUpdated = row.balanceAsOf;
+    const omr = row.includeInCashPosition ? (row.balanceOmr ?? 0) : 0;
+    if (row.includeInCashPosition) {
+      totalOmr += omr;
+      if (row.isStale) staleCount += 1;
+      if (row.balanceAsOf && (!lastUpdated || row.balanceAsOf > lastUpdated)) {
+        lastUpdated = row.balanceAsOf;
+      }
     }
+
+    if (!row.includeInCashPosition) continue;
 
     const bankEntry = byBank.get(row.bankName) ?? {
       label: row.bankName,
@@ -151,7 +158,7 @@ export async function getCashSummary(ctx: UserContext): Promise<CashSummary> {
 
   return {
     totalOmr,
-    accountCount: accountRows.length,
+    accountCount: accountRows.filter((row) => row.includeInCashPosition).length,
     staleCount,
     lastUpdated,
     byBank: sortBreakdown([...byBank.values()]),

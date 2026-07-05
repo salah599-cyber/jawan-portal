@@ -18,6 +18,7 @@ export type CashAccountInput = {
   currency: string;
   entityId?: string;
   notes?: string;
+  includeInCashPosition?: boolean;
 };
 
 function parseDecimal(value?: string | null) {
@@ -75,6 +76,7 @@ export async function createCashAccount(input: CashAccountInput) {
       entityId: input.entityId || undefined,
       notes: input.notes?.trim() || undefined,
       isActive: true,
+      includeInCashPosition: input.includeInCashPosition ?? true,
     },
   });
 
@@ -104,6 +106,9 @@ export async function updateCashAccount(id: string, input: CashAccountInput) {
   });
   if (!account) throw new Error("Bank account not found.");
 
+  const includeInCashPosition = input.includeInCashPosition ?? true;
+  const usageChanged = account.includeInCashPosition !== includeInCashPosition;
+
   const updated = await db.bankAccount.update({
     where: { id },
     data: {
@@ -116,8 +121,13 @@ export async function updateCashAccount(id: string, input: CashAccountInput) {
       currency: input.currency || "OMR",
       entityId: input.entityId || undefined,
       notes: input.notes?.trim() || undefined,
+      includeInCashPosition,
     },
   });
+
+  if (includeInCashPosition || usageChanged || account.includeInCashPosition) {
+    await syncBankBalancesToCashAssets(ctx);
+  }
 
   await logAudit({
     userId: ctx.id,

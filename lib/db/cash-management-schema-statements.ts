@@ -14,4 +14,5 @@ export const CASH_MANAGEMENT_SCHEMA_STATEMENTS = [
     CONSTRAINT "BankBalanceEntry_pkey" PRIMARY KEY ("id")
   )`,
   `CREATE INDEX IF NOT EXISTS "BankBalanceEntry_bankAccountId_balanceDate_idx" ON "BankBalanceEntry"("bankAccountId", "balanceDate")`,
+  `ALTER TABLE "BankAccount" ADD COLUMN IF NOT EXISTS "includeInCashPosition" BOOLEAN NOT NULL DEFAULT true`,
 ];
