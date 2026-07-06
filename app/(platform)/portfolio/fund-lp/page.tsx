@@ -11,6 +11,7 @@ import {
 import { canWrite, requireModuleAccess } from "@/lib/permissions/access";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { FundLpPortfolioFilters } from "@/components/lp/fund-lp-portfolio-filters";
 
 function LpLoadError({ message, digest }: { message: string; digest?: string }) {
   return (
@@ -76,20 +77,7 @@ export default async function FundLpPortfolioPage({
             {canEdit ? <AddLinkButton href="/portfolio/fund-lp/new" label="Add Commitment" /> : null}
           </div>
 
-          {entities.length > 1 ? (
-            <div className="flex flex-wrap gap-2">
-              {entities.map((entity) => (
-                <Button
-                  key={entity.id}
-                  variant={entity.id === entityId ? "default" : "outline"}
-                  size="sm"
-                  asChild
-                >
-                  <Link href={`/portfolio/fund-lp?entity=${entity.id}`}>{entity.name}</Link>
-                </Button>
-              ))}
-            </div>
-          ) : null}
+          <FundLpPortfolioFilters entityId={entityId} entities={entities} />
 
           <LpPortfolioSummaryCards summary={summary} />
 

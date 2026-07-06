@@ -1,8 +1,9 @@
 "use client";
 
 import { useState } from "react";
-import Link from "next/link";
 import { LayoutGrid, Table2 } from "lucide-react";
+import { EntityFilterSelect } from "@/components/platform/entity-filter-select";
+import { FilterToolbar } from "@/components/platform/filter-toolbar";
 import { RePortfolioSummaryCards } from "@/components/real-estate/re-portfolio-summary-cards";
 import { RePropertyCardGrid } from "@/components/real-estate/re-property-card-grid";
 import { RePropertyTable } from "@/components/real-estate/re-property-table";
@@ -43,20 +44,15 @@ export function RePortfolioClient({
 
   return (
     <div className="space-y-4">
-      {entities.length > 1 ? (
-        <div className="flex flex-wrap gap-2">
-          {entities.map((entity) => (
-            <Button
-              key={entity.id}
-              variant={entity.id === entityId ? "default" : "outline"}
-              size="sm"
-              asChild
-            >
-              <Link href={`/real-estate?entity=${entity.id}`}>{entity.name}</Link>
-            </Button>
-          ))}
-        </div>
-      ) : null}
+      <FilterToolbar>
+        <EntityFilterSelect
+          entities={entities}
+          value={entityId}
+          pathname="/real-estate"
+          currentParams={{ entity: entityId }}
+          allowAll={false}
+        />
+      </FilterToolbar>
 
       <RePortfolioSummaryCards summary={summary} />
 

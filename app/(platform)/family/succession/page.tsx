@@ -1,13 +1,11 @@
-import Link from "next/link";
 import { PlatformHeader } from "@/components/platform/platform-header";
 import { AddLinkButton } from "@/components/platform/add-link-button";
 import { SuccessionPlansTable } from "@/components/succession/succession-plans-table";
 import { SuccessionSummaryCards } from "@/components/succession/succession-summary-cards";
 import { SuccessionDisclaimer } from "@/components/succession/succession-disclaimer";
+import { SuccessionFilters } from "@/components/succession/succession-filters";
 import { listSuccessionPlans } from "@/lib/actions/succession";
-import { SUCCESSION_PLAN_STATUS_LABELS } from "@/lib/labels";
 import { canWrite, requireModuleAccess } from "@/lib/permissions/access";
-import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 
 export default async function SuccessionPlansPage({
@@ -20,11 +18,6 @@ export default async function SuccessionPlansPage({
 
   const plans = await listSuccessionPlans({ status });
   const canEdit = canWrite(ctx, "SUCCESSION");
-
-  const buildHref = (nextStatus?: string) => {
-    if (!nextStatus) return "/family/succession";
-    return `/family/succession?status=${nextStatus}`;
-  };
 
   return (
     <>
@@ -44,16 +37,7 @@ export default async function SuccessionPlansPage({
 
         <SuccessionSummaryCards plans={plans} />
 
-        <div className="flex flex-wrap gap-2">
-          <Button variant={!status ? "default" : "outline"} size="sm" asChild>
-            <Link href={buildHref()}>All</Link>
-          </Button>
-          {Object.entries(SUCCESSION_PLAN_STATUS_LABELS).map(([value, label]) => (
-            <Button key={value} variant={status === value ? "default" : "outline"} size="sm" asChild>
-              <Link href={buildHref(status === value ? undefined : value)}>{label}</Link>
-            </Button>
-          ))}
-        </div>
+        <SuccessionFilters status={status} currentParams={{ status }} />
 
         <Card>
           <CardHeader>

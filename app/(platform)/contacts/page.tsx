@@ -1,13 +1,11 @@
-import Link from "next/link";
 import { PlatformHeader } from "@/components/platform/platform-header";
 import { AddLinkButton } from "@/components/platform/add-link-button";
 import { ContactsSummaryCards } from "@/components/contacts/contacts-summary-cards";
 import { ContactsTable } from "@/components/contacts/contacts-table";
+import { ContactsFilters } from "@/components/contacts/contacts-filters";
 import { listDirectoryContacts } from "@/lib/actions/contacts";
 import { listEntities } from "@/lib/data/entities";
-import { DIRECTORY_CONTACT_TYPE_LABELS } from "@/lib/labels";
 import { canWrite, requireModuleAccess } from "@/lib/permissions/access";
-import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 
 export default async function ContactsDirectoryPage({
@@ -43,22 +41,6 @@ export default async function ContactsDirectoryPage({
 
   const canEdit = canWrite(ctx, "CONTACTS");
 
-  const buildHref = (params: Record<string, string | undefined>) => {
-    const search = new URLSearchParams();
-    const merged = {
-      entity: entityParam === "global" ? "global" : entityId && entityId !== "__global__" ? entityId : undefined,
-      type: typeParam,
-      active: activeOnly ? undefined : "all",
-      followUp: followUpDue ? "due" : undefined,
-      ...params,
-    };
-    for (const [key, value] of Object.entries(merged)) {
-      if (value) search.set(key, value);
-    }
-    const qs = search.toString();
-    return qs ? `/contacts?${qs}` : "/contacts";
-  };
-
   return (
     <>
       <PlatformHeader title="Contacts Directory" />
@@ -75,58 +57,19 @@ export default async function ContactsDirectoryPage({
 
         <ContactsSummaryCards contacts={contacts} />
 
-        <div className="flex flex-wrap gap-2">
-          {entities.length > 1 ? (
-            <>
-              <Button variant={!entityId ? "default" : "outline"} size="sm" asChild>
-                <Link href={buildHref({ entity: undefined })}>All entities</Link>
-              </Button>
-              <Button variant={entityId === "__global__" ? "default" : "outline"} size="sm" asChild>
-                <Link href={buildHref({ entity: "global" })}>Global</Link>
-              </Button>
-              {entities.map((entity) => (
-                <Button
-                  key={entity.id}
-                  variant={entity.id === entityId ? "default" : "outline"}
-                  size="sm"
-                  asChild
-                >
-                  <Link href={buildHref({ entity: entity.id })}>{entity.name}</Link>
-                </Button>
-              ))}
-            </>
-          ) : null}
-        </div>
-
-        <div className="flex flex-wrap gap-2">
-          <span className="text-sm text-muted-foreground self-center">Type:</span>
-          <Button variant={!typeParam ? "default" : "outline"} size="sm" asChild>
-            <Link href={buildHref({ type: undefined })}>All</Link>
-          </Button>
-          {Object.entries(DIRECTORY_CONTACT_TYPE_LABELS).map(([value, label]) => (
-            <Button
-              key={value}
-              variant={typeParam === value ? "default" : "outline"}
-              size="sm"
-              asChild
-            >
-              <Link href={buildHref({ type: value })}>{label}</Link>
-            </Button>
-          ))}
-        </div>
-
-        <div className="flex flex-wrap gap-2">
-          <span className="text-sm text-muted-foreground self-center">Filter:</span>
-          <Button variant={activeOnly && !followUpDue ? "default" : "outline"} size="sm" asChild>
-            <Link href={buildHref({ active: undefined, followUp: undefined })}>Active</Link>
-          </Button>
-          <Button variant={!activeOnly ? "default" : "outline"} size="sm" asChild>
-            <Link href={buildHref({ active: "all", followUp: undefined })}>All statuses</Link>
-          </Button>
-          <Button variant={followUpDue ? "default" : "outline"} size="sm" asChild>
-            <Link href={buildHref({ followUp: "due", active: "all" })}>Follow-up due</Link>
-          </Button>
-        </div>
+        <ContactsFilters
+          entityId={entityParam === "global" ? "__global__" : entityId}
+          entities={entities}
+          typeParam={typeParam}
+          activeOnly={activeOnly}
+          followUpDue={followUpDue}
+          currentParams={{
+            entity: entityParam,
+            type: typeParam,
+            active: activeOnly ? undefined : "all",
+            followUp: followUpDue ? "due" : undefined,
+          }}
+        />
 
         <Card>
           <CardHeader>
