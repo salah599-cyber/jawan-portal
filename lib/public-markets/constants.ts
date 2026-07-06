@@ -1,4 +1,4 @@
-import type { PublicMarket } from "@/lib/generated/prisma/client";
+import type { PublicInstrumentType, PublicMarket } from "@/lib/generated/prisma/client";
 
 export type PublicMarketSlug =
   | "MSX"
@@ -337,3 +337,41 @@ export const COLUMN_ALIASES: Record<string, string[]> = {
 };
 
 export const PUBLIC_MARKETS_PATH = "/portfolio/public-markets";
+
+export type PublicInstrumentSlug = "equity" | "options" | "structured-notes" | "all";
+
+export const PUBLIC_INSTRUMENT_SLUGS: PublicInstrumentSlug[] = [
+  "equity",
+  "options",
+  "structured-notes",
+];
+
+export function instrumentTypeFromSlug(slug: PublicInstrumentSlug): PublicInstrumentType | null {
+  switch (slug) {
+    case "equity":
+      return "EQUITY";
+    case "options":
+      return "OPTION";
+    case "structured-notes":
+      return "STRUCTURED_NOTE";
+    default:
+      return null;
+  }
+}
+
+export function resolveInstrumentFromSearchParam(param?: string | null): {
+  slug: PublicInstrumentSlug;
+  instrumentType: PublicInstrumentType | null;
+} {
+  const normalized = param?.trim().toLowerCase();
+  if (normalized === "options") {
+    return { slug: "options", instrumentType: "OPTION" };
+  }
+  if (normalized === "structured-notes" || normalized === "structured_notes") {
+    return { slug: "structured-notes", instrumentType: "STRUCTURED_NOTE" };
+  }
+  if (normalized === "all") {
+    return { slug: "all", instrumentType: null };
+  }
+  return { slug: "equity", instrumentType: "EQUITY" };
+}

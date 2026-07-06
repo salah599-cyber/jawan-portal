@@ -56,3 +56,33 @@ export type ManualHoldingInput = {
   sedol?: string;
   asOfDate?: string;
 };
+
+export type ManualOptionInput = {
+  underlyingSymbol: string;
+  optionType: "CALL" | "PUT";
+  strikePrice: number;
+  expiryDate: string;
+  contracts: number;
+  contractMultiplier?: number;
+  premiumPaid?: number;
+  marketPrice?: number;
+  marketValue?: number;
+  broker?: string;
+  accountNumber?: string;
+  asOfDate?: string;
+};
+
+export type ManualStructuredNoteInput = {
+  issuer: string;
+  productName: string;
+  notionalAmount: number;
+  issueDate?: string;
+  maturityDate: string;
+  couponRate?: number;
+  barrierLevel?: number;
+  payoffNotes?: string;
+  marketValue?: number;
+  broker?: string;
+  accountNumber?: string;
+  asOfDate?: string;
+};

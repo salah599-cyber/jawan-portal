@@ -291,6 +291,7 @@ export async function refreshPublicMarketPrices(options?: {
   const holdings = await db.publicEquityHolding.findMany({
     where: {
       ...(options?.market ? { market: options.market } : {}),
+      instrumentType: "EQUITY",
       ...(options?.entityId
         ? {
             asset: {
@@ -334,6 +335,7 @@ export async function refreshGccEodPrices(options?: {
   const holdings = await db.publicEquityHolding.findMany({
     where: {
       ...(options?.market ? { market: options.market } : {}),
+      instrumentType: "EQUITY",
       ...(options?.entityId
         ? {
             asset: {

@@ -2,6 +2,20 @@ import { formatDate, formatMoney } from "@/lib/format";
 import type { AllMarketsSummary, PublicMarketSummary } from "@/lib/data/public-markets";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
+function formatInstrumentBreakdown(
+  summary: Pick<
+    PublicMarketSummary | AllMarketsSummary,
+    "equityCount" | "optionCount" | "structuredNoteCount" | "brokerCount"
+  >,
+): string {
+  const parts: string[] = [];
+  if (summary.equityCount > 0) parts.push(`${summary.equityCount} equities`);
+  if (summary.optionCount > 0) parts.push(`${summary.optionCount} options`);
+  if (summary.structuredNoteCount > 0) parts.push(`${summary.structuredNoteCount} notes`);
+  const instruments = parts.length > 0 ? parts.join(" · ") : "no positions";
+  return `${instruments} · ${summary.brokerCount} broker${summary.brokerCount === 1 ? "" : "s"}`;
+}
+
 function SummaryMetric({
   label,
   value,
@@ -68,7 +82,7 @@ export function PublicMarketSummaryCards({
       <SummaryMetric
         label="Holdings"
         value={summary.holdingCount.toString()}
-        detail={`Across ${summary.brokerCount} broker${summary.brokerCount === 1 ? "" : "s"}`}
+        detail={formatInstrumentBreakdown(summary)}
       />
     </div>
   );
@@ -108,7 +122,7 @@ export function AllMarketsSummaryCards({ summary }: { summary: AllMarketsSummary
       <SummaryMetric
         label="Holdings"
         value={summary.holdingCount.toString()}
-        detail={`${summary.marketCount} market${summary.marketCount === 1 ? "" : "s"} · ${summary.brokerCount} brokers`}
+        detail={`${summary.marketCount} market${summary.marketCount === 1 ? "" : "s"} · ${formatInstrumentBreakdown(summary)}`}
       />
     </div>
   );

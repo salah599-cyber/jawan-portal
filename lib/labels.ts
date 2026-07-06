@@ -357,6 +357,17 @@ export const PUBLIC_MARKET_LABELS: Record<string, string> = {
   OTHER: "Other",
 };
 
+export const PUBLIC_INSTRUMENT_TYPE_LABELS: Record<string, string> = {
+  EQUITY: "Equities",
+  OPTION: "Options",
+  STRUCTURED_NOTE: "Structured notes",
+};
+
+export const PUBLIC_OPTION_TYPE_LABELS: Record<string, string> = {
+  CALL: "Call",
+  PUT: "Put",
+};
+
 export const PUBLIC_HOLDING_SOURCE_LABELS: Record<string, string> = {
   IMPORT: "Import",
   MANUAL: "Manual",

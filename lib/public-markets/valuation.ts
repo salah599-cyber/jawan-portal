@@ -138,3 +138,49 @@ export function normalizeAndFormatHoldingValues(
     },
   };
 }
+
+export function normalizeOptionHoldingValues(input: {
+  contracts: number;
+  marketPrice?: number | null;
+  marketValue?: number | null;
+  premiumPaid?: number | null;
+  contractMultiplier?: number;
+}) {
+  const multiplier = input.contractMultiplier && input.contractMultiplier > 0 ? input.contractMultiplier : 100;
+  const contracts = input.contracts > 0 ? input.contracts : 0;
+  const marketPrice = finiteOrNull(input.marketPrice);
+  let marketValue = finiteOrNull(input.marketValue);
+  const costBasis = finiteOrNull(input.premiumPaid);
+
+  if (marketValue == null && marketPrice != null && contracts > 0) {
+    marketValue = marketPrice * contracts * multiplier;
+  }
+
+  let unrealisedPnl: number | null = null;
+  if (marketValue != null && costBasis != null) {
+    unrealisedPnl = marketValue - costBasis;
+  }
+
+  return { marketPrice, marketValue, costBasis, unrealisedPnl, contractMultiplier: multiplier };
+}
+
+export function buildOptionSymbol(
+  underlyingSymbol: string,
+  optionType: "CALL" | "PUT",
+  strikePrice: number,
+  expiryDate: string,
+) {
+  const expiry = expiryDate.replace(/-/g, "").slice(0, 8);
+  const type = optionType === "CALL" ? "C" : "P";
+  return `${underlyingSymbol.toUpperCase()}-${type}${strikePrice}-${expiry}`;
+}
+
+export function buildStructuredNoteSymbol(productName: string) {
+  const slug = productName
+    .trim()
+    .toUpperCase()
+    .replace(/[^A-Z0-9]+/g, "-")
+    .replace(/^-|-$/g, "")
+    .slice(0, 24);
+  return `SN-${slug || "NOTE"}`;
+}
