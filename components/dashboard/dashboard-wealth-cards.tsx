@@ -31,12 +31,20 @@ export function DashboardWealthCards({
   hasPortfolio,
   hasLiabilities,
   includesCashBalances = false,
+  activeAssetCount,
+  activeAssetDetail,
+  reminderCount,
+  reminderDetail,
 }: {
   portfolioTotalOmr: number;
   netWorthTotalOmr: number;
   hasPortfolio: boolean;
   hasLiabilities: boolean;
   includesCashBalances?: boolean;
+  activeAssetCount: number;
+  activeAssetDetail: string;
+  reminderCount: number;
+  reminderDetail: string;
 }) {
   const [displayCurrency, setDisplayCurrency] = useState<DisplayCurrency>(DEFAULT_DISPLAY_CURRENCY);
   const [rates, setRates] = useState<Record<string, number> | null>(null);
@@ -101,7 +109,7 @@ export function DashboardWealthCards({
       : "Rates via Yahoo Finance";
 
   return (
-    <div className="md:col-span-2 space-y-2">
+    <div className="space-y-2">
       <div className="flex items-center justify-end gap-2">
         <span className="text-xs text-muted-foreground">Display also in</span>
         <Select value={displayCurrency} onValueChange={handleCurrencyChange}>
@@ -119,12 +127,12 @@ export function DashboardWealthCards({
       </div>
       <p className="text-right text-xs text-muted-foreground">{ratesCaption}</p>
 
-      <div className="grid gap-4 md:grid-cols-2">
-        <WealthMetricCard
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <DashboardMetricCard
           label="Portfolio Value"
-          omrValue={formatOmr(portfolioTotalOmr)}
-          convertedValue={
-            portfolioConverted != null ? formatMoney(portfolioConverted, displayCurrency) : null
+          value={formatOmr(portfolioTotalOmr)}
+          secondaryLine={
+            portfolioConverted != null ? `≈ ${formatMoney(portfolioConverted, displayCurrency)}` : null
           }
           detail={
             hasPortfolio
@@ -134,11 +142,11 @@ export function DashboardWealthCards({
               : "Add assets to track portfolio value"
           }
         />
-        <WealthMetricCard
+        <DashboardMetricCard
           label="Net Worth"
-          omrValue={formatOmr(netWorthTotalOmr)}
-          convertedValue={
-            netWorthConverted != null ? formatMoney(netWorthConverted, displayCurrency) : null
+          value={formatOmr(netWorthTotalOmr)}
+          secondaryLine={
+            netWorthConverted != null ? `≈ ${formatMoney(netWorthConverted, displayCurrency)}` : null
           }
           detail={
             hasLiabilities
@@ -148,30 +156,43 @@ export function DashboardWealthCards({
                 : "Calculated from assets and liabilities"
           }
         />
+        <DashboardMetricCard
+          label="Active Assets"
+          value={activeAssetCount.toString()}
+          detail={activeAssetDetail}
+        />
+        <DashboardMetricCard
+          label="Pending Reminders"
+          value={reminderCount.toString()}
+          detail={reminderDetail}
+          highlight={reminderCount > 0}
+        />
       </div>
     </div>
   );
 }
 
-function WealthMetricCard({
+function DashboardMetricCard({
   label,
-  omrValue,
-  convertedValue,
+  value,
+  secondaryLine,
   detail,
+  highlight = false,
 }: {
   label: string;
-  omrValue: string;
-  convertedValue: string | null;
+  value: string;
+  secondaryLine?: string | null;
   detail: string;
+  highlight?: boolean;
 }) {
   return (
-    <Card>
+    <Card className={highlight ? "border-amber-500/50" : undefined}>
       <CardHeader className="pb-2">
         <CardDescription>{label}</CardDescription>
-        <CardTitle className="text-2xl">{omrValue}</CardTitle>
-        {convertedValue ? (
-          <p className="text-sm font-medium text-muted-foreground">≈ {convertedValue}</p>
-        ) : null}
+        <CardTitle className="text-2xl">{value}</CardTitle>
+        <p className="min-h-5 text-sm font-medium text-muted-foreground">
+          {secondaryLine ?? "\u00A0"}
+        </p>
       </CardHeader>
       <CardContent>
         <p className="text-xs text-muted-foreground">{detail}</p>

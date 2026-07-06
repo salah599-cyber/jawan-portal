@@ -60,34 +60,25 @@ export default async function DashboardPage() {
     <>
       <PlatformHeader title="Dashboard" />
       <main className="flex flex-1 flex-col gap-4 p-4 md:p-6">
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-          <DashboardWealthCards
-            portfolioTotalOmr={summary.portfolioTotalOmr}
-            netWorthTotalOmr={summary.netWorthTotalOmr}
-            hasPortfolio={hasPortfolio}
-            hasLiabilities={hasLiabilities}
-            includesCashBalances={includesCashBalances}
-          />
-          <MetricCard
-            label="Active Assets"
-            value={summary.activeAssetCount.toString()}
-            detail={
-              summary.moduleSummaries.find((m) => m.module === "ASSETS")
-                ? summary.moduleSummaries.find((m) => m.module === "ASSETS")!.count + " total in portfolio"
-                : "Assets module not accessible"
-            }
-          />
-          <MetricCard
-            label="Pending Reminders"
-            value={summary.reminderCount.toString()}
-            detail={
-              summary.reminderCount
-                ? "Unified calendar deadlines and tasks"
-                : "No upcoming items need attention"
-            }
-            highlight={summary.reminderCount > 0}
-          />
-        </div>
+        <DashboardWealthCards
+          portfolioTotalOmr={summary.portfolioTotalOmr}
+          netWorthTotalOmr={summary.netWorthTotalOmr}
+          hasPortfolio={hasPortfolio}
+          hasLiabilities={hasLiabilities}
+          includesCashBalances={includesCashBalances}
+          activeAssetCount={summary.activeAssetCount}
+          activeAssetDetail={
+            summary.moduleSummaries.find((m) => m.module === "ASSETS")
+              ? summary.moduleSummaries.find((m) => m.module === "ASSETS")!.count + " total in portfolio"
+              : "Assets module not accessible"
+          }
+          reminderCount={summary.reminderCount}
+          reminderDetail={
+            summary.reminderCount
+              ? "Unified calendar deadlines and tasks"
+              : "No upcoming items need attention"
+          }
+        />
 
         <DashboardPerformanceCards
           performance={summary.portfolioPerformance}
@@ -283,29 +274,5 @@ export default async function DashboardPage() {
         </Card>
       </main>
     </>
-  );
-}
-
-function MetricCard({
-  label,
-  value,
-  detail,
-  highlight = false,
-}: {
-  label: string;
-  value: string;
-  detail: string;
-  highlight?: boolean;
-}) {
-  return (
-    <Card className={highlight ? "border-amber-500/50" : undefined}>
-      <CardHeader className="pb-2">
-        <CardDescription>{label}</CardDescription>
-        <CardTitle className="text-2xl">{value}</CardTitle>
-      </CardHeader>
-      <CardContent>
-        <p className="text-xs text-muted-foreground">{detail}</p>
-      </CardContent>
-    </Card>
   );
 }
