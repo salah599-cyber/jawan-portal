@@ -103,6 +103,13 @@ export type AllocationSlice = {
   percentage: number;
 };
 
+export type CurrencyAllocationSlice = {
+  currency: string;
+  amountNative: number;
+  amountOmr: number;
+  percentage: number;
+};
+
 export type DashboardSummary = {
   portfolioTotals: CurrencyTotal[];
   liabilityTotals: CurrencyTotal[];
@@ -113,6 +120,7 @@ export type DashboardSummary = {
   reminderCount: number;
   categoryBreakdown: CategoryBreakdown[];
   allocationSlices: AllocationSlice[];
+  currencyAllocationSlices: CurrencyAllocationSlice[];
   portfolioPerformance: PortfolioPerformance;
   netWorthTrend: NetWorthTrend | null;
   moduleSummaries: ModuleSummary[];
@@ -172,6 +180,32 @@ async function buildAllocationSlices(
 
   return slices
     .filter((slice) => slice.amountOmr > 0)
+    .map((slice) => ({
+      ...slice,
+      percentage: portfolioTotalOmr > 0 ? (slice.amountOmr / portfolioTotalOmr) * 100 : 0,
+    }))
+    .sort((a, b) => b.amountOmr - a.amountOmr);
+}
+
+async function buildCurrencyAllocationSlices(
+  portfolioMap: Map<string, number>,
+  portfolioTotalOmr: number,
+): Promise<CurrencyAllocationSlice[]> {
+  const slices = await Promise.all(
+    [...portfolioMap.entries()].map(async ([currency, amountNative]) => {
+      if (amountNative <= 0) return null;
+      const amountOmr = await convertToOmr(amountNative, currency);
+      return {
+        currency,
+        amountNative,
+        amountOmr,
+        percentage: 0,
+      };
+    }),
+  );
+
+  return slices
+    .filter((slice): slice is CurrencyAllocationSlice => slice != null && slice.amountOmr > 0)
     .map((slice) => ({
       ...slice,
       percentage: portfolioTotalOmr > 0 ? (slice.amountOmr / portfolioTotalOmr) * 100 : 0,
@@ -991,6 +1025,7 @@ export async function getDashboardSummary(ctx: UserContext): Promise<DashboardSu
       return bTotal - aTotal;
     });
   const allocationSlices = await buildAllocationSlices(categoryMap, portfolioTotalOmr);
+  const currencyAllocationSlices = await buildCurrencyAllocationSlices(portfolioMap, portfolioTotalOmr);
   const portfolioPerformance = await getPortfolioPerformance(ctx);
 
   return {
@@ -1003,6 +1038,7 @@ export async function getDashboardSummary(ctx: UserContext): Promise<DashboardSu
     reminderCount: reminders.length,
     categoryBreakdown,
     allocationSlices,
+    currencyAllocationSlices,
     portfolioPerformance,
     netWorthTrend,
     moduleSummaries,
