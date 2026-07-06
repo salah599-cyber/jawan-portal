@@ -44,7 +44,68 @@ const BALANCE_LABEL =
   /(?:closing|available|current|ledger|total|ending|book|cleared|final)\s*balance|balance\s*(?:b\/f|b\/c|brought\s*forward|carried\s*forward)/i;
 
 const ACCOUNT_LABEL =
-  /(?:account|a\/c|acct|acc)(?:\s*(?:no|number|#|num))?\.?/i;
+  /(?:account|a\/c|acct|acc)(?:\s*(?:no|number|#|num))?\.?(?!\s*statement)/i;
+
+const SWIFT_BANK_PATTERNS: Array<{ pattern: RegExp; bankName: string }> = [
+  { pattern: /BMUSOMRX|BMUSOMR/i, bankName: "Bank Muscat" },
+  { pattern: /NBOMOMRX|NBOMOMR/i, bankName: "National Bank of Oman" },
+  { pattern: /BDOFOMRU|BDOFOMR/i, bankName: "Bank Dhofar" },
+  { pattern: /BBMEOMRX|BBMEOMR/i, bankName: "HSBC" },
+  { pattern: /AUBOOMRU/i, bankName: "Ahli Bank" },
+  { pattern: /BSHROMRU/i, bankName: "Sohar International" },
+  { pattern: /OMABOMRU/i, bankName: "Oman Arab Bank" },
+  { pattern: /BNZWOMRX/i, bankName: "Bank Nizwa" },
+];
+
+export type IssuingBankId = "bank-muscat" | "nbo" | "bank-dhofar" | "hsbc";
+
+const ISSUING_BANK_LABELS: Record<IssuingBankId, string> = {
+  "bank-muscat": "Bank Muscat",
+  nbo: "National Bank of Oman",
+  "bank-dhofar": "Bank Dhofar",
+  hsbc: "HSBC",
+};
+
+function countNboIssuerSignals(text: string): number {
+  return (
+    (text.match(/NBOMMB\d+/gi) ?? []).length +
+    (text.match(/NBOM0I/gi) ?? []).length +
+    (text.match(/\bMB[- ]?(?:LCL|TPT)/gi) ?? []).length +
+    (text.match(/\bMBL\d+/gi) ?? []).length
+  );
+}
+
+/** Detect the issuing bank. Ignores counterparty SWIFT codes embedded in transaction lines. */
+export function detectIssuingBank(text: string, fileName: string): IssuingBankId | null {
+  const prepared = prepareStatementText(text);
+  const combined = `${fileName}\n${prepared}`;
+  const transactionStart = prepared.search(/POSTING\s+DATE\s+VALUE\s+DATE/i);
+  const issuerSection = combined.slice(0, transactionStart > 0 ? transactionStart : 1200);
+  const header = issuerSection.toLowerCase();
+
+  if (header.includes("national bank of oman") || /\bnbo\b/.test(header)) return "nbo";
+  if (header.includes("bank muscat")) return "bank-muscat";
+  if (header.includes("bank dhofar")) return "bank-dhofar";
+  if (header.includes("hsbc")) return "hsbc";
+
+  if (countNboIssuerSignals(prepared) >= 2) return "nbo";
+
+  for (const { pattern, bankName } of SWIFT_BANK_PATTERNS) {
+    if (!pattern.test(issuerSection)) continue;
+    const id = Object.entries(ISSUING_BANK_LABELS).find(([, label]) => label === bankName)?.[0];
+    if (id) return id as IssuingBankId;
+  }
+
+  for (const bank of KNOWN_BANKS) {
+    if (bank === "NBO") continue;
+    if (header.includes(bank.toLowerCase())) {
+      const id = Object.entries(ISSUING_BANK_LABELS).find(([, label]) => label === bank)?.[0];
+      if (id) return id as IssuingBankId;
+    }
+  }
+
+  return null;
+}
 
 const IBAN_COUNTRY_LENGTHS: Record<string, number> = {
   AD: 24,
@@ -134,10 +195,72 @@ function isPlausibleIban(value: string): boolean {
 
   const country = value.slice(0, 2);
   const expectedLength = IBAN_COUNTRY_LENGTHS[country];
-  if (expectedLength && value.length !== expectedLength) return false;
-  if (!expectedLength && (value.length < 15 || value.length > 34)) return false;
+  if (!expectedLength || value.length !== expectedLength) return false;
 
   return isValidIbanChecksum(value);
+}
+
+export type StatementHeaderAccount = {
+  accountNumber: string | null;
+  accountName: string | null;
+};
+
+export function extractStatementHeaderAccount(text: string): StatementHeaderAccount {
+  const prepared = prepareStatementText(text);
+  const headerPatterns = [
+    /(?:^|\n)\s*([A-Z][A-Z\s'.-]+?)'s\s+(\d{10,16})\s*(?:\n|$)/im,
+    /(?:^|\n)\s*([A-Z][A-Z\s'.-]+?)\s+(\d{10,16})\s*\n\s*Account statement/im,
+  ];
+
+  for (const pattern of headerPatterns) {
+    const match = prepared.match(pattern);
+    if (match?.[2]) {
+      return {
+        accountName: normalizeSpaces(match[1] ?? ""),
+        accountNumber: match[2]!,
+      };
+    }
+  }
+
+  return { accountNumber: null, accountName: null };
+}
+
+export function isTransactionAccountStatement(text: string): boolean {
+  return /POSTING\s+DATE\s+VALUE\s+DATE\s+DESCRIPTION\s+AMOUNT\s+ACCOUNT\s+BALANCE/i.test(
+    prepareStatementText(text),
+  );
+}
+
+export function extractLastRunningBalance(text: string): number | null {
+  const lines = prepareStatementText(text).split("\n");
+  let lastBalance: number | null = null;
+
+  for (const line of lines) {
+    if (!/\bOMR\b/i.test(line)) continue;
+    if (/POSTING DATE|VALUE DATE|DESCRIPTION|Page of|--\s+\d+\s+of/i.test(line)) continue;
+
+    const amounts = [...line.matchAll(OMR_LINE_AMOUNT_PATTERN)];
+    if (amounts.length === 0) continue;
+
+    const parsed = parseAmount(amounts[amounts.length - 1]![1]!);
+    if (parsed != null) lastBalance = parsed;
+  }
+
+  return lastBalance;
+}
+
+export function extractLastPostingDate(text: string): Date | null {
+  const prepared = prepareStatementText(text);
+  let latest: Date | null = null;
+
+  for (const match of prepared.matchAll(
+    /(?:^|\n)\s*(\d{1,2}\s+[A-Za-z]{3,9}\s+\d{4})\s+\d{1,2}\s+[A-Za-z]{3,9}\s+\d{4}/g,
+  )) {
+    const parsed = parseFlexibleDate(match[1]!);
+    if (parsed && (!latest || parsed > latest)) latest = parsed;
+  }
+
+  return latest;
 }
 
 function normalizeSpaces(value: string) {
@@ -163,6 +286,9 @@ export function parseAmount(raw: string): number | null {
   const num = parseFloat(cleaned);
   return Number.isNaN(num) ? null : num;
 }
+
+const OMR_AMOUNT_PATTERN = /(-?(?:\d{1,3}(?:,\d{3})+|\d+)\.\d{3})/;
+const OMR_LINE_AMOUNT_PATTERN = new RegExp(`${OMR_AMOUNT_PATTERN.source}\\s*OMR`, "gi");
 
 function parseNumericDate(day: number, month: number, year: number): Date | null {
   if (year < 100) year += 2000;
@@ -216,10 +342,10 @@ function parseFlexibleDate(raw: string): Date | null {
 
 function findAmountInText(fragment: string): number | null {
   const patterns = [
-    /(?:OMR|USD|EUR|GBP|AED|HKD|INR)\s*([0-9]{1,3}(?:,[0-9]{3})*(?:\.[0-9]{2,3})?)\s*(?:CR|DR)?/i,
-    /([0-9]{1,3}(?:,[0-9]{3})*(?:\.[0-9]{2,3})?)\s*(?:OMR|USD|EUR|GBP|AED|HKD|INR)\s*(?:CR|DR)?/i,
-    /([0-9]{1,3}(?:,[0-9]{3})*(?:\.[0-9]{2,3})?)\s*(?:CR|DR)\b/i,
-    /([0-9]{1,3}(?:,[0-9]{3})*(?:\.[0-9]{2,3})?)/,
+    new RegExp(`(?:OMR|USD|EUR|GBP|AED|HKD|INR)\\s*${OMR_AMOUNT_PATTERN.source}\\s*(?:CR|DR)?`, "i"),
+    new RegExp(`${OMR_AMOUNT_PATTERN.source}\\s*(?:OMR|USD|EUR|GBP|AED|HKD|INR)\\s*(?:CR|DR)?`, "i"),
+    new RegExp(`${OMR_AMOUNT_PATTERN.source}\\s*(?:CR|DR)\\b`, "i"),
+    OMR_AMOUNT_PATTERN,
   ];
 
   for (const pattern of patterns) {
@@ -253,19 +379,14 @@ export function extractIban(text: string): string | null {
   const prepared = prepareStatementText(text);
   const candidates: string[] = [];
 
-  for (const match of prepared.matchAll(/\b([A-Z]{2}\s*\d{2}(?:\s*[A-Z0-9]{4}){2,8})\b/gi)) {
+  for (const match of prepared.matchAll(/IBAN[:\s#-]*([A-Z]{2}\s*\d{2}(?:\s*[A-Z0-9]{4}){2,8})/gi)) {
     const compact = normalizeAccountToken(match[1]!);
     if (isPlausibleIban(compact)) candidates.push(compact);
   }
 
-  const compactText = prepared.replace(/[^A-Z0-9]/gi, "").toUpperCase();
-  for (const country of Object.keys(IBAN_COUNTRY_LENGTHS)) {
-    const length = IBAN_COUNTRY_LENGTHS[country]!;
-    const regex = new RegExp(`${country}\\d{2}[A-Z0-9]{${length - 4}}`, "g");
-    for (const match of compactText.matchAll(regex)) {
-      const candidate = match[0]!;
-      if (isPlausibleIban(candidate)) candidates.push(candidate);
-    }
+  for (const match of prepared.matchAll(/\b([A-Z]{2}\s*\d{2}(?:\s+[A-Z0-9]{4}){4,7})\b/g)) {
+    const compact = normalizeAccountToken(match[1]!);
+    if (isPlausibleIban(compact)) candidates.push(compact);
   }
 
   const unique = [...new Set(candidates)];
@@ -277,6 +398,9 @@ export function extractIban(text: string): string | null {
 
 export function extractAccountNumber(text: string): string | null {
   const prepared = prepareStatementText(text);
+
+  const header = extractStatementHeaderAccount(prepared);
+  if (header.accountNumber) return header.accountNumber;
 
   const inlinePatterns = [
     /account\s*(?:no\.?|number|#|num\.?)[:\s]*([A-Z0-9][A-Z0-9\-\/]{4,24})/i,
@@ -434,6 +558,9 @@ export function extractBalance(text: string, tableRows: unknown[][]): number | n
   const fromTables = extractBalanceFromTables(tableRows);
   if (fromTables != null) return fromTables;
 
+  const runningBalance = extractLastRunningBalance(prepared);
+  if (runningBalance != null) return runningBalance;
+
   return null;
 }
 
@@ -451,7 +578,6 @@ export function extractBalanceDate(text: string): Date | null {
     /statement\s+period[:\s]+[0-9/.\-\s]+?\bto\b[:\s]+([0-9]{1,2}[\/\-.][0-9]{1,2}[\/\-.][0-9]{2,4})/i,
     /generated\s+on[:\s]+([0-9]{1,2}[\/\-.][0-9]{1,2}[\/\-.][0-9]{2,4})/i,
     /print(?:ed)?\s+date[:\s]+([0-9]{1,2}[\/\-.][0-9]{1,2}[\/\-.][0-9]{2,4})/i,
-    /(\d{4}-\d{2}-\d{2})/,
   ];
 
   for (const pattern of patterns) {
@@ -480,13 +606,24 @@ export function extractBalanceDate(text: string): Date | null {
     }
   }
 
+  const lastPostingDate = extractLastPostingDate(prepared);
+  if (lastPostingDate) return lastPostingDate;
+
   return null;
 }
 
 export function extractBankName(text: string, fileName: string): string | null {
+  const issuingBank = detectIssuingBank(text, fileName);
+  if (issuingBank) return ISSUING_BANK_LABELS[issuingBank];
+
   const haystack = `${fileName}\n${prepareStatementText(text)}`.toLowerCase();
   for (const bank of KNOWN_BANKS) {
-    if (haystack.includes(bank.toLowerCase())) {
+    if (bank.length <= 4) {
+      const pattern = new RegExp(`\\b${bank.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\b`, "i");
+      if (pattern.test(haystack.slice(0, 1200))) return bank === "NBO" ? "National Bank of Oman" : bank;
+      continue;
+    }
+    if (haystack.slice(0, 1200).includes(bank.toLowerCase())) {
       return bank;
     }
   }
@@ -497,6 +634,10 @@ export function extractBankName(text: string, fileName: string): string | null {
 
 export function extractAccountName(text: string): string | null {
   const prepared = prepareStatementText(text);
+
+  const header = extractStatementHeaderAccount(prepared);
+  if (header.accountName) return header.accountName;
+
   const patterns = [
     /account\s+name[:\s]+(.{2,80})/i,
     /customer\s+name[:\s]+(.{2,80})/i,
