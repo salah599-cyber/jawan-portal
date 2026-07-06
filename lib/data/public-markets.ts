@@ -1,5 +1,5 @@
 import { db } from "@/lib/db";
-import type { PublicMarket } from "@/lib/generated/prisma/client";
+import type { PublicInstrumentType, PublicMarket, PublicOptionType } from "@/lib/generated/prisma/client";
 import { ensureDefaultEntity } from "@/lib/data/entities";
 import { ensurePublicMarketsSchema } from "@/lib/db/ensure-public-markets-schema";
 import {
@@ -17,6 +17,7 @@ export type PublicHoldingRow = {
   id: string;
   market: PublicMarket;
   marketLabel: string;
+  instrumentType: PublicInstrumentType;
   symbol: string;
   name: string | null;
   quantity: number;
@@ -40,6 +41,24 @@ export type PublicHoldingRow = {
   updatedAt: Date;
   entityId: string;
   entityName: string;
+  option: {
+    underlyingSymbol: string;
+    optionType: PublicOptionType;
+    strikePrice: number;
+    expiryDate: Date;
+    contractMultiplier: number;
+    premiumPaid: number | null;
+  } | null;
+  structuredNote: {
+    issuer: string;
+    productName: string;
+    notionalAmount: number;
+    issueDate: Date | null;
+    maturityDate: Date;
+    couponRate: number | null;
+    barrierLevel: number | null;
+    payoffNotes: string | null;
+  } | null;
 };
 
 export type PublicImportBatchRow = {
@@ -68,6 +87,9 @@ export type PublicMarketSummary = {
   totalCostBasis: number;
   totalUnrealisedPnl: number;
   holdingCount: number;
+  equityCount: number;
+  optionCount: number;
+  structuredNoteCount: number;
   brokerCount: number;
   currency: string;
   lastUpdated: Date | null;
@@ -81,6 +103,9 @@ export type AllMarketsSummary = {
   totalCostBasisOmr: number;
   totalUnrealisedPnlOmr: number;
   holdingCount: number;
+  equityCount: number;
+  optionCount: number;
+  structuredNoteCount: number;
   brokerCount: number;
   marketCount: number;
   lastUpdated: Date | null;
@@ -112,6 +137,24 @@ export async function findPortfolioAsset(entityId: string, market: PublicMarket)
 async function mapHoldingRow(
   holding: Awaited<ReturnType<typeof db.publicEquityHolding.findMany>>[number] & {
     asset: { entityId: string; entity: { name: string } };
+    optionDetail?: {
+      underlyingSymbol: string;
+      optionType: PublicOptionType;
+      strikePrice: { toString(): string };
+      expiryDate: Date;
+      contractMultiplier: number;
+      premiumPaid: { toString(): string } | null;
+    } | null;
+    structuredNoteDetail?: {
+      issuer: string;
+      productName: string;
+      notionalAmount: { toString(): string };
+      issueDate: Date | null;
+      maturityDate: Date;
+      couponRate: { toString(): string } | null;
+      barrierLevel: { toString(): string } | null;
+      payoffNotes: string | null;
+    } | null;
   },
 ): Promise<PublicHoldingRow> {
   const quantity = toNumber(holding.quantity) ?? 0;
@@ -130,6 +173,7 @@ async function mapHoldingRow(
     id: holding.id,
     market: holding.market,
     marketLabel: MARKET_CONFIG[holding.market].shortLabel,
+    instrumentType: holding.instrumentType,
     symbol: holding.symbol,
     name: holding.name,
     quantity,
@@ -153,16 +197,42 @@ async function mapHoldingRow(
     updatedAt: holding.updatedAt,
     entityId: holding.asset.entityId,
     entityName: holding.asset.entity.name,
+    option: holding.optionDetail
+      ? {
+          underlyingSymbol: holding.optionDetail.underlyingSymbol,
+          optionType: holding.optionDetail.optionType,
+          strikePrice: toNumber(holding.optionDetail.strikePrice) ?? 0,
+          expiryDate: holding.optionDetail.expiryDate,
+          contractMultiplier: holding.optionDetail.contractMultiplier,
+          premiumPaid: toNumber(holding.optionDetail.premiumPaid),
+        }
+      : null,
+    structuredNote: holding.structuredNoteDetail
+      ? {
+          issuer: holding.structuredNoteDetail.issuer,
+          productName: holding.structuredNoteDetail.productName,
+          notionalAmount: toNumber(holding.structuredNoteDetail.notionalAmount) ?? 0,
+          issueDate: holding.structuredNoteDetail.issueDate,
+          maturityDate: holding.structuredNoteDetail.maturityDate,
+          couponRate: toNumber(holding.structuredNoteDetail.couponRate),
+          barrierLevel: toNumber(holding.structuredNoteDetail.barrierLevel),
+          payoffNotes: holding.structuredNoteDetail.payoffNotes,
+        }
+      : null,
   };
 }
 
 export async function getPublicHoldings(
   ctx: UserContext,
-  options: { entityId?: string; market?: PublicMarket | null } = {},
+  options: {
+    entityId?: string;
+    market?: PublicMarket | null;
+    instrumentType?: PublicInstrumentType | null;
+  } = {},
 ): Promise<PublicHoldingRow[]> {
   await ensurePublicMarketsDataLayerReady();
   const entityFilter = assetEntityFilter(ctx);
-  const { entityId, market } = options;
+  const { entityId, market, instrumentType } = options;
 
   const assets = await db.asset.findMany({
     where: {
@@ -181,9 +251,12 @@ export async function getPublicHoldings(
   const holdings = await db.publicEquityHolding.findMany({
     where: {
       assetId: { in: assets.map((asset) => asset.id) },
-      ...(market ? { market } : {}),
+      ...(instrumentType === "STRUCTURED_NOTE" ? {} : market ? { market } : {}),
+      ...(instrumentType ? { instrumentType } : {}),
     },
     include: {
+      optionDetail: true,
+      structuredNoteDetail: true,
       asset: {
         select: {
           entityId: true,
@@ -264,8 +337,14 @@ async function buildMarketSummary(
   let totalMarketValueOmr = 0;
   let lastUpdated: Date | null = null;
   let lastPriceRefresh: Date | null = null;
+  let equityCount = 0;
+  let optionCount = 0;
+  let structuredNoteCount = 0;
 
   for (const holding of holdings) {
+    if (holding.instrumentType === "EQUITY") equityCount += 1;
+    if (holding.instrumentType === "OPTION") optionCount += 1;
+    if (holding.instrumentType === "STRUCTURED_NOTE") structuredNoteCount += 1;
     const normalized = normalizeHoldingValues({
       quantity: toNumber(holding.quantity) ?? 0,
       costBasis: toNumber(holding.costBasis),
@@ -301,6 +380,9 @@ async function buildMarketSummary(
     totalCostBasis,
     totalUnrealisedPnl,
     holdingCount: holdings.length,
+    equityCount,
+    optionCount,
+    structuredNoteCount,
     brokerCount: brokers.size,
     currency: config.currency,
     lastUpdated,
@@ -351,6 +433,9 @@ export async function getAllMarketsSummary(
       activeMarkets.map(async (m) => convertToOmr(m.totalUnrealisedPnl, m.currency)),
     ).then((values) => values.reduce((sum, v) => sum + v, 0)),
     holdingCount: activeMarkets.reduce((sum, m) => sum + m.holdingCount, 0),
+    equityCount: activeMarkets.reduce((sum, m) => sum + m.equityCount, 0),
+    optionCount: activeMarkets.reduce((sum, m) => sum + m.optionCount, 0),
+    structuredNoteCount: activeMarkets.reduce((sum, m) => sum + m.structuredNoteCount, 0),
     brokerCount: new Set(
       (
         await getPublicHoldings(ctx, { entityId: entity.id })

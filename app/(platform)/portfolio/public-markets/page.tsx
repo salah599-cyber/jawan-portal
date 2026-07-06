@@ -1,7 +1,10 @@
 import Link from "next/link";
 import { PlatformHeader } from "@/components/platform/platform-header";
 import { AddManualHoldingForm } from "@/components/public-markets/add-manual-holding-form";
+import { AddManualOptionForm } from "@/components/public-markets/add-manual-option-form";
+import { AddManualStructuredNoteForm } from "@/components/public-markets/add-manual-structured-note-form";
 import { ExportHoldingsButton } from "@/components/public-markets/export-holdings-button";
+import { InstrumentTabs } from "@/components/public-markets/instrument-tabs";
 import { RefreshPricesButton } from "@/components/public-markets/refresh-prices-button";
 import { MarketTabs } from "@/components/public-markets/market-tabs";
 import {
@@ -20,7 +23,12 @@ import {
   listPublicMarketsEntities,
   resolveMarketFromSearchParam,
 } from "@/lib/data/public-markets";
-import { MARKET_CONFIG, getMarketPricingNote } from "@/lib/public-markets/constants";
+import {
+  MARKET_CONFIG,
+  getMarketPricingNote,
+  resolveInstrumentFromSearchParam,
+  slugFromMarket,
+} from "@/lib/public-markets/constants";
 import { hasAutomaticPriceRefresh } from "@/lib/public-markets/prices/symbols";
 import { canWrite, requireModuleAccess } from "@/lib/permissions/access";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -30,10 +38,13 @@ import { ExternalLink } from "lucide-react";
 export default async function PublicMarketsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ entity?: string; market?: string }>;
+  searchParams: Promise<{ entity?: string; market?: string; instrument?: string }>;
 }) {
-  const { entity: entityParam, market: marketParam } = await searchParams;
+  const { entity: entityParam, market: marketParam, instrument: instrumentParam } =
+    await searchParams;
   const { mode, market } = resolveMarketFromSearchParam(marketParam);
+  const { slug: instrumentSlug, instrumentType } =
+    resolveInstrumentFromSearchParam(instrumentParam);
   const ctx = await requireModuleAccess("ASSETS");
   const entities = await listPublicMarketsEntities(ctx);
   const entityId = entityParam && entities.some((entity) => entity.id === entityParam)
@@ -42,6 +53,8 @@ export default async function PublicMarketsPage({
 
   const isAllMarkets = mode === "all";
   const activeMarket = isAllMarkets ? "ALL" : market;
+  const marketSlug = isAllMarkets ? "ALL" : slugFromMarket(market);
+  const isEquityTab = instrumentSlug === "equity";
 
   const [summary, allSummary, holdings, importBatches] = await Promise.all([
     isAllMarkets ? null : getPublicMarketSummary(ctx, entityId, market),
@@ -49,14 +62,25 @@ export default async function PublicMarketsPage({
     getPublicHoldings(ctx, {
       entityId,
       market: isAllMarkets ? null : market,
+      instrumentType,
     }),
-    getPublicImportBatches(ctx, {
-      market: isAllMarkets ? null : market,
-    }),
+    isEquityTab
+      ? getPublicImportBatches(ctx, {
+          market: isAllMarkets ? null : market,
+        })
+      : Promise.resolve([]),
   ]);
 
   const canEdit = canWrite(ctx, "ASSETS");
   const marketConfig = isAllMarkets ? null : MARKET_CONFIG[market];
+  const holdingsDescription =
+    instrumentSlug === "options"
+      ? "Options positions with manual mark-to-market values. Live option pricing is not available."
+      : instrumentSlug === "structured-notes"
+        ? "Structured notes with issuer, notional, maturity, and manual MTM values."
+        : isAllMarkets
+          ? "All positions across markets, with values converted to OMR where applicable."
+          : "Consolidated positions across imported broker reports and manual entries. Re-importing a broker statement replaces that broker's holdings only.";
 
   return (
     <>
@@ -72,15 +96,21 @@ export default async function PublicMarketsPage({
                 ? "Consolidated view of public equity holdings across MSX, GCC, USA, Hong Kong, China, India, UK, and other markets."
                 : marketConfig?.description}
             </p>
-            {!isAllMarkets && getMarketPricingNote(market) ? (
+            {!isAllMarkets && isEquityTab && getMarketPricingNote(market) ? (
               <p className="mt-1 text-sm text-amber-700 dark:text-amber-400">
                 {getMarketPricingNote(market)}
+              </p>
+            ) : null}
+            {!isEquityTab ? (
+              <p className="mt-1 text-sm text-muted-foreground">
+                Options and structured notes roll into your public equity portfolio total via
+                market value.
               </p>
             ) : null}
           </div>
           <div className="flex flex-wrap items-center gap-2">
             <ExportHoldingsButton entityId={entityId} market={activeMarket} />
-            {canEdit ? (
+            {canEdit && isEquityTab ? (
               <RefreshPricesButton
                 entityId={entityId}
                 market={activeMarket}
@@ -98,24 +128,36 @@ export default async function PublicMarketsPage({
           </div>
         </div>
 
-        <MarketTabs activeMarket={activeMarket} entityId={entityId} />
+        <MarketTabs
+          activeMarket={activeMarket}
+          entityId={entityId}
+          instrumentSlug={instrumentSlug}
+        />
+
+        <InstrumentTabs
+          activeInstrument={instrumentSlug}
+          entityId={entityId}
+          marketSlug={marketSlug}
+        />
 
         {entities.length > 1 ? (
           <div className="flex flex-wrap gap-2">
-            {entities.map((entity) => (
-              <Button
-                key={entity.id}
-                variant={entity.id === entityId ? "default" : "outline"}
-                size="sm"
-                asChild
-              >
-                <Link
-                  href={`/portfolio/public-markets?entity=${entity.id}&market=${isAllMarkets ? "ALL" : marketConfig?.slug ?? "MSX"}`}
+            {entities.map((entity) => {
+              const params = new URLSearchParams();
+              params.set("entity", entity.id);
+              params.set("market", marketSlug);
+              params.set("instrument", instrumentSlug);
+              return (
+                <Button
+                  key={entity.id}
+                  variant={entity.id === entityId ? "default" : "outline"}
+                  size="sm"
+                  asChild
                 >
-                  {entity.name}
-                </Link>
-              </Button>
-            ))}
+                  <Link href={`/portfolio/public-markets?${params.toString()}`}>{entity.name}</Link>
+                </Button>
+              );
+            })}
           </div>
         ) : null}
 
@@ -130,23 +172,40 @@ export default async function PublicMarketsPage({
 
         {canEdit && !isAllMarkets ? (
           <>
-            <UploadPublicMarketReportsForm
-              entities={entities}
-              defaultEntityId={entityId}
-              market={market}
-            />
-            <AddManualHoldingForm entities={entities} defaultEntityId={entityId} market={market} />
+            {isEquityTab ? (
+              <>
+                <UploadPublicMarketReportsForm
+                  entities={entities}
+                  defaultEntityId={entityId}
+                  market={market}
+                />
+                <AddManualHoldingForm
+                  entities={entities}
+                  defaultEntityId={entityId}
+                  market={market}
+                />
+              </>
+            ) : null}
+            {instrumentSlug === "options" ? (
+              <AddManualOptionForm
+                entities={entities}
+                defaultEntityId={entityId}
+                market={market}
+              />
+            ) : null}
+            {instrumentSlug === "structured-notes" ? (
+              <AddManualStructuredNoteForm
+                entities={entities}
+                defaultEntityId={entityId}
+              />
+            ) : null}
           </>
         ) : null}
 
         <Card>
           <CardHeader>
             <CardTitle>Holdings</CardTitle>
-            <CardDescription>
-              {isAllMarkets
-                ? "All positions across markets, with values converted to OMR where applicable."
-                : "Consolidated positions across imported broker reports and manual entries. Re-importing a broker statement replaces that broker's holdings only."}
-            </CardDescription>
+            <CardDescription>{holdingsDescription}</CardDescription>
           </CardHeader>
           <CardContent>
             <PublicHoldingsTable
@@ -154,19 +213,24 @@ export default async function PublicMarketsPage({
               canEdit={canEdit && !isAllMarkets}
               showMarket={isAllMarkets}
               showOmr={isAllMarkets}
+              instrumentType={instrumentType}
             />
           </CardContent>
         </Card>
 
-        <Card>
-          <CardHeader>
-            <CardTitle>Import History</CardTitle>
-            <CardDescription>Recent brokerage report uploads and parsed row counts.</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <PublicImportHistoryTable batches={importBatches} showMarket={isAllMarkets} />
-          </CardContent>
-        </Card>
+        {isEquityTab ? (
+          <Card>
+            <CardHeader>
+              <CardTitle>Import History</CardTitle>
+              <CardDescription>
+                Recent brokerage report uploads and parsed row counts.
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <PublicImportHistoryTable batches={importBatches} showMarket={isAllMarkets} />
+            </CardContent>
+          </Card>
+        ) : null}
       </main>
     </>
   );

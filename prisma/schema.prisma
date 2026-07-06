@@ -99,6 +99,17 @@ enum PublicHoldingSource {
   MANUAL
 }
 
+enum PublicInstrumentType {
+  EQUITY
+  OPTION
+  STRUCTURED_NOTE
+}
+
+enum PublicOptionType {
+  CALL
+  PUT
+}
+
 enum TaskStatus {
   OPEN
   IN_PROGRESS
@@ -734,15 +745,45 @@ model PublicEquityHolding {
   sedol         String?
   country       String?
   source        PublicHoldingSource @default(IMPORT)
+  instrumentType PublicInstrumentType @default(EQUITY)
   currency      String              @default("USD")
   asOfDate      DateTime?
   importBatchId String?
   importBatch   ImportBatch?        @relation(fields: [importBatchId], references: [id])
+  optionDetail  PublicOptionDetail?
+  structuredNoteDetail PublicStructuredNoteDetail?
   createdAt     DateTime            @default(now())
   updatedAt     DateTime            @updatedAt
   @@index([assetId, symbol])
   @@index([assetId, market])
   @@index([market])
+  @@index([instrumentType])
+}
+
+model PublicOptionDetail {
+  id                 String              @id @default(cuid())
+  holdingId          String              @unique
+  holding            PublicEquityHolding @relation(fields: [holdingId], references: [id], onDelete: Cascade)
+  underlyingSymbol   String
+  optionType         PublicOptionType
+  strikePrice        Decimal             @db.Decimal(18, 4)
+  expiryDate         DateTime
+  contractMultiplier Int                 @default(100)
+  premiumPaid        Decimal?            @db.Decimal(18, 2)
+}
+
+model PublicStructuredNoteDetail {
+  id             String              @id @default(cuid())
+  holdingId      String              @unique
+  holding        PublicEquityHolding @relation(fields: [holdingId], references: [id], onDelete: Cascade)
+  issuer         String
+  productName    String
+  notionalAmount Decimal             @db.Decimal(18, 2)
+  issueDate      DateTime?
+  maturityDate   DateTime
+  couponRate     Decimal?            @db.Decimal(8, 4)
+  barrierLevel   Decimal?            @db.Decimal(8, 4)
+  payoffNotes    String?
 }
 
 model FixedAssetDetail {

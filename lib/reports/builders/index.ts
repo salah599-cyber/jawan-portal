@@ -410,15 +410,24 @@ export async function buildPublicEquityReport(
 
   const holdings = await db.publicEquityHolding.findMany({
     where: { assetId: { in: assets.map((asset) => asset.id) } },
-    include: { asset: { select: { name: true, entity: { select: { name: true } } } } },
+    include: {
+      asset: { select: { name: true, entity: { select: { name: true } } } },
+      optionDetail: true,
+      structuredNoteDetail: true,
+    },
     orderBy: [{ asset: { name: "asc" } }, { symbol: "asc" }],
   });
 
   const rows = holdings.map((holding) => ({
     entity: holding.asset.entity.name,
     portfolio: holding.asset.name,
+    instrumentType: holding.instrumentType,
     symbol: holding.symbol,
     name: holding.name ?? "—",
+    underlying: holding.optionDetail?.underlyingSymbol ?? "—",
+    optionType: holding.optionDetail?.optionType ?? "—",
+    issuer: holding.structuredNoteDetail?.issuer ?? "—",
+    productName: holding.structuredNoteDetail?.productName ?? "—",
     quantity: toNumber(holding.quantity)?.toLocaleString("en-OM") ?? "—",
     marketValue: formatAmount(toNumber(holding.marketValue), holding.currency),
     costBasis: formatAmount(toNumber(holding.costBasis), holding.currency),
@@ -438,8 +447,13 @@ export async function buildPublicEquityReport(
     columns: [
       { key: "entity", label: "Entity" },
       { key: "portfolio", label: "Portfolio" },
+      { key: "instrumentType", label: "Type" },
       { key: "symbol", label: "Symbol" },
       { key: "name", label: "Security" },
+      { key: "underlying", label: "Underlying" },
+      { key: "optionType", label: "Option" },
+      { key: "issuer", label: "Issuer" },
+      { key: "productName", label: "Product" },
       { key: "quantity", label: "Quantity", align: "right" },
       { key: "marketValue", label: "Market Value", align: "right" },
       { key: "costBasis", label: "Cost Basis", align: "right" },

@@ -8,11 +8,16 @@ import type { PublicMarket } from "@/lib/generated/prisma/client";
 import { getPublicHoldings } from "@/lib/data/public-markets";
 import { importBrokerReportsForEntity } from "@/lib/public-markets/import-reports";
 import { MARKET_CONFIG, PUBLIC_MARKETS_PATH } from "@/lib/public-markets/constants";
-import type { ImportFileResult, ManualHoldingInput } from "@/lib/public-markets/types";
+import type { ImportFileResult, ManualHoldingInput, ManualOptionInput, ManualStructuredNoteInput } from "@/lib/public-markets/types";
 import { ensurePortfolioAsset, refreshAssetValue } from "@/lib/public-markets/import-reports";
 import { ensurePublicMarketsSchema } from "@/lib/db/ensure-public-markets-schema";
 import { refreshPublicMarketPrices as runPriceRefresh } from "@/lib/public-markets/refresh-prices";
-import { normalizeAndFormatHoldingValues } from "@/lib/public-markets/valuation";
+import {
+  buildOptionSymbol,
+  buildStructuredNoteSymbol,
+  normalizeAndFormatHoldingValues,
+  normalizeOptionHoldingValues,
+} from "@/lib/public-markets/valuation";
 import { canWrite, requireModuleAccess } from "@/lib/permissions/access";
 import { MAX_UPLOAD_BYTES } from "@/lib/upload-limits";
 
@@ -41,6 +46,20 @@ export type UpdatePublicHoldingInput = {
   accountNumber?: string;
   exchange?: string;
   asOfDate?: string;
+  underlyingSymbol?: string;
+  optionType?: "CALL" | "PUT";
+  strikePrice?: number;
+  expiryDate?: string;
+  contractMultiplier?: number;
+  premiumPaid?: number | null;
+  issuer?: string;
+  productName?: string;
+  notionalAmount?: number;
+  issueDate?: string;
+  maturityDate?: string;
+  couponRate?: number | null;
+  barrierLevel?: number | null;
+  payoffNotes?: string;
 };
 
 export async function importPublicMarketReports(formData: FormData): Promise<ImportFileResult[]> {
@@ -187,6 +206,7 @@ export async function addManualHolding(formData: FormData) {
       sedol: input.sedol,
       country: config.country,
       source: "MANUAL",
+      instrumentType: "EQUITY",
       currency: config.currency,
       asOfDate: input.asOfDate ? new Date(input.asOfDate) : new Date(),
     },
@@ -206,6 +226,195 @@ export async function addManualHolding(formData: FormData) {
   revalidatePath("/dashboard");
 }
 
+export async function addManualOption(formData: FormData) {
+  const ctx = await requireModuleAccess("ASSETS");
+  if (!canWrite(ctx, "ASSETS")) {
+    throw new Error("You do not have permission to add holdings.");
+  }
+
+  const entityId = String(formData.get("entityId") ?? "").trim();
+  const market = parseMarket(String(formData.get("market") ?? "MSX"));
+  const input: ManualOptionInput = {
+    underlyingSymbol: String(formData.get("underlyingSymbol") ?? "").trim().toUpperCase(),
+    optionType: String(formData.get("optionType") ?? "CALL").toUpperCase() === "PUT" ? "PUT" : "CALL",
+    strikePrice: parseFloat(String(formData.get("strikePrice") ?? "")),
+    expiryDate: String(formData.get("expiryDate") ?? "").trim(),
+    contracts: parseFloat(String(formData.get("contracts") ?? "")),
+    contractMultiplier: parseOptionalNumber(formData.get("contractMultiplier")),
+    premiumPaid: parseOptionalNumber(formData.get("premiumPaid")),
+    marketPrice: parseOptionalNumber(formData.get("marketPrice")),
+    marketValue: parseOptionalNumber(formData.get("marketValue")),
+    broker: String(formData.get("broker") ?? "").trim() || undefined,
+    accountNumber: String(formData.get("accountNumber") ?? "").trim() || undefined,
+    asOfDate: String(formData.get("asOfDate") ?? "").trim() || undefined,
+  };
+
+  if (!entityId) throw new Error("Entity is required.");
+  if (!input.underlyingSymbol) throw new Error("Underlying symbol is required.");
+  if (!input.expiryDate) throw new Error("Expiry date is required.");
+  if (!input.strikePrice || Number.isNaN(input.strikePrice) || input.strikePrice <= 0) {
+    throw new Error("Strike price must be a positive number.");
+  }
+  if (!input.contracts || Number.isNaN(input.contracts) || input.contracts <= 0) {
+    throw new Error("Contracts must be a positive number.");
+  }
+
+  if (ctx.entityIds.length > 0 && !ctx.entityIds.includes(entityId)) {
+    throw new Error("You do not have access to this entity.");
+  }
+
+  await ensurePublicMarketsSchema();
+  const config = MARKET_CONFIG[market];
+  const asset = await ensurePortfolioAsset(entityId, market);
+  const normalized = normalizeOptionHoldingValues({
+    contracts: input.contracts,
+    marketPrice: input.marketPrice,
+    marketValue: input.marketValue,
+    premiumPaid: input.premiumPaid,
+    contractMultiplier: input.contractMultiplier,
+  });
+
+  const symbol = buildOptionSymbol(
+    input.underlyingSymbol,
+    input.optionType,
+    input.strikePrice,
+    input.expiryDate,
+  );
+
+  const holding = await db.publicEquityHolding.create({
+    data: {
+      assetId: asset.id,
+      market,
+      symbol,
+      name: `${input.underlyingSymbol} ${input.optionType} ${input.strikePrice}`,
+      quantity: input.contracts.toFixed(6),
+      costBasis: normalized.costBasis?.toFixed(2),
+      marketPrice: normalized.marketPrice?.toFixed(4),
+      marketValue: normalized.marketValue?.toFixed(2),
+      unrealisedPnl: normalized.unrealisedPnl?.toFixed(2),
+      priceSource: input.marketPrice != null ? "MANUAL" : undefined,
+      broker: input.broker ?? "Manual Entry",
+      accountNumber: input.accountNumber,
+      exchange: config.exchange,
+      country: config.country,
+      source: "MANUAL",
+      instrumentType: "OPTION",
+      currency: config.currency,
+      asOfDate: input.asOfDate ? new Date(input.asOfDate) : new Date(),
+      optionDetail: {
+        create: {
+          underlyingSymbol: input.underlyingSymbol,
+          optionType: input.optionType,
+          strikePrice: input.strikePrice.toFixed(4),
+          expiryDate: new Date(input.expiryDate),
+          contractMultiplier: normalized.contractMultiplier,
+          premiumPaid: normalized.costBasis?.toFixed(2),
+        },
+      },
+    },
+  });
+
+  await refreshAssetValue(asset.id);
+  await logAudit({
+    userId: ctx.id,
+    action: "CREATE",
+    resource: "public_markets_holding",
+    resourceId: holding.id,
+    metadata: { symbol, market, source: "MANUAL", instrumentType: "OPTION" },
+  });
+
+  revalidatePath(PUBLIC_MARKETS_PATH);
+  revalidatePath("/dashboard");
+}
+
+export async function addManualStructuredNote(formData: FormData) {
+  const ctx = await requireModuleAccess("ASSETS");
+  if (!canWrite(ctx, "ASSETS")) {
+    throw new Error("You do not have permission to add holdings.");
+  }
+
+  const entityId = String(formData.get("entityId") ?? "").trim();
+  const market: PublicMarket = "OTHER";
+  const input: ManualStructuredNoteInput = {
+    issuer: String(formData.get("issuer") ?? "").trim(),
+    productName: String(formData.get("productName") ?? "").trim(),
+    notionalAmount: parseFloat(String(formData.get("notionalAmount") ?? "")),
+    issueDate: String(formData.get("issueDate") ?? "").trim() || undefined,
+    maturityDate: String(formData.get("maturityDate") ?? "").trim(),
+    couponRate: parseOptionalNumber(formData.get("couponRate")),
+    barrierLevel: parseOptionalNumber(formData.get("barrierLevel")),
+    payoffNotes: String(formData.get("payoffNotes") ?? "").trim() || undefined,
+    marketValue: parseOptionalNumber(formData.get("marketValue")),
+    broker: String(formData.get("broker") ?? "").trim() || undefined,
+    accountNumber: String(formData.get("accountNumber") ?? "").trim() || undefined,
+    asOfDate: String(formData.get("asOfDate") ?? "").trim() || undefined,
+  };
+
+  if (!entityId) throw new Error("Entity is required.");
+  if (!input.issuer) throw new Error("Issuer is required.");
+  if (!input.productName) throw new Error("Product name is required.");
+  if (!input.maturityDate) throw new Error("Maturity date is required.");
+  if (!input.notionalAmount || Number.isNaN(input.notionalAmount) || input.notionalAmount <= 0) {
+    throw new Error("Notional amount must be a positive number.");
+  }
+
+  if (ctx.entityIds.length > 0 && !ctx.entityIds.includes(entityId)) {
+    throw new Error("You do not have access to this entity.");
+  }
+
+  await ensurePublicMarketsSchema();
+  const config = MARKET_CONFIG[market];
+  const asset = await ensurePortfolioAsset(entityId, market);
+  const marketValue = input.marketValue ?? input.notionalAmount;
+  const unrealisedPnl = marketValue - input.notionalAmount;
+  const symbol = buildStructuredNoteSymbol(input.productName);
+
+  const holding = await db.publicEquityHolding.create({
+    data: {
+      assetId: asset.id,
+      market,
+      symbol,
+      name: input.productName,
+      quantity: "1",
+      costBasis: input.notionalAmount.toFixed(2),
+      marketValue: marketValue.toFixed(2),
+      unrealisedPnl: unrealisedPnl.toFixed(2),
+      priceSource: "MANUAL",
+      broker: input.broker ?? "Manual Entry",
+      accountNumber: input.accountNumber,
+      country: config.country,
+      source: "MANUAL",
+      instrumentType: "STRUCTURED_NOTE",
+      currency: config.currency,
+      asOfDate: input.asOfDate ? new Date(input.asOfDate) : new Date(),
+      structuredNoteDetail: {
+        create: {
+          issuer: input.issuer,
+          productName: input.productName,
+          notionalAmount: input.notionalAmount.toFixed(2),
+          issueDate: input.issueDate ? new Date(input.issueDate) : undefined,
+          maturityDate: new Date(input.maturityDate),
+          couponRate: input.couponRate?.toFixed(4),
+          barrierLevel: input.barrierLevel?.toFixed(4),
+          payoffNotes: input.payoffNotes,
+        },
+      },
+    },
+  });
+
+  await refreshAssetValue(asset.id);
+  await logAudit({
+    userId: ctx.id,
+    action: "CREATE",
+    resource: "public_markets_holding",
+    resourceId: holding.id,
+    metadata: { symbol, market, source: "MANUAL", instrumentType: "STRUCTURED_NOTE" },
+  });
+
+  revalidatePath(PUBLIC_MARKETS_PATH);
+  revalidatePath("/dashboard");
+}
+
 export async function updatePublicHolding(holdingId: string, input: UpdatePublicHoldingInput) {
   const ctx = await requireModuleAccess("ASSETS");
   if (!canWrite(ctx, "ASSETS")) {
@@ -216,7 +425,7 @@ export async function updatePublicHolding(holdingId: string, input: UpdatePublic
 
   const existing = await db.publicEquityHolding.findUnique({
     where: { id: holdingId },
-    include: { asset: true },
+    include: { asset: true, optionDetail: true, structuredNoteDetail: true },
   });
 
   if (!existing) {
@@ -227,6 +436,7 @@ export async function updatePublicHolding(holdingId: string, input: UpdatePublic
     throw new Error("You do not have access to this holding.");
   }
 
+  const instrumentType = existing.instrumentType;
   const quantity =
     input.quantity != null && !Number.isNaN(input.quantity) && input.quantity > 0
       ? input.quantity
@@ -236,73 +446,217 @@ export async function updatePublicHolding(holdingId: string, input: UpdatePublic
     throw new Error("Quantity must be a positive number.");
   }
 
-  const costBasis =
+  let costBasis =
     input.costBasis !== undefined
       ? input.costBasis
       : existing.costBasis
         ? parseFloat(existing.costBasis.toString())
         : null;
-  const marketPrice =
+  let marketPrice =
     input.marketPrice !== undefined
       ? input.marketPrice
       : existing.marketPrice
         ? parseFloat(existing.marketPrice.toString())
         : null;
-  const marketValue =
+  let marketValue =
     input.marketValue !== undefined
       ? input.marketValue
       : existing.marketValue
         ? parseFloat(existing.marketValue.toString())
         : null;
 
-  const { decimals } = normalizeAndFormatHoldingValues(
-    {
-      quantity,
-      costBasis,
+  let symbol = existing.symbol;
+  let name = input.name !== undefined ? input.name || null : existing.name;
+
+  if (instrumentType === "EQUITY") {
+    symbol = input.symbol?.trim().toUpperCase() || existing.symbol;
+    if (!symbol) throw new Error("Symbol is required.");
+    const { decimals } = normalizeAndFormatHoldingValues(
+      { quantity, costBasis, marketPrice, marketValue },
+      { costBasisIsTotal: true },
+    );
+
+    const priceSource = input.marketPrice != null ? "MANUAL" : existing.priceSource;
+
+    await db.publicEquityHolding.update({
+      where: { id: holdingId },
+      data: {
+        symbol,
+        name,
+        quantity: quantity.toFixed(6),
+        costBasis: decimals.costBasis,
+        marketPrice: decimals.marketPrice,
+        marketValue: decimals.marketValue,
+        unrealisedPnl: decimals.unrealisedPnl,
+        broker: input.broker !== undefined ? input.broker || null : existing.broker,
+        accountNumber:
+          input.accountNumber !== undefined ? input.accountNumber || null : existing.accountNumber,
+        exchange: input.exchange !== undefined ? input.exchange || null : existing.exchange,
+        asOfDate: input.asOfDate ? new Date(input.asOfDate) : existing.asOfDate,
+        priceSource,
+        ...(input.marketPrice != null ? { priceFetchedAt: null } : {}),
+      },
+    });
+
+    await refreshAssetValue(existing.assetId);
+    await logAudit({
+      userId: ctx.id,
+      action: "UPDATE",
+      resource: "public_markets_holding",
+      resourceId: holdingId,
+      metadata: { symbol, market: existing.market },
+    });
+    revalidatePath(PUBLIC_MARKETS_PATH);
+    revalidatePath("/portfolio/msx");
+    revalidatePath("/dashboard");
+    return;
+  }
+
+  if (instrumentType === "OPTION") {
+    const optionType = input.optionType ?? existing.optionDetail?.optionType;
+    const strikePrice = input.strikePrice ?? (existing.optionDetail ? parseFloat(existing.optionDetail.strikePrice.toString()) : undefined);
+    const expiryDate = input.expiryDate ?? existing.optionDetail?.expiryDate.toISOString().slice(0, 10);
+    const underlyingSymbol =
+      input.underlyingSymbol?.trim().toUpperCase() ?? existing.optionDetail?.underlyingSymbol;
+
+    if (!optionType || strikePrice == null || !expiryDate || !underlyingSymbol) {
+      throw new Error("Underlying symbol, option type, strike, and expiry are required.");
+    }
+    if (strikePrice <= 0) throw new Error("Strike price must be greater than zero.");
+
+    symbol = buildOptionSymbol(underlyingSymbol, optionType, strikePrice, expiryDate);
+    name = name ?? `${underlyingSymbol} ${optionType} ${strikePrice}`;
+
+    const normalized = normalizeOptionHoldingValues({
+      contracts: quantity,
       marketPrice,
       marketValue,
-    },
-    { costBasisIsTotal: true },
-  );
+      premiumPaid: input.premiumPaid ?? costBasis,
+      contractMultiplier:
+        input.contractMultiplier ?? existing.optionDetail?.contractMultiplier,
+    });
 
-  const priceSource =
-    input.marketPrice != null
-      ? "MANUAL"
-      : existing.priceSource;
+    const priceSource = input.marketPrice != null ? "MANUAL" : existing.priceSource;
 
-  await db.publicEquityHolding.update({
-    where: { id: holdingId },
-    data: {
-      symbol: input.symbol?.trim().toUpperCase() || existing.symbol,
-      name: input.name !== undefined ? input.name || null : existing.name,
-      quantity: quantity.toFixed(6),
-      costBasis: decimals.costBasis,
-      marketPrice: decimals.marketPrice,
-      marketValue: decimals.marketValue,
-      unrealisedPnl: decimals.unrealisedPnl,
-      broker: input.broker !== undefined ? input.broker || null : existing.broker,
-      accountNumber:
-        input.accountNumber !== undefined ? input.accountNumber || null : existing.accountNumber,
-      exchange: input.exchange !== undefined ? input.exchange || null : existing.exchange,
-      asOfDate: input.asOfDate ? new Date(input.asOfDate) : existing.asOfDate,
-      priceSource,
-      ...(input.marketPrice != null ? { priceFetchedAt: null } : {}),
-    },
-  });
+    await db.publicEquityHolding.update({
+      where: { id: holdingId },
+      data: {
+        symbol,
+        name,
+        quantity: quantity.toFixed(6),
+        costBasis: normalized.costBasis?.toFixed(2),
+        marketPrice: normalized.marketPrice?.toFixed(4),
+        marketValue: normalized.marketValue?.toFixed(2),
+        unrealisedPnl: normalized.unrealisedPnl?.toFixed(2),
+        broker: input.broker !== undefined ? input.broker || null : existing.broker,
+        accountNumber:
+          input.accountNumber !== undefined ? input.accountNumber || null : existing.accountNumber,
+        asOfDate: input.asOfDate ? new Date(input.asOfDate) : existing.asOfDate,
+        priceSource,
+        ...(input.marketPrice != null ? { priceFetchedAt: null } : {}),
+        optionDetail: {
+          update: {
+            underlyingSymbol,
+            optionType,
+            strikePrice: strikePrice.toFixed(4),
+            expiryDate: new Date(expiryDate),
+            contractMultiplier: normalized.contractMultiplier,
+            premiumPaid: normalized.costBasis?.toFixed(2),
+          },
+        },
+      },
+    });
 
-  await refreshAssetValue(existing.assetId);
+    await refreshAssetValue(existing.assetId);
+    await logAudit({
+      userId: ctx.id,
+      action: "UPDATE",
+      resource: "public_markets_holding",
+      resourceId: holdingId,
+      metadata: { symbol, market: existing.market, instrumentType: "OPTION" },
+    });
+    revalidatePath(PUBLIC_MARKETS_PATH);
+    revalidatePath("/portfolio/msx");
+    revalidatePath("/dashboard");
+    return;
+  }
 
-  await logAudit({
-    userId: ctx.id,
-    action: "UPDATE",
-    resource: "public_markets_holding",
-    resourceId: holdingId,
-    metadata: { symbol: input.symbol ?? existing.symbol, market: existing.market },
-  });
+  if (instrumentType === "STRUCTURED_NOTE") {
+    const issuer = input.issuer?.trim() || existing.structuredNoteDetail?.issuer;
+    const productName = input.productName?.trim() || existing.structuredNoteDetail?.productName;
+    const notionalAmount =
+      input.notionalAmount ??
+      (existing.structuredNoteDetail
+        ? parseFloat(existing.structuredNoteDetail.notionalAmount.toString())
+        : undefined);
+    const maturityDate =
+      input.maturityDate ?? existing.structuredNoteDetail?.maturityDate.toISOString().slice(0, 10);
 
-  revalidatePath(PUBLIC_MARKETS_PATH);
-  revalidatePath("/portfolio/msx");
-  revalidatePath("/dashboard");
+    if (!issuer || !productName || notionalAmount == null || !maturityDate) {
+      throw new Error("Issuer, product name, notional, and maturity are required.");
+    }
+    if (notionalAmount <= 0) throw new Error("Notional amount must be greater than zero.");
+
+    symbol = buildStructuredNoteSymbol(productName);
+    name = productName;
+    marketValue = marketValue ?? notionalAmount;
+    const unrealisedPnl = marketValue - notionalAmount;
+
+    await db.publicEquityHolding.update({
+      where: { id: holdingId },
+      data: {
+        symbol,
+        name,
+        quantity: "1",
+        costBasis: notionalAmount.toFixed(2),
+        marketValue: marketValue.toFixed(2),
+        unrealisedPnl: unrealisedPnl.toFixed(2),
+        priceSource: "MANUAL",
+        broker: input.broker !== undefined ? input.broker || null : existing.broker,
+        accountNumber:
+          input.accountNumber !== undefined ? input.accountNumber || null : existing.accountNumber,
+        asOfDate: input.asOfDate ? new Date(input.asOfDate) : existing.asOfDate,
+        structuredNoteDetail: {
+          update: {
+            issuer,
+            productName,
+            notionalAmount: notionalAmount.toFixed(2),
+            issueDate: input.issueDate
+              ? new Date(input.issueDate)
+              : existing.structuredNoteDetail?.issueDate,
+            maturityDate: new Date(maturityDate),
+            couponRate:
+              input.couponRate != null
+                ? input.couponRate.toFixed(4)
+                : existing.structuredNoteDetail?.couponRate?.toString(),
+            barrierLevel:
+              input.barrierLevel != null
+                ? input.barrierLevel.toFixed(4)
+                : existing.structuredNoteDetail?.barrierLevel?.toString(),
+            payoffNotes:
+              input.payoffNotes !== undefined
+                ? input.payoffNotes || null
+                : existing.structuredNoteDetail?.payoffNotes,
+          },
+        },
+      },
+    });
+
+    await refreshAssetValue(existing.assetId);
+    await logAudit({
+      userId: ctx.id,
+      action: "UPDATE",
+      resource: "public_markets_holding",
+      resourceId: holdingId,
+      metadata: { symbol, market: existing.market, instrumentType: "STRUCTURED_NOTE" },
+    });
+    revalidatePath(PUBLIC_MARKETS_PATH);
+    revalidatePath("/portfolio/msx");
+    revalidatePath("/dashboard");
+    return;
+  }
+
+  throw new Error("Unsupported instrument type.");
 }
 
 export async function refreshPublicMarketPricesAction(formData: FormData) {
@@ -358,8 +712,22 @@ export async function exportPublicHoldings(formData: FormData): Promise<{ fileNa
   const rows = holdings.map((holding) => ({
     Market: holding.marketLabel,
     Entity: holding.entityName,
+    "Instrument Type": holding.instrumentType,
     Symbol: holding.symbol,
     Name: holding.name ?? "",
+    "Underlying Symbol": holding.option?.underlyingSymbol ?? "",
+    "Option Type": holding.option?.optionType ?? "",
+    "Strike Price": holding.option?.strikePrice ?? "",
+    "Expiry Date": holding.option?.expiryDate
+      ? holding.option.expiryDate.toISOString().slice(0, 10)
+      : "",
+    Issuer: holding.structuredNote?.issuer ?? "",
+    "Product Name": holding.structuredNote?.productName ?? "",
+    Notional: holding.structuredNote?.notionalAmount ?? "",
+    Maturity: holding.structuredNote?.maturityDate
+      ? holding.structuredNote.maturityDate.toISOString().slice(0, 10)
+      : "",
+    "Coupon Rate": holding.structuredNote?.couponRate ?? "",
     Quantity: holding.quantity,
     "Cost Basis": holding.costBasis ?? "",
     Price: holding.marketPrice ?? "",

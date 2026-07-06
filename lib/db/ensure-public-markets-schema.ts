@@ -5,6 +5,10 @@ import {
   PUBLIC_MARKETS_SCHEMA_COLUMN_CHECK_SQL,
   PUBLIC_MARKETS_SCHEMA_STATEMENTS,
 } from "@/lib/db/public-markets-schema-statements";
+import {
+  PUBLIC_INSTRUMENTS_SCHEMA_COLUMN_CHECK_SQL,
+  PUBLIC_INSTRUMENTS_SCHEMA_STATEMENTS,
+} from "@/lib/db/public-markets-instruments-schema-statements";
 
 let ensurePromise: Promise<void> | null = null;
 
@@ -20,6 +24,11 @@ function getDatabaseUrl() {
 
 async function publicMarketsColumnExists(client: Client): Promise<boolean> {
   const result = await client.query(PUBLIC_MARKETS_SCHEMA_COLUMN_CHECK_SQL);
+  return Boolean(result.rows[0]?.exists);
+}
+
+async function instrumentsColumnExists(client: Client): Promise<boolean> {
+  const result = await client.query(PUBLIC_INSTRUMENTS_SCHEMA_COLUMN_CHECK_SQL);
   return Boolean(result.rows[0]?.exists);
 }
 
@@ -53,6 +62,16 @@ async function applyPublicMarketsSchema() {
       if (!(await publicMarketsColumnExists(client))) {
         throw new Error(
           "Public markets schema sync finished but PublicEquityHolding.priceFetchedAt is still missing.",
+        );
+      }
+    }
+
+    if (!(await instrumentsColumnExists(client))) {
+      await runStatements(client, PUBLIC_INSTRUMENTS_SCHEMA_STATEMENTS);
+
+      if (!(await instrumentsColumnExists(client))) {
+        throw new Error(
+          "Public markets instruments schema sync finished but PublicEquityHolding.instrumentType is still missing.",
         );
       }
     }

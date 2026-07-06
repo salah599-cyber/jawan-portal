@@ -1,5 +1,6 @@
 import { formatDate, formatMoney } from "@/lib/format";
 import type { PublicHoldingRow } from "@/lib/data/public-markets";
+import { PUBLIC_OPTION_TYPE_LABELS } from "@/lib/labels";
 import { DeletePublicHoldingButton } from "@/components/public-markets/delete-holding-button";
 import { EditHoldingDialog } from "@/components/public-markets/edit-holding-dialog";
 import { Badge } from "@/components/ui/badge";
@@ -11,6 +12,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import type { PublicInstrumentType } from "@/lib/generated/prisma/client";
 
 function formatQuantity(value: number): string {
   return new Intl.NumberFormat("en-OM", {
@@ -19,22 +21,162 @@ function formatQuantity(value: number): string {
   }).format(value);
 }
 
+function emptyMessage(instrumentType?: PublicInstrumentType | null): string {
+  if (instrumentType === "OPTION") {
+    return "No options yet. Add positions manually.";
+  }
+  if (instrumentType === "STRUCTURED_NOTE") {
+    return "No structured notes yet. Add positions manually.";
+  }
+  return "No holdings yet. Upload brokerage reports or add positions manually.";
+}
+
 export function PublicHoldingsTable({
   holdings,
   canEdit,
   showMarket = false,
   showOmr = false,
+  instrumentType = "EQUITY",
 }: {
   holdings: PublicHoldingRow[];
   canEdit: boolean;
   showMarket?: boolean;
   showOmr?: boolean;
+  instrumentType?: PublicInstrumentType | null;
 }) {
   if (holdings.length === 0) {
+    return <p className="text-sm text-muted-foreground">{emptyMessage(instrumentType)}</p>;
+  }
+
+  if (instrumentType === "OPTION") {
     return (
-      <p className="text-sm text-muted-foreground">
-        No holdings yet. Upload brokerage reports or add positions manually.
-      </p>
+      <Table>
+        <TableHeader>
+          <TableRow>
+            {showMarket ? <TableHead>Market</TableHead> : null}
+            <TableHead>Underlying</TableHead>
+            <TableHead>Type</TableHead>
+            <TableHead className="text-right">Strike</TableHead>
+            <TableHead>Expiry</TableHead>
+            <TableHead className="text-right">Contracts</TableHead>
+            <TableHead className="text-right">Premium</TableHead>
+            <TableHead className="text-right">Market Value</TableHead>
+            {showOmr ? <TableHead className="text-right">Value (OMR)</TableHead> : null}
+            <TableHead className="text-right">Unrealised P&L</TableHead>
+            <TableHead>Broker</TableHead>
+            {canEdit ? <TableHead className="w-[90px]" /> : null}
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {holdings.map((holding) => (
+            <TableRow key={holding.id}>
+              {showMarket ? (
+                <TableCell>
+                  <Badge variant="outline">{holding.marketLabel}</Badge>
+                </TableCell>
+              ) : null}
+              <TableCell className="font-medium">{holding.option?.underlyingSymbol ?? "—"}</TableCell>
+              <TableCell>
+                {holding.option
+                  ? PUBLIC_OPTION_TYPE_LABELS[holding.option.optionType]
+                  : "—"}
+              </TableCell>
+              <TableCell className="text-right">
+                {holding.option ? formatMoney(holding.option.strikePrice, holding.currency) : "—"}
+              </TableCell>
+              <TableCell>
+                {holding.option ? formatDate(holding.option.expiryDate) : "—"}
+              </TableCell>
+              <TableCell className="text-right">{formatQuantity(holding.quantity)}</TableCell>
+              <TableCell className="text-right">
+                {formatMoney(holding.costBasis, holding.currency)}
+              </TableCell>
+              <TableCell className="text-right">
+                {formatMoney(holding.marketValue, holding.currency)}
+              </TableCell>
+              {showOmr ? (
+                <TableCell className="text-right">
+                  {formatMoney(holding.marketValueOmr, "OMR")}
+                </TableCell>
+              ) : null}
+              <TableCell className="text-right">
+                <PnlCell value={holding.unrealisedPnl} currency={holding.currency} />
+              </TableCell>
+              <TableCell>{holding.broker ?? "—"}</TableCell>
+              {canEdit ? (
+                <TableCell>
+                  <div className="flex items-center justify-end gap-1">
+                    <EditHoldingDialog holding={holding} />
+                    <DeletePublicHoldingButton holdingId={holding.id} symbol={holding.symbol} />
+                  </div>
+                </TableCell>
+              ) : null}
+            </TableRow>
+          ))}
+        </TableBody>
+      </Table>
+    );
+  }
+
+  if (instrumentType === "STRUCTURED_NOTE") {
+    return (
+      <Table>
+        <TableHeader>
+          <TableRow>
+            <TableHead>Issuer</TableHead>
+            <TableHead>Product</TableHead>
+            <TableHead className="text-right">Notional</TableHead>
+            <TableHead>Maturity</TableHead>
+            <TableHead className="text-right">Coupon</TableHead>
+            <TableHead className="text-right">MTM Value</TableHead>
+            {showOmr ? <TableHead className="text-right">Value (OMR)</TableHead> : null}
+            <TableHead className="text-right">Unrealised P&L</TableHead>
+            <TableHead>Broker</TableHead>
+            {canEdit ? <TableHead className="w-[90px]" /> : null}
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {holdings.map((holding) => (
+            <TableRow key={holding.id}>
+              <TableCell>{holding.structuredNote?.issuer ?? "—"}</TableCell>
+              <TableCell className="font-medium">
+                {holding.structuredNote?.productName ?? holding.name ?? "—"}
+              </TableCell>
+              <TableCell className="text-right">
+                {formatMoney(holding.structuredNote?.notionalAmount ?? null, holding.currency)}
+              </TableCell>
+              <TableCell>
+                {holding.structuredNote ? formatDate(holding.structuredNote.maturityDate) : "—"}
+              </TableCell>
+              <TableCell className="text-right">
+                {holding.structuredNote?.couponRate != null
+                  ? `${holding.structuredNote.couponRate}%`
+                  : "—"}
+              </TableCell>
+              <TableCell className="text-right">
+                {formatMoney(holding.marketValue, holding.currency)}
+              </TableCell>
+              {showOmr ? (
+                <TableCell className="text-right">
+                  {formatMoney(holding.marketValueOmr, "OMR")}
+                </TableCell>
+              ) : null}
+              <TableCell className="text-right">
+                <PnlCell value={holding.unrealisedPnl} currency={holding.currency} />
+              </TableCell>
+              <TableCell>{holding.broker ?? "—"}</TableCell>
+              {canEdit ? (
+                <TableCell>
+                  <div className="flex items-center justify-end gap-1">
+                    <EditHoldingDialog holding={holding} />
+                    <DeletePublicHoldingButton holdingId={holding.id} symbol={holding.symbol} />
+                  </div>
+                </TableCell>
+              ) : null}
+            </TableRow>
+          ))}
+        </TableBody>
+      </Table>
     );
   }
 
@@ -93,17 +235,7 @@ export function PublicHoldingsTable({
               </TableCell>
             ) : null}
             <TableCell className="text-right">
-              <span
-                className={
-                  holding.unrealisedPnl != null && holding.unrealisedPnl < 0
-                    ? "text-destructive"
-                    : holding.unrealisedPnl != null && holding.unrealisedPnl > 0
-                      ? "text-green-700"
-                      : undefined
-                }
-              >
-                {formatMoney(holding.unrealisedPnl, holding.currency)}
-              </span>
+              <PnlCell value={holding.unrealisedPnl} currency={holding.currency} />
             </TableCell>
             <TableCell>{formatDate(holding.asOfDate)}</TableCell>
             <TableCell>
@@ -130,5 +262,21 @@ export function PublicHoldingsTable({
         ))}
       </TableBody>
     </Table>
+  );
+}
+
+function PnlCell({ value, currency }: { value: number | null; currency: string }) {
+  return (
+    <span
+      className={
+        value != null && value < 0
+          ? "text-destructive"
+          : value != null && value > 0
+            ? "text-green-700"
+            : undefined
+      }
+    >
+      {formatMoney(value, currency)}
+    </span>
   );
 }
