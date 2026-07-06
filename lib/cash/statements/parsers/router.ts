@@ -1,3 +1,4 @@
+import { detectIssuingBank } from "@/lib/cash/statements/extract-fields";
 import { parseGenericBankStatement } from "@/lib/cash/statements/parsers/generic";
 import { parseBankDhofarStatement } from "@/lib/cash/statements/parsers/bank-dhofar";
 import { parseBankMuscatStatement } from "@/lib/cash/statements/parsers/bank-muscat";
@@ -14,26 +15,7 @@ export type BankStatementParserId =
   | "generic-bank-statement";
 
 export function detectBankStatementParser(text: string, fileName: string): BankStatementParserId {
-  const haystack = `${fileName}\n${text}`.toLowerCase();
-
-  if (haystack.includes("bank muscat") || haystack.includes("bmusomrx")) {
-    return "bank-muscat";
-  }
-  if (
-    haystack.includes("national bank of oman") ||
-    /\bnbo\b/.test(haystack) ||
-    haystack.includes("nbomomrx")
-  ) {
-    return "nbo";
-  }
-  if (haystack.includes("bank dhofar") || haystack.includes("bdofomrx")) {
-    return "bank-dhofar";
-  }
-  if (haystack.includes("hsbc") || haystack.includes("bbmeomrx")) {
-    return "hsbc";
-  }
-
-  return "generic-bank-statement";
+  return detectIssuingBank(text, fileName) ?? "generic-bank-statement";
 }
 
 export async function parseBankStatementPdf(
