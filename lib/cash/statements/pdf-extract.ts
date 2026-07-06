@@ -1,4 +1,5 @@
 import { loadPdfRuntime } from "@/lib/msx/pdf-runtime";
+import { prepareStatementText } from "@/lib/cash/statements/extract-fields";
 
 export async function extractPdfContent(buffer: Buffer): Promise<{ text: string; tableRows: unknown[][] }> {
   const { PDFParse, CanvasFactory } = await loadPdfRuntime();
@@ -23,7 +24,7 @@ export async function extractPdfContent(buffer: Buffer): Promise<{ text: string;
       tableRows = [];
     }
 
-    return { text: textResult.text ?? "", tableRows };
+    return { text: prepareStatementText(textResult.text ?? ""), tableRows };
   } finally {
     await parser.destroy();
   }
