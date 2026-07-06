@@ -4,20 +4,28 @@ import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { createCashAccount } from "@/lib/actions/cash-management";
 import { CASH_CURRENCIES } from "@/lib/cash/constants";
+import type { StatementAccountPrefill } from "@/lib/cash/statements/types";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { EntitySelect, type EntityOption } from "@/components/platform/entity-select";
 import { BankAccountUsageField } from "@/components/bank/bank-account-usage-field";
+import { formatMoney } from "@/lib/format";
 
-export function CreateCashAccountForm({ entities }: { entities: EntityOption[] }) {
+export function CreateCashAccountForm({
+  entities,
+  prefill,
+}: {
+  entities: EntityOption[];
+  prefill?: StatementAccountPrefill | null;
+}) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
-  const [currency, setCurrency] = useState("OMR");
+  const [currency, setCurrency] = useState(prefill?.currency ?? "OMR");
   const [entityId, setEntityId] = useState<string>("none");
   const [includeInCashPosition, setIncludeInCashPosition] = useState(true);
 
@@ -39,6 +47,7 @@ export function CreateCashAccountForm({ entities }: { entities: EntityOption[] }
           entityId: entityId === "none" ? undefined : entityId,
           notes: String(form.get("notes") ?? ""),
           includeInCashPosition,
+          statementImportId: prefill?.importId,
         });
         router.push("/cash/" + account.id);
         router.refresh();
@@ -52,24 +61,50 @@ export function CreateCashAccountForm({ entities }: { entities: EntityOption[] }
     <Card>
       <CardHeader>
         <CardTitle>New Bank Account</CardTitle>
+        {prefill ? (
+          <CardDescription>
+            Pre-filled from statement <span className="font-medium">{prefill.fileName}</span>
+            {prefill.parserId ? ` · parsed with ${prefill.parserId}` : ""}.
+            {prefill.balance != null && prefill.balanceDate
+              ? ` Closing balance of ${formatMoney(prefill.balance, currency)} as of ${prefill.balanceDate} will be applied after saving.`
+              : " Review the details below before saving."}
+          </CardDescription>
+        ) : null}
       </CardHeader>
       <CardContent>
         <form onSubmit={handleSubmit} className="grid gap-4 md:grid-cols-2">
           <div className="space-y-2">
             <Label htmlFor="accountName">Account Name</Label>
-            <Input id="accountName" name="accountName" required placeholder="e.g. Operating Account" />
+            <Input
+              id="accountName"
+              name="accountName"
+              required
+              defaultValue={prefill?.accountName ?? ""}
+              placeholder="e.g. Operating Account"
+            />
           </div>
           <div className="space-y-2">
             <Label htmlFor="bankName">Bank Name</Label>
-            <Input id="bankName" name="bankName" required placeholder="e.g. Bank Muscat" />
+            <Input
+              id="bankName"
+              name="bankName"
+              required
+              defaultValue={prefill?.bankName ?? ""}
+              placeholder="e.g. Bank Muscat"
+            />
           </div>
           <div className="space-y-2">
             <Label htmlFor="accountNumber">Account Number</Label>
-            <Input id="accountNumber" name="accountNumber" required />
+            <Input
+              id="accountNumber"
+              name="accountNumber"
+              required
+              defaultValue={prefill?.accountNumber ?? ""}
+            />
           </div>
           <div className="space-y-2">
             <Label htmlFor="iban">IBAN</Label>
-            <Input id="iban" name="iban" />
+            <Input id="iban" name="iban" defaultValue={prefill?.iban ?? ""} />
           </div>
           <div className="space-y-2">
             <Label htmlFor="swiftCode">SWIFT Code</Label>
@@ -104,12 +139,26 @@ export function CreateCashAccountForm({ entities }: { entities: EntityOption[] }
           />
           <div className="space-y-2 md:col-span-2">
             <Label htmlFor="notes">Account Notes</Label>
-            <Textarea id="notes" name="notes" rows={3} placeholder="Purpose of account, signatories, etc." />
+            <Textarea
+              id="notes"
+              name="notes"
+              rows={3}
+              defaultValue={
+                prefill ? `Created from imported statement: ${prefill.fileName}` : undefined
+              }
+              placeholder="Purpose of account, signatories, etc."
+            />
           </div>
           {error ? <p className="text-sm text-destructive md:col-span-2">{error}</p> : null}
           <div className="flex gap-2 md:col-span-2">
             <Button type="submit" disabled={pending}>
-              {pending ? "Saving..." : "Save Account"}
+              {pending
+                ? prefill?.balance != null
+                  ? "Creating & applying balance..."
+                  : "Saving..."
+                : prefill?.balance != null
+                  ? "Create Account & Apply Balance"
+                  : "Save Account"}
             </Button>
             <Button type="button" variant="outline" onClick={() => router.back()}>
               Cancel

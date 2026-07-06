@@ -63,3 +63,16 @@ export type StatementImportRow = {
   warnings: string[];
   createdAt: Date;
 };
+
+export type StatementAccountPrefill = {
+  importId: string;
+  fileName: string;
+  accountName: string | null;
+  bankName: string | null;
+  accountNumber: string | null;
+  iban: string | null;
+  currency: string | null;
+  balance: number | null;
+  balanceDate: string | null;
+  parserId: string | null;
+};

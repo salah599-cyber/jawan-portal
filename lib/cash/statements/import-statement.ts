@@ -6,6 +6,8 @@ import type {
   StatementAccountCandidate,
   StatementParsePreview,
 } from "@/lib/cash/statements/types";
+import { cashBankAccountFilter } from "@/lib/permissions/scoped-queries";
+import type { UserContext } from "@/lib/permissions/types";
 
 function serializeParsedForJson(parsed: ParsedBankStatement) {
   return {
@@ -13,8 +15,6 @@ function serializeParsedForJson(parsed: ParsedBankStatement) {
     balanceDate: parsed.balanceDate?.toISOString() ?? null,
   };
 }
-import { cashBankAccountFilter } from "@/lib/permissions/scoped-queries";
-import type { UserContext } from "@/lib/permissions/types";
 
 function toPreview(
   importRow: {
@@ -33,6 +33,7 @@ function toPreview(
   },
   match: ReturnType<typeof matchBankAccount>,
   accountMap: Map<string, StatementAccountCandidate>,
+  accountName?: string | null,
   error?: string,
 ): StatementParsePreview {
   const matched = match.accountId ? accountMap.get(match.accountId) : null;
@@ -46,7 +47,7 @@ function toPreview(
     status: importRow.status === "FAILED" ? "failed" : "ok",
     parserId: importRow.parserId,
     bankName: importRow.bankName,
-    accountName: null,
+    accountName: accountName ?? null,
     accountNumber: importRow.accountNumber,
     iban: importRow.iban,
     currency: importRow.currency,
@@ -163,7 +164,7 @@ export async function parseCashStatementFiles(
       },
     });
 
-    results.push(toPreview(importRow, match, accountMap));
+    results.push(toPreview(importRow, match, accountMap, parsed.accountName));
   }
 
   return results;

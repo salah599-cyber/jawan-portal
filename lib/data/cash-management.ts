@@ -1,7 +1,7 @@
 import { db } from "@/lib/db";
 import { ensureCashManagementSchema } from "@/lib/db/ensure-cash-management-schema";
 import { isStaleBalance, toNumber } from "@/lib/cash/helpers";
-import type { StatementImportRow } from "@/lib/cash/statements/types";
+import type { StatementAccountPrefill, StatementImportRow } from "@/lib/cash/statements/types";
 import { cashBankAccountFilter } from "@/lib/permissions/scoped-queries";
 import { convertToOmr } from "@/lib/reports/helpers";
 import type { UserContext } from "@/lib/permissions/types";
@@ -263,6 +263,50 @@ export async function getCashStatementImports(
     warnings: Array.isArray(row.warnings) ? (row.warnings as string[]) : [],
     createdAt: row.createdAt,
   }));
+}
+
+export async function getCashStatementImportForPrefill(
+  importId: string,
+  ctx: UserContext,
+): Promise<StatementAccountPrefill | null> {
+  await ensureReady();
+
+  const row = await db.cashStatementImport.findFirst({
+    where: {
+      id: importId,
+      uploadedBy: ctx.id,
+      status: { in: ["PARSED", "FAILED"] },
+    },
+  });
+
+  if (!row) return null;
+
+  const hasAccountDetails = Boolean(row.bankName || row.accountNumber || row.iban);
+  if (!hasAccountDetails) return null;
+
+  let extractedAccountName: string | null = null;
+  if (row.extractedJson && typeof row.extractedJson === "object" && row.extractedJson !== null) {
+    const json = row.extractedJson as { accountName?: string | null };
+    extractedAccountName = json.accountName ?? null;
+  }
+
+  const fallbackName =
+    extractedAccountName ??
+    (row.bankName ? `${row.bankName} Account` : null) ??
+    row.fileName.replace(/\.pdf$/i, "");
+
+  return {
+    importId: row.id,
+    fileName: row.fileName,
+    accountName: fallbackName,
+    bankName: row.bankName,
+    accountNumber: row.accountNumber,
+    iban: row.iban,
+    currency: row.currency,
+    balance: toNumber(row.balance),
+    balanceDate: row.balanceDate?.toISOString().slice(0, 10) ?? null,
+    parserId: row.parserId,
+  };
 }
 
 export async function listCashAccountCandidates(ctx: UserContext) {

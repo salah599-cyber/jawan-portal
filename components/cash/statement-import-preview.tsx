@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useState, useTransition } from "react";
 import { applyCashStatementImport } from "@/lib/actions/cash-management";
 import { accountLabel, confidenceLabel } from "@/lib/cash/statements/match-account";
@@ -199,9 +200,16 @@ export function StatementImportPreview({
 
       {error ? <p className="text-sm text-destructive">{error}</p> : null}
 
-      <Button type="button" onClick={handleApply} disabled={pending}>
-        {pending ? "Applying..." : "Confirm & Apply Balance"}
-      </Button>
+      <div className="flex flex-wrap gap-2">
+        <Button type="button" onClick={handleApply} disabled={pending}>
+          {pending ? "Applying..." : "Confirm & Apply Balance"}
+        </Button>
+        {preview.matchConfidence === "none" || !preview.matchedAccountId ? (
+          <Button type="button" variant="outline" asChild>
+            <Link href={`/cash/new?importId=${preview.importId}`}>Create account from statement</Link>
+          </Button>
+        ) : null}
+      </div>
     </div>
   );
 }

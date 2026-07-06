@@ -6,58 +6,26 @@ import {
   extractBankName,
   extractCurrency,
   extractIban,
-  hasExtractableText,
 } from "@/lib/cash/statements/extract-fields";
-import { extractPdfContent } from "@/lib/cash/statements/pdf-extract";
+import {
+  assertExtractableText,
+  finalizeParsed,
+  loadStatementPdf,
+  type ExtractedPdf,
+} from "@/lib/cash/statements/parsers/common";
 import type { ParsedBankStatement } from "@/lib/cash/statements/types";
 
-export async function parseGenericBankStatement(
-  buffer: Buffer,
+const PARSER_ID = "generic-bank-statement";
+
+export function parseGenericBankStatement(
+  content: ExtractedPdf,
   fileName: string,
-): Promise<ParsedBankStatement> {
+): ParsedBankStatement {
+  const blocked = assertExtractableText(PARSER_ID, content);
+  if (blocked) return blocked;
+
+  const { text, tableRows } = content;
   const warnings: string[] = [];
-
-  let text = "";
-  let tableRows: unknown[][] = [];
-
-  try {
-    const extracted = await extractPdfContent(buffer);
-    text = extracted.text;
-    tableRows = extracted.tableRows;
-  } catch (error) {
-    return {
-      parserId: "generic-bank-statement",
-      bankName: null,
-      accountName: null,
-      accountNumber: null,
-      iban: null,
-      currency: null,
-      balance: null,
-      balanceDate: null,
-      warnings: [
-        error instanceof Error
-          ? `PDF parsing failed: ${error.message}`
-          : "PDF parsing failed.",
-      ],
-    };
-  }
-
-  if (!hasExtractableText(text) && tableRows.length === 0) {
-    return {
-      parserId: "generic-bank-statement",
-      bankName: null,
-      accountName: null,
-      accountNumber: null,
-      iban: null,
-      currency: null,
-      balance: null,
-      balanceDate: null,
-      warnings: [
-        "No readable text found. Scanned/image-only PDFs are not supported in v1 — try downloading a text-based statement from your bank.",
-      ],
-    };
-  }
-
   const bankName = extractBankName(text, fileName);
   const accountName = extractAccountName(text);
   const accountNumber = extractAccountNumber(text);
@@ -75,15 +43,39 @@ export async function parseGenericBankStatement(
   }
   if (!currency) warnings.push("Currency not detected — account currency will be used when applying.");
 
-  return {
-    parserId: "generic-bank-statement",
-    bankName,
-    accountName,
-    accountNumber,
-    iban,
-    currency,
-    balance,
-    balanceDate,
+  return finalizeParsed(
+    PARSER_ID,
+    {
+      bankName,
+      accountName,
+      accountNumber,
+      iban,
+      currency,
+      balance,
+      balanceDate,
+    },
     warnings,
-  };
+  );
+}
+
+export async function parseGenericBankStatementPdf(
+  buffer: Buffer,
+  fileName: string,
+): Promise<ParsedBankStatement> {
+  const loaded = await loadStatementPdf(buffer);
+  if (!loaded.ok) {
+    return {
+      parserId: PARSER_ID,
+      bankName: null,
+      accountName: null,
+      accountNumber: null,
+      iban: null,
+      currency: null,
+      balance: null,
+      balanceDate: null,
+      warnings: [loaded.error],
+    };
+  }
+
+  return parseGenericBankStatement(loaded.content, fileName);
 }

@@ -18,6 +18,7 @@ export type CashAccountInput = {
   entityId?: string;
   notes?: string;
   includeInCashPosition?: boolean;
+  statementImportId?: string;
 };
 
 function parseDecimal(value?: string | null) {
@@ -87,7 +88,27 @@ export async function createCashAccount(input: CashAccountInput) {
     metadata: { accountName: account.accountName, bankName: account.bankName },
   });
 
-  revalidateCashPaths(account.id);
+  if (input.statementImportId) {
+    const statementImport = await db.cashStatementImport.findFirst({
+      where: {
+        id: input.statementImportId,
+        uploadedBy: ctx.id,
+        status: "PARSED",
+      },
+    });
+
+    if (statementImport?.balance != null && statementImport.balanceDate) {
+      await applyCashStatementImport({
+        importId: statementImport.id,
+        bankAccountId: account.id,
+        balance: statementImport.balance.toString(),
+        balanceDate: statementImport.balanceDate.toISOString().slice(0, 10),
+      });
+    }
+  } else {
+    revalidateCashPaths(account.id);
+  }
+
   return account;
 }
 
