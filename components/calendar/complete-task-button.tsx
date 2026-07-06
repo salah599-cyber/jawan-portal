@@ -42,7 +42,7 @@ export function CompleteTaskButton({ taskId, title }: { taskId: string; title: s
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button type="button" size="sm" variant="outline" onClick={(e) => e.preventDefault()}>
+        <Button type="button" size="sm" variant="outline">
           <CheckCircle2 className="mr-1 h-4 w-4" />
           Complete
         </Button>
