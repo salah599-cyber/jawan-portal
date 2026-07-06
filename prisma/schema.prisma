@@ -842,6 +842,7 @@ model BankAccount {
   includeInCashPosition  Boolean             @default(true)
   cheques                Cheque[]
   balanceEntries BankBalanceEntry[]
+  statementImports CashStatementImport[]
   createdAt      DateTime            @default(now())
   updatedAt      DateTime            @updatedAt
 }
@@ -855,9 +856,40 @@ model BankBalanceEntry {
   notes         String?
   recordedById  String?
   recordedBy    User?       @relation(fields: [recordedById], references: [id], onDelete: SetNull)
+  statementImportId String?
+  statementImport   CashStatementImport? @relation(fields: [statementImportId], references: [id], onDelete: SetNull)
   createdAt     DateTime    @default(now())
 
   @@index([bankAccountId, balanceDate])
+}
+
+enum CashStatementImportStatus {
+  PARSED
+  APPLIED
+  FAILED
+}
+
+model CashStatementImport {
+  id            String                    @id @default(cuid())
+  fileName      String
+  uploadedBy    String
+  bankAccountId String?
+  bankAccount   BankAccount?              @relation(fields: [bankAccountId], references: [id], onDelete: SetNull)
+  parserId      String?
+  extractedJson Json?
+  balance       Decimal?                  @db.Decimal(18, 3)
+  balanceDate   DateTime?
+  currency      String?
+  bankName      String?
+  accountNumber String?
+  iban          String?
+  warnings      Json?
+  status        CashStatementImportStatus @default(PARSED)
+  balanceEntries BankBalanceEntry[]
+  createdAt     DateTime                  @default(now())
+
+  @@index([bankAccountId, createdAt])
+  @@index([status, createdAt])
 }
 
 model Liability {

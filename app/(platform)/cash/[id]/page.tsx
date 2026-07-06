@@ -3,9 +3,16 @@ import { notFound } from "next/navigation";
 import { PlatformHeader } from "@/components/platform/platform-header";
 import { EditLinkButton } from "@/components/platform/edit-link-button";
 import { RecordBalanceForm } from "@/components/cash/record-balance-form";
+import { UploadStatementForm } from "@/components/cash/upload-statement-form";
+import { StatementImportHistory } from "@/components/cash/statement-import-history";
 import { BalanceHistory } from "@/components/cash/balance-history";
 import { StaleBalanceBadge } from "@/components/cash/stale-balance-badge";
-import { getCashAccount, getCashBalanceHistory } from "@/lib/data/cash-management";
+import {
+  getCashAccount,
+  getCashBalanceHistory,
+  getCashStatementImports,
+  listCashAccountCandidates,
+} from "@/lib/data/cash-management";
 import { canWrite, requireModuleAccess } from "@/lib/permissions/access";
 import { formatDate, formatMoney, formatOmr } from "@/lib/format";
 import { BankAccountUsageBadge } from "@/components/bank/bank-account-usage-badge";
@@ -19,9 +26,11 @@ export default async function CashAccountDetailPage({
 }) {
   const { id } = await params;
   const ctx = await requireModuleAccess("CASH_MANAGEMENT");
-  const [account, history] = await Promise.all([
+  const [account, history, accountCandidates, importHistory] = await Promise.all([
     getCashAccount(id, ctx),
     getCashBalanceHistory(id, ctx),
+    listCashAccountCandidates(ctx),
+    getCashStatementImports(ctx, { bankAccountId: id, limit: 10 }),
   ]);
 
   if (!account) notFound();
@@ -92,13 +101,23 @@ export default async function CashAccountDetailPage({
           </Card>
 
           {canEdit ? (
-            <RecordBalanceForm
-              bankAccountId={account.id}
-              currency={account.currency}
-              currentBalance={account.currentBalance}
-            />
+            <div className="space-y-4">
+              <UploadStatementForm
+                accounts={accountCandidates}
+                preferredAccountId={account.id}
+                title="Import Statement"
+                description="Upload a PDF statement for this account. Parsed balance and date can be reviewed before applying."
+              />
+              <RecordBalanceForm
+                bankAccountId={account.id}
+                currency={account.currency}
+                currentBalance={account.currentBalance}
+              />
+            </div>
           ) : null}
         </div>
+
+        {canEdit ? <StatementImportHistory imports={importHistory} /> : null}
 
         <BalanceHistory entries={history} currency={account.currency} />
       </main>
