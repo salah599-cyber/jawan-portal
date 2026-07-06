@@ -22,6 +22,11 @@ const nextConfig: NextConfig = {
       "./node_modules/pdfjs-dist/**/*",
       "./node_modules/@napi-rs/canvas/**/*",
     ],
+    "/api/cash/import-statement": [
+      "./node_modules/pdf-parse/**/*",
+      "./node_modules/pdfjs-dist/**/*",
+      "./node_modules/@napi-rs/canvas/**/*",
+    ],
     "/portfolio/pe": ["./lib/db/pe-schema.sql"],
     "/portfolio/pe/[id]": ["./lib/db/pe-schema.sql"],
     "/portfolio/pe/new": ["./lib/db/pe-schema.sql"],

@@ -1,0 +1,25 @@
+export const CASH_STATEMENT_IMPORT_SCHEMA_STATEMENTS = [
+  `CREATE TYPE "CashStatementImportStatus" AS ENUM ('PARSED', 'APPLIED', 'FAILED')`,
+  `CREATE TABLE IF NOT EXISTS "CashStatementImport" (
+    "id" TEXT NOT NULL,
+    "fileName" TEXT NOT NULL,
+    "uploadedBy" TEXT NOT NULL,
+    "bankAccountId" TEXT,
+    "parserId" TEXT,
+    "extractedJson" JSONB,
+    "balance" DECIMAL(18,3),
+    "balanceDate" TIMESTAMP(3),
+    "currency" TEXT,
+    "bankName" TEXT,
+    "accountNumber" TEXT,
+    "iban" TEXT,
+    "warnings" JSONB,
+    "status" "CashStatementImportStatus" NOT NULL DEFAULT 'PARSED',
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT "CashStatementImport_pkey" PRIMARY KEY ("id")
+  )`,
+  `CREATE INDEX IF NOT EXISTS "CashStatementImport_bankAccountId_createdAt_idx" ON "CashStatementImport"("bankAccountId", "createdAt")`,
+  `CREATE INDEX IF NOT EXISTS "CashStatementImport_status_createdAt_idx" ON "CashStatementImport"("status", "createdAt")`,
+  `ALTER TABLE "BankBalanceEntry" ADD COLUMN IF NOT EXISTS "statementImportId" TEXT`,
+  `CREATE INDEX IF NOT EXISTS "BankBalanceEntry_statementImportId_idx" ON "BankBalanceEntry"("statementImportId")`,
+];

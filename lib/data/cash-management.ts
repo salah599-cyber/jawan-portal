@@ -1,6 +1,7 @@
 import { db } from "@/lib/db";
 import { ensureCashManagementSchema } from "@/lib/db/ensure-cash-management-schema";
 import { isStaleBalance, toNumber } from "@/lib/cash/helpers";
+import type { StatementAccountPrefill, StatementImportRow } from "@/lib/cash/statements/types";
 import { cashBankAccountFilter } from "@/lib/permissions/scoped-queries";
 import { convertToOmr } from "@/lib/reports/helpers";
 import type { UserContext } from "@/lib/permissions/types";
@@ -213,6 +214,117 @@ export async function getCashBalanceHistory(
       : null,
     createdAt: entry.createdAt,
   }));
+}
+
+export async function getCashStatementImports(
+  ctx: UserContext,
+  options: { bankAccountId?: string; limit?: number } = {},
+): Promise<StatementImportRow[]> {
+  await ensureReady();
+
+  const limit = options.limit ?? 20;
+  const accountFilter = cashBankAccountFilter(ctx);
+  const accessibleAccounts = await db.bankAccount.findMany({
+    where: accountFilter,
+    select: { id: true, accountName: true, bankName: true, accountNumber: true },
+  });
+  const accountIds = accessibleAccounts.map((account) => account.id);
+  const accountLabelMap = new Map(
+    accessibleAccounts.map((account) => [
+      account.id,
+      `${account.accountName} · ${account.bankName} (${account.accountNumber})`,
+    ]),
+  );
+
+  const imports = await db.cashStatementImport.findMany({
+    where: {
+      uploadedBy: ctx.id,
+      ...(options.bankAccountId
+        ? { bankAccountId: options.bankAccountId }
+        : {
+            OR: [{ bankAccountId: null }, { bankAccountId: { in: accountIds } }],
+          }),
+    },
+    orderBy: { createdAt: "desc" },
+    take: limit,
+  });
+
+  return imports.map((row) => ({
+    id: row.id,
+    fileName: row.fileName,
+    uploadedBy: row.uploadedBy,
+    bankAccountId: row.bankAccountId,
+    bankAccountLabel: row.bankAccountId ? accountLabelMap.get(row.bankAccountId) ?? null : null,
+    parserId: row.parserId,
+    balance: toNumber(row.balance),
+    balanceDate: row.balanceDate,
+    currency: row.currency,
+    status: row.status,
+    warnings: Array.isArray(row.warnings) ? (row.warnings as string[]) : [],
+    createdAt: row.createdAt,
+  }));
+}
+
+export async function getCashStatementImportForPrefill(
+  importId: string,
+  ctx: UserContext,
+): Promise<StatementAccountPrefill | null> {
+  await ensureReady();
+
+  const row = await db.cashStatementImport.findFirst({
+    where: {
+      id: importId,
+      uploadedBy: ctx.id,
+      status: { in: ["PARSED", "FAILED"] },
+    },
+  });
+
+  if (!row) return null;
+
+  const hasAccountDetails = Boolean(row.bankName || row.accountNumber || row.iban);
+  if (!hasAccountDetails) return null;
+
+  let extractedAccountName: string | null = null;
+  if (row.extractedJson && typeof row.extractedJson === "object" && row.extractedJson !== null) {
+    const json = row.extractedJson as { accountName?: string | null };
+    extractedAccountName = json.accountName ?? null;
+  }
+
+  const fallbackName =
+    extractedAccountName ??
+    (row.bankName ? `${row.bankName} Account` : null) ??
+    row.fileName.replace(/\.pdf$/i, "");
+
+  return {
+    importId: row.id,
+    fileName: row.fileName,
+    accountName: fallbackName,
+    bankName: row.bankName,
+    accountNumber: row.accountNumber,
+    iban: row.iban,
+    currency: row.currency,
+    balance: toNumber(row.balance),
+    balanceDate: row.balanceDate?.toISOString().slice(0, 10) ?? null,
+    parserId: row.parserId,
+  };
+}
+
+export async function listCashAccountCandidates(ctx: UserContext) {
+  await ensureReady();
+
+  return db.bankAccount.findMany({
+    where: cashBankAccountFilter(ctx),
+    select: {
+      id: true,
+      accountName: true,
+      bankName: true,
+      accountNumber: true,
+      iban: true,
+      currency: true,
+      entityId: true,
+    },
+    orderBy: [{ bankName: "asc" }, { accountName: "asc" }],
+  });
 }
 
 export async function listCashEntities(ctx: UserContext) {

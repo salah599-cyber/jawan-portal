@@ -3,13 +3,23 @@ import { AddLinkButton } from "@/components/platform/add-link-button";
 import { CashSummaryCards } from "@/components/cash/cash-summary-cards";
 import { CashBreakdown } from "@/components/cash/cash-breakdown";
 import { CashAccountsTable } from "@/components/cash/cash-accounts-table";
-import { getCashSummary } from "@/lib/data/cash-management";
+import { UploadStatementForm } from "@/components/cash/upload-statement-form";
+import { StatementImportHistory } from "@/components/cash/statement-import-history";
+import {
+  getCashSummary,
+  getCashStatementImports,
+  listCashAccountCandidates,
+} from "@/lib/data/cash-management";
 import { canWrite, requireModuleAccess } from "@/lib/permissions/access";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 
 export default async function CashManagementPage() {
   const ctx = await requireModuleAccess("CASH_MANAGEMENT");
-  const summary = await getCashSummary(ctx);
+  const [summary, accountCandidates, importHistory] = await Promise.all([
+    getCashSummary(ctx),
+    listCashAccountCandidates(ctx),
+    getCashStatementImports(ctx),
+  ]);
   const canEdit = canWrite(ctx, "CASH_MANAGEMENT");
 
   return (
@@ -33,6 +43,15 @@ export default async function CashManagementPage() {
           byEntity={summary.byEntity}
           byCurrency={summary.byCurrency}
         />
+
+        {canEdit ? (
+          <UploadStatementForm
+            accounts={accountCandidates}
+            description="Upload PDF bank statements to extract closing balances. Each statement is parsed automatically — review and confirm before updating account balances."
+          />
+        ) : null}
+
+        {canEdit ? <StatementImportHistory imports={importHistory} /> : null}
 
         <Card>
           <CardHeader>

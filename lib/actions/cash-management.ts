@@ -7,7 +7,6 @@ import { ensureCashManagementSchema } from "@/lib/db/ensure-cash-management-sche
 import { canWrite, requireModuleAccess } from "@/lib/permissions/access";
 import { cashBankAccountFilter } from "@/lib/permissions/scoped-queries";
 import { syncBankBalancesToCashAssets } from "@/lib/portfolio/cash-sync";
-
 export type CashAccountInput = {
   accountName: string;
   bankName: string;
@@ -19,6 +18,7 @@ export type CashAccountInput = {
   entityId?: string;
   notes?: string;
   includeInCashPosition?: boolean;
+  statementImportId?: string;
 };
 
 function parseDecimal(value?: string | null) {
@@ -88,7 +88,27 @@ export async function createCashAccount(input: CashAccountInput) {
     metadata: { accountName: account.accountName, bankName: account.bankName },
   });
 
-  revalidateCashPaths(account.id);
+  if (input.statementImportId) {
+    const statementImport = await db.cashStatementImport.findFirst({
+      where: {
+        id: input.statementImportId,
+        uploadedBy: ctx.id,
+        status: "PARSED",
+      },
+    });
+
+    if (statementImport?.balance != null && statementImport.balanceDate) {
+      await applyCashStatementImport({
+        importId: statementImport.id,
+        bankAccountId: account.id,
+        balance: statementImport.balance.toString(),
+        balanceDate: statementImport.balanceDate.toISOString().slice(0, 10),
+      });
+    }
+  } else {
+    revalidateCashPaths(account.id);
+  }
+
   return account;
 }
 
@@ -248,4 +268,85 @@ export async function deactivateCashAccount(id: string) {
 
   await syncBankBalancesToCashAssets(ctx);
   revalidateCashPaths(id);
+}
+
+export async function applyCashStatementImport(input: {
+  importId: string;
+  bankAccountId: string;
+  balance: string;
+  balanceDate: string;
+}) {
+  const ctx = await requireModuleAccess("CASH_MANAGEMENT");
+  if (!canWrite(ctx, "CASH_MANAGEMENT")) {
+    throw new Error("You do not have permission to update balances.");
+  }
+
+  await ensureCashManagementSchema();
+
+  const statementImport = await db.cashStatementImport.findUnique({
+    where: { id: input.importId },
+  });
+  if (!statementImport) throw new Error("Statement import not found.");
+  if (statementImport.status === "APPLIED") {
+    throw new Error("This statement import has already been applied.");
+  }
+  if (statementImport.uploadedBy !== ctx.id && !ctx.isSuperAdmin) {
+    throw new Error("You can only apply statement imports you uploaded.");
+  }
+
+  const bankAccountId = input.bankAccountId.trim();
+  const balance = parseDecimal(input.balance);
+  if (!balance) throw new Error("Balance is required.");
+  const balanceDate = parseDate(input.balanceDate);
+  if (!balanceDate) throw new Error("Balance date is required.");
+
+  const account = await db.bankAccount.findFirst({
+    where: { id: bankAccountId, ...cashBankAccountFilter(ctx) },
+  });
+  if (!account) throw new Error("Bank account not found.");
+
+  const entry = await db.bankBalanceEntry.create({
+    data: {
+      bankAccountId,
+      balance,
+      balanceDate,
+      notes: `Imported from ${statementImport.fileName}`,
+      recordedById: ctx.id,
+      statementImportId: statementImport.id,
+    },
+  });
+
+  await db.bankAccount.update({
+    where: { id: bankAccountId },
+    data: {
+      currentBalance: balance,
+      balanceAsOf: balanceDate,
+    },
+  });
+
+  await db.cashStatementImport.update({
+    where: { id: statementImport.id },
+    data: {
+      status: "APPLIED",
+      bankAccountId,
+      balance,
+      balanceDate,
+      currency: account.currency,
+    },
+  });
+
+  await logAudit({
+    userId: ctx.id,
+    action: "CREATE",
+    resource: "cash_statement_import",
+    resourceId: statementImport.id,
+    metadata: {
+      bankAccountId,
+      fileName: statementImport.fileName,
+      balanceEntryId: entry.id,
+    },
+  });
+
+  await syncBankBalancesToCashAssets(ctx);
+  revalidateCashPaths(bankAccountId);
 }

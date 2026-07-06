@@ -1,5 +1,6 @@
 import { Client } from "pg";
 import { CASH_MANAGEMENT_SCHEMA_STATEMENTS } from "@/lib/db/cash-management-schema-statements";
+import { CASH_STATEMENT_IMPORT_SCHEMA_STATEMENTS } from "@/lib/db/cash-statement-import-schema-statements";
 
 let ensurePromise: Promise<void> | null = null;
 
@@ -76,6 +77,7 @@ async function applyCashManagementSchema() {
 
     if (!hasBalanceEntryTable) {
       await runStatements(client, CASH_MANAGEMENT_SCHEMA_STATEMENTS);
+      await runStatements(client, CASH_STATEMENT_IMPORT_SCHEMA_STATEMENTS);
 
       if (!(await tableExists(client, "BankBalanceEntry"))) {
         throw new Error(
@@ -89,6 +91,23 @@ async function applyCashManagementSchema() {
       await runStatements(client, [
         `ALTER TABLE "BankAccount" ADD COLUMN IF NOT EXISTS "includeInCashPosition" BOOLEAN NOT NULL DEFAULT true`,
       ]);
+    }
+
+    const hasStatementImportTable = await tableExists(client, "CashStatementImport");
+    if (!hasStatementImportTable) {
+      await runStatements(client, CASH_STATEMENT_IMPORT_SCHEMA_STATEMENTS);
+    } else {
+      const hasStatementImportId = await columnExists(
+        client,
+        "BankBalanceEntry",
+        "statementImportId",
+      );
+      if (!hasStatementImportId) {
+        await runStatements(client, [
+          `ALTER TABLE "BankBalanceEntry" ADD COLUMN IF NOT EXISTS "statementImportId" TEXT`,
+          `CREATE INDEX IF NOT EXISTS "BankBalanceEntry_statementImportId_idx" ON "BankBalanceEntry"("statementImportId")`,
+        ]);
+      }
     }
   } finally {
     await client.end();
