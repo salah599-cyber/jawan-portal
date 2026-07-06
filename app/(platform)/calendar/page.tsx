@@ -3,7 +3,7 @@ import { PlatformHeader } from "@/components/platform/platform-header";
 import { CalendarListView } from "@/components/calendar/calendar-list-view";
 import { CalendarMonthGrid } from "@/components/calendar/calendar-month-grid";
 import { CalendarSummaryCards } from "@/components/calendar/calendar-summary-cards";
-import { CalendarViewTabs } from "@/components/calendar/calendar-view-tabs";
+import { CalendarFilters } from "@/components/calendar/calendar-filters";
 import { CalendarWeekView } from "@/components/calendar/calendar-week-view";
 import { CreateTaskDialog } from "@/components/calendar/create-task-dialog";
 import { TodayView } from "@/components/calendar/today-view";
@@ -23,20 +23,6 @@ import {
 } from "@/lib/calendar/date-ranges";
 import { canWrite, requireModuleAccess } from "@/lib/permissions/access";
 import { Button } from "@/components/ui/button";
-
-function calendarHref({
-  view,
-  date,
-  entityId,
-}: {
-  view: string;
-  date: string;
-  entityId?: string;
-}) {
-  const params = new URLSearchParams({ view, date });
-  if (entityId) params.set("entity", entityId);
-  return `/calendar?${params.toString()}`;
-}
 
 export default async function CalendarPage({
   searchParams,
@@ -90,29 +76,19 @@ export default async function CalendarPage({
           </div>
         </div>
 
-        <CalendarViewTabs active={view} date={dateKey} entityId={entityId} />
+        <CalendarFilters
+          view={view}
+          date={dateKey}
+          entityId={entityId}
+          entities={entities}
+          currentParams={{
+            view: viewParam ?? view,
+            date: dateParam ?? dateKey,
+            entity: entityParam,
+          }}
+        />
 
         <CalendarSummaryCards counts={counts} />
-
-        {entities.length > 1 ? (
-          <div className="flex flex-wrap gap-2">
-            <Button variant={!entityId ? "default" : "outline"} size="sm" asChild>
-              <Link href={calendarHref({ view, date: dateKey })}>All entities</Link>
-            </Button>
-            {entities.map((entity) => (
-              <Button
-                key={entity.id}
-                variant={entityId === entity.id ? "default" : "outline"}
-                size="sm"
-                asChild
-              >
-                <Link href={calendarHref({ view, date: dateKey, entityId: entity.id })}>
-                  {entity.name}
-                </Link>
-              </Button>
-            ))}
-          </div>
-        ) : null}
 
         {view === "today" && todayView ? (
           <TodayView view={todayView} canEdit={canEdit} currentUserId={ctx.id} />

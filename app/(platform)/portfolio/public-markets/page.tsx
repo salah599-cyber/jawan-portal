@@ -4,9 +4,8 @@ import { AddManualHoldingForm } from "@/components/public-markets/add-manual-hol
 import { AddManualOptionForm } from "@/components/public-markets/add-manual-option-form";
 import { AddManualStructuredNoteForm } from "@/components/public-markets/add-manual-structured-note-form";
 import { ExportHoldingsButton } from "@/components/public-markets/export-holdings-button";
-import { InstrumentTabs } from "@/components/public-markets/instrument-tabs";
+import { PublicMarketsFilters } from "@/components/public-markets/public-markets-filters";
 import { RefreshPricesButton } from "@/components/public-markets/refresh-prices-button";
-import { MarketTabs } from "@/components/public-markets/market-tabs";
 import {
   AllMarketsSummaryCards,
   MarketBreakdownTable,
@@ -128,38 +127,17 @@ export default async function PublicMarketsPage({
           </div>
         </div>
 
-        <MarketTabs
+        <PublicMarketsFilters
           activeMarket={activeMarket}
-          entityId={entityId}
-          instrumentSlug={instrumentSlug}
-        />
-
-        <InstrumentTabs
           activeInstrument={instrumentSlug}
           entityId={entityId}
-          marketSlug={marketSlug}
+          entities={entities}
+          currentParams={{
+            entity: entityParam,
+            market: isAllMarkets ? "ALL" : marketParam ?? slugFromMarket(market),
+            instrument: instrumentSlug === "equity" ? undefined : instrumentSlug,
+          }}
         />
-
-        {entities.length > 1 ? (
-          <div className="flex flex-wrap gap-2">
-            {entities.map((entity) => {
-              const params = new URLSearchParams();
-              params.set("entity", entity.id);
-              params.set("market", marketSlug);
-              params.set("instrument", instrumentSlug);
-              return (
-                <Button
-                  key={entity.id}
-                  variant={entity.id === entityId ? "default" : "outline"}
-                  size="sm"
-                  asChild
-                >
-                  <Link href={`/portfolio/public-markets?${params.toString()}`}>{entity.name}</Link>
-                </Button>
-              );
-            })}
-          </div>
-        ) : null}
 
         {isAllMarkets ? (
           <>

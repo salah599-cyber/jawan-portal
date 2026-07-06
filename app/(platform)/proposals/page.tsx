@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { PlatformHeader } from "@/components/platform/platform-header";
 import { AddLinkButton } from "@/components/platform/add-link-button";
-import { ProposalsFilterTabs, type ProposalsFilter } from "@/components/proposals/proposals-filter-tabs";
+import { ProposalsFilterSelect, type ProposalsFilter } from "@/components/proposals/proposals-filter-select";
 import { ProposalStatusBadge } from "@/components/proposals/proposal-status-badge";
 import { listProposals } from "@/lib/actions/proposals";
 import { formatApproverProgress } from "@/lib/proposals/approval";
@@ -51,7 +51,7 @@ export default async function ProposalsPage({
                   Submit investments for review and track approval outcomes.
                 </CardDescription>
               </div>
-              <ProposalsFilterTabs current={filter} />
+              <ProposalsFilterSelect current={filter} />
             </div>
             {showAdd ? <AddLinkButton href="/proposals/new" label="New Proposal" /> : null}
           </CardHeader>

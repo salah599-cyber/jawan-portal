@@ -4,6 +4,14 @@ import { useMemo, useState } from "react";
 import { CartesianGrid, Line, LineChart, XAxis, YAxis } from "recharts";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import {
   ChartContainer,
   ChartTooltip,
@@ -79,18 +87,23 @@ export function DashboardNetWorthTrendChart({ trend }: { trend: NetWorthTrend })
             Portfolio minus liabilities over time — see whether wealth is moving in the right direction.
           </CardDescription>
         </div>
-        <div className="flex flex-wrap gap-2">
-          {PERIOD_OPTIONS.map((option) => (
-            <Button
-              key={option.value}
-              type="button"
-              size="sm"
-              variant={period === option.value ? "default" : "outline"}
-              onClick={() => setPeriod(option.value)}
-            >
-              {option.label}
-            </Button>
-          ))}
+        <div className="space-y-1.5">
+          <Label className="text-xs text-muted-foreground">Period</Label>
+          <Select
+            value={String(period)}
+            onValueChange={(value) => setPeriod(Number(value) as PeriodMonths)}
+          >
+            <SelectTrigger size="sm" className="min-w-[6rem]">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {PERIOD_OPTIONS.map((option) => (
+                <SelectItem key={option.value} value={String(option.value)}>
+                  {option.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </div>
       </CardHeader>
       <CardContent className="space-y-4">

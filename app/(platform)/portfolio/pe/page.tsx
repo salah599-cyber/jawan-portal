@@ -11,6 +11,7 @@ import {
 import { canWrite, requireModuleAccess } from "@/lib/permissions/access";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { PePortfolioFilters } from "@/components/pe/pe-portfolio-filters";
 
 function PeLoadError({ message, digest }: { message: string; digest?: string }) {
   return (
@@ -75,20 +76,7 @@ export default async function PePortfolioPage({
             {canEdit ? <AddLinkButton href="/portfolio/pe/new" label="Add Company" /> : null}
           </div>
 
-          {entities.length > 1 ? (
-            <div className="flex flex-wrap gap-2">
-              {entities.map((entity) => (
-                <Button
-                  key={entity.id}
-                  variant={entity.id === entityId ? "default" : "outline"}
-                  size="sm"
-                  asChild
-                >
-                  <Link href={`/portfolio/pe?entity=${entity.id}`}>{entity.name}</Link>
-                </Button>
-              ))}
-            </div>
-          ) : null}
+          <PePortfolioFilters entityId={entityId} entities={entities} />
 
           <PePortfolioSummaryCards summary={summary} />
 

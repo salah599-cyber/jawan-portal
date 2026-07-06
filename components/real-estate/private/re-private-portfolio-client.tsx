@@ -1,6 +1,8 @@
 "use client";
 
 import Link from "next/link";
+import { EntityFilterSelect } from "@/components/platform/entity-filter-select";
+import { FilterToolbar } from "@/components/platform/filter-toolbar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -27,20 +29,15 @@ export function RePrivatePortfolioClient({
 }) {
   return (
     <div className="space-y-4">
-      {entities.length > 1 ? (
-        <div className="flex flex-wrap gap-2">
-          {entities.map((entity) => (
-            <Button
-              key={entity.id}
-              variant={entity.id === entityId ? "default" : "outline"}
-              size="sm"
-              asChild
-            >
-              <Link href={`/real-estate/private?entity=${entity.id}`}>{entity.name}</Link>
-            </Button>
-          ))}
-        </div>
-      ) : null}
+      <FilterToolbar>
+        <EntityFilterSelect
+          entities={entities}
+          value={entityId}
+          pathname="/real-estate/private"
+          currentParams={{ entity: entityId }}
+          allowAll={false}
+        />
+      </FilterToolbar>
 
       <div className="grid gap-4 md:grid-cols-4">
         <SummaryCard label="Villas" value={summary.totalProperties.toString()} />

@@ -2,7 +2,7 @@ import Link from "next/link";
 import { PlatformHeader } from "@/components/platform/platform-header";
 import { AddLinkButton } from "@/components/platform/add-link-button";
 import { RowActions } from "@/components/platform/row-actions";
-import { AssetsFilterTabs, type AssetsFilter } from "@/components/assets/assets-filter-tabs";
+import { AssetsFilterSelect, type AssetsFilter } from "@/components/assets/assets-filter-select";
 import { listAssets, deleteAsset } from "@/lib/actions/assets";
 import { getAssetLinkedModule } from "@/lib/assets/linked-module";
 import { canWrite, requireModuleAccess } from "@/lib/permissions/access";
@@ -49,7 +49,7 @@ export default async function AssetsPage({
                   Manage real estate, private equity, public markets, and more.
                 </CardDescription>
               </div>
-              <AssetsFilterTabs current={filter} />
+              <AssetsFilterSelect current={filter} />
             </div>
             {showAdd ? <AddLinkButton href="/assets/new" label="Add Asset" /> : null}
           </CardHeader>

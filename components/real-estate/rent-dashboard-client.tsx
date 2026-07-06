@@ -6,6 +6,8 @@ import { MessageCircle } from "lucide-react";
 import type { ReRentDashboard } from "@/lib/data/real-estate";
 import { RE_RENT_PAYMENT_STATUS_LABELS } from "@/lib/labels";
 import { formatDate, formatOmr } from "@/lib/format";
+import { EntityFilterSelect } from "@/components/platform/entity-filter-select";
+import { FilterToolbar } from "@/components/platform/filter-toolbar";
 import { MarkRentPaidForm } from "@/components/real-estate/mark-rent-paid-form";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -57,20 +59,15 @@ export function RentDashboardClient({
 
   return (
     <div className="space-y-6">
-      {entities.length > 1 ? (
-        <div className="flex flex-wrap gap-2">
-          {entities.map((entity) => (
-            <Button
-              key={entity.id}
-              variant={entity.id === entityId ? "default" : "outline"}
-              size="sm"
-              asChild
-            >
-              <Link href={`/real-estate/rent?entity=${entity.id}`}>{entity.name}</Link>
-            </Button>
-          ))}
-        </div>
-      ) : null}
+      <FilterToolbar>
+        <EntityFilterSelect
+          entities={entities}
+          value={entityId}
+          pathname="/real-estate/rent"
+          currentParams={{ entity: entityId }}
+          allowAll={false}
+        />
+      </FilterToolbar>
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <Card>
           <CardHeader className="pb-2">
