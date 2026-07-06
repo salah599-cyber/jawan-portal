@@ -184,3 +184,7 @@ export function buildStructuredNoteSymbol(productName: string) {
     .slice(0, 24);
   return `SN-${slug || "NOTE"}`;
 }
+
+export function buildCryptoSymbol(symbol: string) {
+  return symbol.trim().toUpperCase();
+}

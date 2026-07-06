@@ -86,3 +86,15 @@ export type ManualStructuredNoteInput = {
   accountNumber?: string;
   asOfDate?: string;
 };
+
+export type ManualCryptoInput = {
+  symbol: string;
+  name?: string;
+  coinGeckoId: string;
+  quantity: number;
+  costBasis?: number;
+  marketPrice?: number;
+  marketValue?: number;
+  custodian?: string;
+  asOfDate?: string;
+};

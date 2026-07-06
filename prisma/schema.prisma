@@ -103,6 +103,7 @@ enum PublicInstrumentType {
   EQUITY
   OPTION
   STRUCTURED_NOTE
+  CRYPTO
 }
 
 enum PublicOptionType {
@@ -752,6 +753,7 @@ model PublicEquityHolding {
   importBatch   ImportBatch?        @relation(fields: [importBatchId], references: [id])
   optionDetail  PublicOptionDetail?
   structuredNoteDetail PublicStructuredNoteDetail?
+  cryptoDetail  PublicCryptoDetail?
   createdAt     DateTime            @default(now())
   updatedAt     DateTime            @updatedAt
   @@index([assetId, symbol])
@@ -784,6 +786,14 @@ model PublicStructuredNoteDetail {
   couponRate     Decimal?            @db.Decimal(8, 4)
   barrierLevel   Decimal?            @db.Decimal(8, 4)
   payoffNotes    String?
+}
+
+model PublicCryptoDetail {
+  id          String              @id @default(cuid())
+  holdingId   String              @unique
+  holding     PublicEquityHolding @relation(fields: [holdingId], references: [id], onDelete: Cascade)
+  coinGeckoId String
+  custodian   String?
 }
 
 model FixedAssetDetail {

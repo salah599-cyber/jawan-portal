@@ -116,6 +116,18 @@ export function EditHoldingDialog({ holding }: { holding: PublicHoldingRow }) {
             accountNumber: String(form.get("accountNumber") ?? ""),
             asOfDate: String(form.get("asOfDate") ?? "") || undefined,
           });
+        } else if (holding.instrumentType === "CRYPTO") {
+          await updatePublicHolding(holding.id, {
+            symbol: String(form.get("symbol") ?? ""),
+            name: String(form.get("name") ?? ""),
+            coinGeckoId: String(form.get("coinGeckoId") ?? ""),
+            quantity,
+            costBasis,
+            marketPrice,
+            marketValue,
+            custodian: String(form.get("custodian") ?? ""),
+            asOfDate: String(form.get("asOfDate") ?? "") || undefined,
+          });
         } else {
           await updatePublicHolding(holding.id, {
             symbol: String(form.get("symbol") ?? ""),
@@ -143,7 +155,9 @@ export function EditHoldingDialog({ holding }: { holding: PublicHoldingRow }) {
       ? `Edit option ${holding.symbol}`
       : holding.instrumentType === "STRUCTURED_NOTE"
         ? `Edit ${holding.structuredNote?.productName ?? holding.symbol}`
-        : `Edit ${holding.symbol}`;
+        : holding.instrumentType === "CRYPTO"
+          ? `Edit ${holding.symbol}`
+          : `Edit ${holding.symbol}`;
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
@@ -160,7 +174,9 @@ export function EditHoldingDialog({ holding }: { holding: PublicHoldingRow }) {
               ? "Update note terms and mark-to-market value."
               : holding.instrumentType === "OPTION"
                 ? "Update contract terms and mark-to-market value."
-                : "Update quantity, total cost basis, or prices."}
+                : holding.instrumentType === "CRYPTO"
+                  ? "Update crypto position, CoinGecko ID, and prices."
+                  : "Update quantity, total cost basis, or prices."}
           </DialogDescription>
         </DialogHeader>
         <form onSubmit={handleSubmit} className="grid gap-4">
@@ -186,6 +202,20 @@ export function EditHoldingDialog({ holding }: { holding: PublicHoldingRow }) {
               marketValue={marketValue}
               setMarketValue={setMarketValue}
             />
+          ) : holding.instrumentType === "CRYPTO" ? (
+            <CryptoFields
+              holding={holding}
+              quantity={quantity}
+              setQuantity={setQuantity}
+              marketPrice={marketPrice}
+              setMarketPrice={setMarketPrice}
+              costBasis={costBasis}
+              setCostBasis={setCostBasis}
+              marketValue={marketValue}
+              setMarketValue={setMarketValue}
+              unrealisedPnl={unrealisedPnl}
+              setUnrealisedPnl={setUnrealisedPnl}
+            />
           ) : (
             <EquityFields
               holding={holding}
@@ -202,7 +232,8 @@ export function EditHoldingDialog({ holding }: { holding: PublicHoldingRow }) {
             />
           )}
 
-          {holding.priceSource && holding.instrumentType === "EQUITY" ? (
+          {holding.priceSource &&
+          (holding.instrumentType === "EQUITY" || holding.instrumentType === "CRYPTO") ? (
             <p className="text-xs text-muted-foreground">
               Price source: {holding.priceSource}
               {holding.priceFetchedAt
@@ -224,6 +255,134 @@ export function EditHoldingDialog({ holding }: { holding: PublicHoldingRow }) {
         </form>
       </DialogContent>
     </Dialog>
+  );
+}
+
+function CryptoFields({
+  holding,
+  quantity,
+  setQuantity,
+  marketPrice,
+  setMarketPrice,
+  costBasis,
+  setCostBasis,
+  marketValue,
+  setMarketValue,
+  unrealisedPnl,
+  setUnrealisedPnl,
+}: {
+  holding: PublicHoldingRow;
+  quantity: number;
+  setQuantity: (v: number) => void;
+  marketPrice: number | null;
+  setMarketPrice: (v: number | null) => void;
+  costBasis: number | null;
+  setCostBasis: (v: number | null) => void;
+  marketValue: number | null;
+  setMarketValue: (v: number | null) => void;
+  unrealisedPnl: number | null;
+  setUnrealisedPnl: (v: number | null) => void;
+}) {
+  function recalc(price: number | null, qty: number, cost: number | null) {
+    const derived = calcEquityDerived(qty, price, cost);
+    setMarketValue(derived.marketValue);
+    setUnrealisedPnl(derived.unrealisedPnl);
+  }
+
+  return (
+    <div className="grid gap-4 sm:grid-cols-2">
+      <div className="space-y-2">
+        <Label htmlFor={`symbol-${holding.id}`}>Symbol</Label>
+        <Input id={`symbol-${holding.id}`} name="symbol" required defaultValue={holding.symbol} />
+      </div>
+      <div className="space-y-2">
+        <Label htmlFor={`name-${holding.id}`}>Name</Label>
+        <Input id={`name-${holding.id}`} name="name" defaultValue={holding.name ?? ""} />
+      </div>
+      <div className="space-y-2 sm:col-span-2">
+        <Label htmlFor={`coinGeckoId-${holding.id}`}>CoinGecko ID</Label>
+        <Input
+          id={`coinGeckoId-${holding.id}`}
+          name="coinGeckoId"
+          required
+          defaultValue={holding.crypto?.coinGeckoId ?? ""}
+        />
+      </div>
+      <div className="space-y-2">
+        <Label htmlFor={`quantity-${holding.id}`}>Quantity</Label>
+        <Input
+          id={`quantity-${holding.id}`}
+          type="number"
+          step="any"
+          min="0"
+          required
+          value={quantity}
+          onChange={(e) => {
+            const qty = parseFloat(e.target.value);
+            const nextQty = Number.isNaN(qty) ? 0 : qty;
+            setQuantity(nextQty);
+            recalc(marketPrice, nextQty, costBasis);
+          }}
+        />
+      </div>
+      <div className="space-y-2">
+        <Label htmlFor={`marketPrice-${holding.id}`}>Market price ({holding.currency})</Label>
+        <Input
+          id={`marketPrice-${holding.id}`}
+          type="number"
+          step="any"
+          min="0"
+          value={marketPrice ?? ""}
+          onChange={(e) => {
+            const price = e.target.value === "" ? null : parseFloat(e.target.value);
+            const nextPrice = price != null && !Number.isNaN(price) ? price : null;
+            setMarketPrice(nextPrice);
+            recalc(nextPrice, quantity, costBasis);
+          }}
+        />
+      </div>
+      <div className="space-y-2">
+        <Label htmlFor={`costBasis-${holding.id}`}>Total cost basis ({holding.currency})</Label>
+        <Input
+          id={`costBasis-${holding.id}`}
+          type="number"
+          step="any"
+          min="0"
+          value={costBasis ?? ""}
+          onChange={(e) => {
+            const cost = e.target.value === "" ? null : parseFloat(e.target.value);
+            const nextCost = cost != null && !Number.isNaN(cost) ? cost : null;
+            setCostBasis(nextCost);
+            recalc(marketPrice, quantity, nextCost);
+          }}
+        />
+      </div>
+      <div className="space-y-2">
+        <Label>Market value ({holding.currency})</Label>
+        <Input value={marketValue ?? ""} readOnly className="bg-muted" />
+      </div>
+      <div className="space-y-2">
+        <Label>Unrealised P&L ({holding.currency})</Label>
+        <Input value={unrealisedPnl ?? ""} readOnly className="bg-muted" />
+      </div>
+      <div className="space-y-2 sm:col-span-2">
+        <Label htmlFor={`custodian-${holding.id}`}>Exchange / wallet</Label>
+        <Input
+          id={`custodian-${holding.id}`}
+          name="custodian"
+          defaultValue={holding.crypto?.custodian ?? holding.broker ?? ""}
+        />
+      </div>
+      <div className="space-y-2">
+        <Label htmlFor={`asOfDate-${holding.id}`}>As of date</Label>
+        <Input
+          id={`asOfDate-${holding.id}`}
+          name="asOfDate"
+          type="date"
+          defaultValue={formatDateInput(holding.asOfDate)}
+        />
+      </div>
+    </div>
   );
 }
 

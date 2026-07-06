@@ -28,6 +28,9 @@ function emptyMessage(instrumentType?: PublicInstrumentType | null): string {
   if (instrumentType === "STRUCTURED_NOTE") {
     return "No structured notes yet. Add positions manually.";
   }
+  if (instrumentType === "CRYPTO") {
+    return "No crypto holdings yet. Add positions manually.";
+  }
   return "No holdings yet. Upload brokerage reports or add positions manually.";
 }
 
@@ -165,6 +168,75 @@ export function PublicHoldingsTable({
                 <PnlCell value={holding.unrealisedPnl} currency={holding.currency} />
               </TableCell>
               <TableCell>{holding.broker ?? "—"}</TableCell>
+              {canEdit ? (
+                <TableCell>
+                  <div className="flex items-center justify-end gap-1">
+                    <EditHoldingDialog holding={holding} />
+                    <DeletePublicHoldingButton holdingId={holding.id} symbol={holding.symbol} />
+                  </div>
+                </TableCell>
+              ) : null}
+            </TableRow>
+          ))}
+        </TableBody>
+      </Table>
+    );
+  }
+
+  if (instrumentType === "CRYPTO") {
+    return (
+      <Table>
+        <TableHeader>
+          <TableRow>
+            <TableHead>Symbol</TableHead>
+            <TableHead>Name</TableHead>
+            <TableHead>CoinGecko ID</TableHead>
+            <TableHead className="text-right">Quantity</TableHead>
+            <TableHead className="text-right">Price</TableHead>
+            <TableHead className="text-right">Market Value</TableHead>
+            {showOmr ? <TableHead className="text-right">Value (OMR)</TableHead> : null}
+            <TableHead className="text-right">Unrealised P&L</TableHead>
+            <TableHead>Custodian</TableHead>
+            <TableHead>Price</TableHead>
+            {canEdit ? <TableHead className="w-[90px]" /> : null}
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {holdings.map((holding) => (
+            <TableRow key={holding.id}>
+              <TableCell className="font-medium">
+                <Badge variant="secondary">{holding.symbol}</Badge>
+              </TableCell>
+              <TableCell>{holding.name ?? "—"}</TableCell>
+              <TableCell>{holding.crypto?.coinGeckoId ?? "—"}</TableCell>
+              <TableCell className="text-right">{formatQuantity(holding.quantity)}</TableCell>
+              <TableCell className="text-right">
+                {formatMoney(holding.marketPrice, holding.currency)}
+              </TableCell>
+              <TableCell className="text-right">
+                {formatMoney(holding.marketValue, holding.currency)}
+              </TableCell>
+              {showOmr ? (
+                <TableCell className="text-right">
+                  {formatMoney(holding.marketValueOmr, "OMR")}
+                </TableCell>
+              ) : null}
+              <TableCell className="text-right">
+                <PnlCell value={holding.unrealisedPnl} currency={holding.currency} />
+              </TableCell>
+              <TableCell>{holding.crypto?.custodian ?? holding.broker ?? "—"}</TableCell>
+              <TableCell>
+                <div className="space-y-0.5 text-xs">
+                  {holding.priceSource ? (
+                    <Badge variant="outline">{holding.priceSource}</Badge>
+                  ) : (
+                    <span className="text-muted-foreground">—</span>
+                  )}
+                  {holding.priceFetchedAt ? (
+                    <p className="text-muted-foreground">{formatDate(holding.priceFetchedAt)}</p>
+                  ) : null}
+                </div>
+              </TableCell>
               {canEdit ? (
                 <TableCell>
                   <div className="flex items-center justify-end gap-1">

@@ -1,11 +1,13 @@
 import Link from "next/link";
 import { PlatformHeader } from "@/components/platform/platform-header";
 import { AddManualHoldingForm } from "@/components/public-markets/add-manual-holding-form";
+import { AddManualCryptoForm } from "@/components/public-markets/add-manual-crypto-form";
 import { AddManualOptionForm } from "@/components/public-markets/add-manual-option-form";
 import { AddManualStructuredNoteForm } from "@/components/public-markets/add-manual-structured-note-form";
 import { ExportHoldingsButton } from "@/components/public-markets/export-holdings-button";
 import { PublicMarketsFilters } from "@/components/public-markets/public-markets-filters";
 import { RefreshPricesButton } from "@/components/public-markets/refresh-prices-button";
+import { RefreshCryptoPricesButton } from "@/components/public-markets/refresh-crypto-prices-button";
 import {
   AllMarketsSummaryCards,
   MarketBreakdownTable,
@@ -54,6 +56,7 @@ export default async function PublicMarketsPage({
   const activeMarket = isAllMarkets ? "ALL" : market;
   const marketSlug = isAllMarkets ? "ALL" : slugFromMarket(market);
   const isEquityTab = instrumentSlug === "equity";
+  const isCryptoTab = instrumentSlug === "crypto";
 
   const [summary, allSummary, holdings, importBatches] = await Promise.all([
     isAllMarkets ? null : getPublicMarketSummary(ctx, entityId, market),
@@ -77,7 +80,9 @@ export default async function PublicMarketsPage({
       ? "Options positions with manual mark-to-market values. Live option pricing is not available."
       : instrumentSlug === "structured-notes"
         ? "Structured notes with issuer, notional, maturity, and manual MTM values."
-        : isAllMarkets
+        : instrumentSlug === "crypto"
+          ? "Cryptocurrency positions priced via CoinGecko in USD, with optional manual overrides."
+          : isAllMarkets
           ? "All positions across markets, with values converted to OMR where applicable."
           : "Consolidated positions across imported broker reports and manual entries. Re-importing a broker statement replaces that broker's holdings only.";
 
@@ -102,7 +107,7 @@ export default async function PublicMarketsPage({
             ) : null}
             {!isEquityTab ? (
               <p className="mt-1 text-sm text-muted-foreground">
-                Options and structured notes roll into your public equity portfolio total via
+                Options, structured notes, and crypto roll into your public equity portfolio total via
                 market value.
               </p>
             ) : null}
@@ -115,6 +120,9 @@ export default async function PublicMarketsPage({
                 market={activeMarket}
                 disabled={!isAllMarkets && !hasAutomaticPriceRefresh(market)}
               />
+            ) : null}
+            {canEdit && isCryptoTab ? (
+              <RefreshCryptoPricesButton entityId={entityId} />
             ) : null}
             {marketConfig?.marketDataUrl ? (
               <Button variant="outline" size="sm" asChild>
@@ -176,6 +184,9 @@ export default async function PublicMarketsPage({
                 entities={entities}
                 defaultEntityId={entityId}
               />
+            ) : null}
+            {instrumentSlug === "crypto" ? (
+              <AddManualCryptoForm entities={entities} defaultEntityId={entityId} />
             ) : null}
           </>
         ) : null}
