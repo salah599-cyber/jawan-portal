@@ -70,12 +70,12 @@ export function parseHsbcStatement(content: ExtractedPdf, _fileName: string): Pa
   const accountName = extractAccountName(text);
   const swiftCode = extractHsbcSwift(text);
 
-  if (!balance) warnings.push("Could not extract closing balance — enter it manually before applying.");
+  if (!balance) warnings.push("Closing balance not detected — enter it manually before applying.");
   if (!accountNumber && !iban) {
-    warnings.push("Could not extract account number or IBAN — verify the target account before applying.");
+    warnings.push("Account number and IBAN not detected — select the account manually before applying.");
   }
   if (!extractBalanceDate(text)) {
-    warnings.push("Statement date not found — using today's date. Adjust before applying if needed.");
+    warnings.push("Statement date not detected — today's date is pre-filled. Adjust if needed.");
   }
   if (swiftCode) {
     warnings.push(`SWIFT/BIC detected: ${swiftCode} — add to account details if needed.`);

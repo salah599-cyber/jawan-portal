@@ -34,14 +34,14 @@ export function parseGenericBankStatement(
   const balance = extractBalance(text, tableRows);
   const balanceDate = extractBalanceDate(text) ?? new Date();
 
-  if (!balance) warnings.push("Could not extract closing balance — enter it manually before applying.");
+  if (!balance) warnings.push("Closing balance not detected — enter it manually before applying.");
   if (!accountNumber && !iban) {
-    warnings.push("Could not extract account number or IBAN — verify the target account before applying.");
+    warnings.push("Account number and IBAN not detected — select the account manually before applying.");
   }
   if (!extractBalanceDate(text)) {
-    warnings.push("Statement date not found — using today's date. Adjust before applying if needed.");
+    warnings.push("Statement date not detected — today's date is pre-filled. Adjust if needed.");
   }
-  if (!currency) warnings.push("Currency not detected — account currency will be used when applying.");
+  if (!currency) warnings.push("Currency not detected — the account currency will be used when applying.");
 
   return finalizeParsed(
     PARSER_ID,
