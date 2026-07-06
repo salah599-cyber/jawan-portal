@@ -1,3 +1,5 @@
+import { parseDateInput as parseDateInputValue } from "@/lib/format";
+
 export function toNumber(value: unknown): number {
   if (value == null || value === "") return 0;
   const n = typeof value === "number" ? value : parseFloat(String(value));
@@ -14,8 +16,7 @@ export function parseDecimalInput(value?: string | null) {
 }
 
 export function parseDateInput(value?: string | null) {
-  if (!value || value.trim() === "") return undefined;
-  return new Date(value);
+  return parseDateInputValue(value) ?? undefined;
 }
 
 export function parseIntInput(value?: string | null) {
