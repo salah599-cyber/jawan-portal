@@ -20,6 +20,7 @@ const INSTRUMENT_LABELS: Record<PublicInstrumentSlug, string> = {
   equity: PUBLIC_INSTRUMENT_TYPE_LABELS.EQUITY,
   options: PUBLIC_INSTRUMENT_TYPE_LABELS.OPTION,
   "structured-notes": PUBLIC_INSTRUMENT_TYPE_LABELS.STRUCTURED_NOTE,
+  crypto: PUBLIC_INSTRUMENT_TYPE_LABELS.CRYPTO,
   all: "All instruments",
 };
 

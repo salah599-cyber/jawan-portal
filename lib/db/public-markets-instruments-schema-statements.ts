@@ -44,3 +44,18 @@ export const PUBLIC_INSTRUMENTS_SCHEMA_STATEMENTS = [
   )`,
   `CREATE UNIQUE INDEX IF NOT EXISTS "PublicStructuredNoteDetail_holdingId_key" ON "PublicStructuredNoteDetail"("holdingId")`,
 ];
+
+export const PUBLIC_INSTRUMENTS_ENUM_EXPANSION_STATEMENTS = [
+  `ALTER TYPE "PublicInstrumentType" ADD VALUE IF NOT EXISTS 'CRYPTO'`,
+];
+
+export const PUBLIC_CRYPTO_DETAIL_SCHEMA_STATEMENTS = [
+  `CREATE TABLE IF NOT EXISTS "PublicCryptoDetail" (
+    "id" TEXT NOT NULL,
+    "holdingId" TEXT NOT NULL,
+    "coinGeckoId" TEXT NOT NULL,
+    "custodian" TEXT,
+    CONSTRAINT "PublicCryptoDetail_pkey" PRIMARY KEY ("id")
+  )`,
+  `CREATE UNIQUE INDEX IF NOT EXISTS "PublicCryptoDetail_holdingId_key" ON "PublicCryptoDetail"("holdingId")`,
+];

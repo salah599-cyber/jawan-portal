@@ -6,6 +6,8 @@ import {
   PUBLIC_MARKETS_SCHEMA_STATEMENTS,
 } from "@/lib/db/public-markets-schema-statements";
 import {
+  PUBLIC_CRYPTO_DETAIL_SCHEMA_STATEMENTS,
+  PUBLIC_INSTRUMENTS_ENUM_EXPANSION_STATEMENTS,
   PUBLIC_INSTRUMENTS_SCHEMA_COLUMN_CHECK_SQL,
   PUBLIC_INSTRUMENTS_SCHEMA_STATEMENTS,
 } from "@/lib/db/public-markets-instruments-schema-statements";
@@ -75,6 +77,9 @@ async function applyPublicMarketsSchema() {
         );
       }
     }
+
+    await runStatements(client, PUBLIC_INSTRUMENTS_ENUM_EXPANSION_STATEMENTS);
+    await runStatements(client, PUBLIC_CRYPTO_DETAIL_SCHEMA_STATEMENTS);
   } finally {
     await client.end();
   }

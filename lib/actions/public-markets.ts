@@ -8,11 +8,12 @@ import type { PublicMarket } from "@/lib/generated/prisma/client";
 import { getPublicHoldings } from "@/lib/data/public-markets";
 import { importBrokerReportsForEntity } from "@/lib/public-markets/import-reports";
 import { MARKET_CONFIG, PUBLIC_MARKETS_PATH } from "@/lib/public-markets/constants";
-import type { ImportFileResult, ManualHoldingInput, ManualOptionInput, ManualStructuredNoteInput } from "@/lib/public-markets/types";
+import type { ImportFileResult, ManualCryptoInput, ManualHoldingInput, ManualOptionInput, ManualStructuredNoteInput } from "@/lib/public-markets/types";
 import { ensurePortfolioAsset, refreshAssetValue } from "@/lib/public-markets/import-reports";
 import { ensurePublicMarketsSchema } from "@/lib/db/ensure-public-markets-schema";
-import { refreshPublicMarketPrices as runPriceRefresh } from "@/lib/public-markets/refresh-prices";
+import { refreshPublicMarketPrices as runPriceRefresh, refreshCryptoPrices as runCryptoPriceRefresh } from "@/lib/public-markets/refresh-prices";
 import {
+  buildCryptoSymbol,
   buildOptionSymbol,
   buildStructuredNoteSymbol,
   normalizeAndFormatHoldingValues,
@@ -60,6 +61,8 @@ export type UpdatePublicHoldingInput = {
   couponRate?: number | null;
   barrierLevel?: number | null;
   payoffNotes?: string;
+  coinGeckoId?: string;
+  custodian?: string;
 };
 
 export async function importPublicMarketReports(formData: FormData): Promise<ImportFileResult[]> {
@@ -415,6 +418,91 @@ export async function addManualStructuredNote(formData: FormData) {
   revalidatePath("/dashboard");
 }
 
+export async function addManualCrypto(formData: FormData) {
+  const ctx = await requireModuleAccess("ASSETS");
+  if (!canWrite(ctx, "ASSETS")) {
+    throw new Error("You do not have permission to add holdings.");
+  }
+
+  const entityId = String(formData.get("entityId") ?? "").trim();
+  const market: PublicMarket = "OTHER";
+  const input: ManualCryptoInput = {
+    symbol: String(formData.get("symbol") ?? "").trim(),
+    name: String(formData.get("name") ?? "").trim() || undefined,
+    coinGeckoId: String(formData.get("coinGeckoId") ?? "").trim().toLowerCase(),
+    quantity: parseFloat(String(formData.get("quantity") ?? "")),
+    costBasis: parseOptionalNumber(formData.get("costBasis")),
+    marketPrice: parseOptionalNumber(formData.get("marketPrice")),
+    marketValue: parseOptionalNumber(formData.get("marketValue")),
+    custodian: String(formData.get("custodian") ?? "").trim() || undefined,
+    asOfDate: String(formData.get("asOfDate") ?? "").trim() || undefined,
+  };
+
+  if (!entityId) throw new Error("Entity is required.");
+  if (!input.symbol) throw new Error("Symbol is required.");
+  if (!input.coinGeckoId) throw new Error("CoinGecko ID is required.");
+  if (!input.quantity || Number.isNaN(input.quantity) || input.quantity <= 0) {
+    throw new Error("Quantity must be a positive number.");
+  }
+
+  if (ctx.entityIds.length > 0 && !ctx.entityIds.includes(entityId)) {
+    throw new Error("You do not have access to this entity.");
+  }
+
+  await ensurePublicMarketsSchema();
+  const config = MARKET_CONFIG[market];
+  const asset = await ensurePortfolioAsset(entityId, market);
+  const symbol = buildCryptoSymbol(input.symbol);
+  const { decimals } = normalizeAndFormatHoldingValues(
+    {
+      quantity: input.quantity,
+      costBasis: input.costBasis,
+      marketPrice: input.marketPrice,
+      marketValue: input.marketValue,
+    },
+    { costBasisIsTotal: true },
+  );
+
+  const holding = await db.publicEquityHolding.create({
+    data: {
+      assetId: asset.id,
+      market,
+      symbol,
+      name: input.name ?? symbol,
+      quantity: input.quantity.toFixed(6),
+      costBasis: decimals.costBasis,
+      marketPrice: decimals.marketPrice,
+      marketValue: decimals.marketValue,
+      unrealisedPnl: decimals.unrealisedPnl,
+      priceSource: input.marketPrice != null ? "MANUAL" : null,
+      broker: input.custodian ?? "Manual Entry",
+      country: config.country,
+      source: "MANUAL",
+      instrumentType: "CRYPTO",
+      currency: "USD",
+      asOfDate: input.asOfDate ? new Date(input.asOfDate) : new Date(),
+      cryptoDetail: {
+        create: {
+          coinGeckoId: input.coinGeckoId,
+          custodian: input.custodian,
+        },
+      },
+    },
+  });
+
+  await refreshAssetValue(asset.id);
+  await logAudit({
+    userId: ctx.id,
+    action: "CREATE",
+    resource: "public_markets_holding",
+    resourceId: holding.id,
+    metadata: { symbol, market, source: "MANUAL", instrumentType: "CRYPTO" },
+  });
+
+  revalidatePath(PUBLIC_MARKETS_PATH);
+  revalidatePath("/dashboard");
+}
+
 export async function updatePublicHolding(holdingId: string, input: UpdatePublicHoldingInput) {
   const ctx = await requireModuleAccess("ASSETS");
   if (!canWrite(ctx, "ASSETS")) {
@@ -425,7 +513,7 @@ export async function updatePublicHolding(holdingId: string, input: UpdatePublic
 
   const existing = await db.publicEquityHolding.findUnique({
     where: { id: holdingId },
-    include: { asset: true, optionDetail: true, structuredNoteDetail: true },
+    include: { asset: true, optionDetail: true, structuredNoteDetail: true, cryptoDetail: true },
   });
 
   if (!existing) {
@@ -656,6 +744,63 @@ export async function updatePublicHolding(holdingId: string, input: UpdatePublic
     return;
   }
 
+  if (instrumentType === "CRYPTO") {
+    const coinGeckoId =
+      input.coinGeckoId?.trim().toLowerCase() || existing.cryptoDetail?.coinGeckoId;
+    const custodian =
+      input.custodian !== undefined ? input.custodian || null : existing.cryptoDetail?.custodian;
+
+    if (!coinGeckoId) {
+      throw new Error("CoinGecko ID is required.");
+    }
+
+    symbol = input.symbol?.trim().toUpperCase() || existing.symbol;
+    if (!symbol) throw new Error("Symbol is required.");
+
+    const { decimals } = normalizeAndFormatHoldingValues(
+      { quantity, costBasis, marketPrice, marketValue },
+      { costBasisIsTotal: true },
+    );
+
+    const priceSource = input.marketPrice != null ? "MANUAL" : existing.priceSource;
+
+    await db.publicEquityHolding.update({
+      where: { id: holdingId },
+      data: {
+        symbol,
+        name,
+        quantity: quantity.toFixed(6),
+        costBasis: decimals.costBasis,
+        marketPrice: decimals.marketPrice,
+        marketValue: decimals.marketValue,
+        unrealisedPnl: decimals.unrealisedPnl,
+        broker: input.custodian !== undefined ? input.custodian || null : existing.broker,
+        asOfDate: input.asOfDate ? new Date(input.asOfDate) : existing.asOfDate,
+        priceSource,
+        ...(input.marketPrice != null ? { priceFetchedAt: null } : {}),
+        cryptoDetail: {
+          update: {
+            coinGeckoId,
+            custodian,
+          },
+        },
+      },
+    });
+
+    await refreshAssetValue(existing.assetId);
+    await logAudit({
+      userId: ctx.id,
+      action: "UPDATE",
+      resource: "public_markets_holding",
+      resourceId: holdingId,
+      metadata: { symbol, market: existing.market, instrumentType: "CRYPTO" },
+    });
+    revalidatePath(PUBLIC_MARKETS_PATH);
+    revalidatePath("/portfolio/msx");
+    revalidatePath("/dashboard");
+    return;
+  }
+
   throw new Error("Unsupported instrument type.");
 }
 
@@ -688,6 +833,38 @@ export async function refreshPublicMarketPricesAction(formData: FormData) {
 
   revalidatePath(PUBLIC_MARKETS_PATH);
   revalidatePath("/portfolio/msx");
+  revalidatePath("/dashboard");
+  revalidatePath("/assets");
+
+  return result;
+}
+
+export async function refreshCryptoPricesAction(formData: FormData) {
+  const ctx = await requireModuleAccess("ASSETS");
+  if (!canWrite(ctx, "ASSETS")) {
+    throw new Error("You do not have permission to refresh prices.");
+  }
+
+  const entityId = String(formData.get("entityId") ?? "").trim() || undefined;
+
+  if (entityId && ctx.entityIds.length > 0 && !ctx.entityIds.includes(entityId)) {
+    throw new Error("You do not have access to this entity.");
+  }
+
+  const result = await runCryptoPriceRefresh({ entityId });
+
+  try {
+    await logAudit({
+      userId: ctx.id,
+      action: "REFRESH",
+      resource: "public_markets_crypto_prices",
+      metadata: { entityId, ...result },
+    });
+  } catch {
+    // Audit logging should not block a successful price refresh.
+  }
+
+  revalidatePath(PUBLIC_MARKETS_PATH);
   revalidatePath("/dashboard");
   revalidatePath("/assets");
 
@@ -728,6 +905,8 @@ export async function exportPublicHoldings(formData: FormData): Promise<{ fileNa
       ? holding.structuredNote.maturityDate.toISOString().slice(0, 10)
       : "",
     "Coupon Rate": holding.structuredNote?.couponRate ?? "",
+    "CoinGecko ID": holding.crypto?.coinGeckoId ?? "",
+    Custodian: holding.crypto?.custodian ?? holding.broker ?? "",
     Quantity: holding.quantity,
     "Cost Basis": holding.costBasis ?? "",
     Price: holding.marketPrice ?? "",

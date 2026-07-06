@@ -5,13 +5,14 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 function formatInstrumentBreakdown(
   summary: Pick<
     PublicMarketSummary | AllMarketsSummary,
-    "equityCount" | "optionCount" | "structuredNoteCount" | "brokerCount"
+    "equityCount" | "optionCount" | "structuredNoteCount" | "cryptoCount" | "brokerCount"
   >,
 ): string {
   const parts: string[] = [];
   if (summary.equityCount > 0) parts.push(`${summary.equityCount} equities`);
   if (summary.optionCount > 0) parts.push(`${summary.optionCount} options`);
   if (summary.structuredNoteCount > 0) parts.push(`${summary.structuredNoteCount} notes`);
+  if (summary.cryptoCount > 0) parts.push(`${summary.cryptoCount} crypto`);
   const instruments = parts.length > 0 ? parts.join(" · ") : "no positions";
   return `${instruments} · ${summary.brokerCount} broker${summary.brokerCount === 1 ? "" : "s"}`;
 }

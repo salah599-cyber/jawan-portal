@@ -15,6 +15,7 @@ import {
   toYahooSymbol,
 } from "@/lib/public-markets/prices/symbols";
 import { refreshAssetValue } from "@/lib/public-markets/import-reports";
+import { fetchCoinGeckoQuotes } from "@/lib/public-markets/prices/coingecko";
 
 export type PriceRefreshResult = {
   scanned: number;
@@ -376,4 +377,112 @@ export async function refreshMsxEodPrices(options?: {
   entityId?: string;
 }): Promise<PriceRefreshResult> {
   return refreshGccEodPrices({ ...options, market: "MSX" });
+}
+
+type CryptoHoldingForRefresh = {
+  id: string;
+  assetId: string;
+  quantity: { toString(): string };
+  costBasis: { toString(): string } | null;
+  coinGeckoId: string;
+};
+
+export async function refreshCryptoPrices(options?: {
+  entityId?: string;
+}): Promise<PriceRefreshResult> {
+  await ensurePublicMarketsSchema();
+
+  const holdings = await db.publicEquityHolding.findMany({
+    where: {
+      instrumentType: "CRYPTO",
+      ...(options?.entityId
+        ? {
+            asset: {
+              entityId: options.entityId,
+            },
+          }
+        : {}),
+    },
+    select: {
+      id: true,
+      assetId: true,
+      quantity: true,
+      costBasis: true,
+      cryptoDetail: {
+        select: {
+          coinGeckoId: true,
+        },
+      },
+    },
+  });
+
+  const holdingsWithCoinId: CryptoHoldingForRefresh[] = holdings.flatMap((holding) => {
+    const coinGeckoId = holding.cryptoDetail?.coinGeckoId?.trim();
+    if (!coinGeckoId) return [];
+    return [
+      {
+        id: holding.id,
+        assetId: holding.assetId,
+        quantity: holding.quantity,
+        costBasis: holding.costBasis,
+        coinGeckoId,
+      },
+    ];
+  });
+
+  if (holdingsWithCoinId.length === 0) {
+    return {
+      scanned: holdings.length,
+      updated: 0,
+      skipped: holdings.length,
+      failed: 0,
+      assetIds: [],
+    };
+  }
+
+  const coinIds = holdingsWithCoinId.map((holding) => holding.coinGeckoId);
+  const quotes = await fetchCoinGeckoQuotes(coinIds);
+
+  let updated = 0;
+  let failed = 0;
+  const assetIds = new Set<string>();
+
+  for (const holding of holdingsWithCoinId) {
+    const quote = quotes.get(holding.coinGeckoId.toLowerCase());
+    if (!quote) {
+      failed += 1;
+      continue;
+    }
+
+    const success = await applyQuoteToHolding(
+      {
+        id: holding.id,
+        assetId: holding.assetId,
+        market: "OTHER",
+        symbol: holding.coinGeckoId,
+        exchange: null,
+        quantity: holding.quantity,
+        costBasis: holding.costBasis,
+      },
+      quote.price,
+      "COINGECKO",
+      assetIds,
+      new Set<string>(),
+    );
+    if (success) {
+      updated += 1;
+    } else {
+      failed += 1;
+    }
+  }
+
+  await Promise.all([...assetIds].map((assetId) => refreshAssetValue(assetId)));
+
+  return {
+    scanned: holdings.length,
+    updated,
+    skipped: holdings.length - holdingsWithCoinId.length,
+    failed,
+    assetIds: [...assetIds],
+  };
 }

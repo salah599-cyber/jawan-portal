@@ -59,6 +59,10 @@ export type PublicHoldingRow = {
     barrierLevel: number | null;
     payoffNotes: string | null;
   } | null;
+  crypto: {
+    coinGeckoId: string;
+    custodian: string | null;
+  } | null;
 };
 
 export type PublicImportBatchRow = {
@@ -90,6 +94,7 @@ export type PublicMarketSummary = {
   equityCount: number;
   optionCount: number;
   structuredNoteCount: number;
+  cryptoCount: number;
   brokerCount: number;
   currency: string;
   lastUpdated: Date | null;
@@ -106,6 +111,7 @@ export type AllMarketsSummary = {
   equityCount: number;
   optionCount: number;
   structuredNoteCount: number;
+  cryptoCount: number;
   brokerCount: number;
   marketCount: number;
   lastUpdated: Date | null;
@@ -154,6 +160,10 @@ async function mapHoldingRow(
       couponRate: { toString(): string } | null;
       barrierLevel: { toString(): string } | null;
       payoffNotes: string | null;
+    } | null;
+    cryptoDetail?: {
+      coinGeckoId: string;
+      custodian: string | null;
     } | null;
   },
 ): Promise<PublicHoldingRow> {
@@ -219,7 +229,23 @@ async function mapHoldingRow(
           payoffNotes: holding.structuredNoteDetail.payoffNotes,
         }
       : null,
+    crypto: holding.cryptoDetail
+      ? {
+          coinGeckoId: holding.cryptoDetail.coinGeckoId,
+          custodian: holding.cryptoDetail.custodian,
+        }
+      : null,
   };
+}
+
+function resolveHoldingsAssetMarket(
+  market: PublicMarket | null | undefined,
+  instrumentType: PublicInstrumentType | null | undefined,
+): PublicMarket | null {
+  if (instrumentType === "STRUCTURED_NOTE" || instrumentType === "CRYPTO") {
+    return "OTHER";
+  }
+  return market ?? null;
 }
 
 export async function getPublicHoldings(
@@ -233,14 +259,15 @@ export async function getPublicHoldings(
   await ensurePublicMarketsDataLayerReady();
   const entityFilter = assetEntityFilter(ctx);
   const { entityId, market, instrumentType } = options;
+  const assetMarket = resolveHoldingsAssetMarket(market, instrumentType);
 
   const assets = await db.asset.findMany({
     where: {
       ...entityFilter,
       ...(entityId ? { entityId } : {}),
       category: "PUBLIC_EQUITY",
-      name: market
-        ? MARKET_CONFIG[market].assetName
+      name: assetMarket
+        ? MARKET_CONFIG[assetMarket].assetName
         : { in: PUBLIC_MARKET_ORDER.map((m) => MARKET_CONFIG[m].assetName) },
     },
     select: { id: true },
@@ -251,12 +278,17 @@ export async function getPublicHoldings(
   const holdings = await db.publicEquityHolding.findMany({
     where: {
       assetId: { in: assets.map((asset) => asset.id) },
-      ...(instrumentType === "STRUCTURED_NOTE" ? {} : market ? { market } : {}),
+      ...(instrumentType === "STRUCTURED_NOTE" || instrumentType === "CRYPTO"
+        ? {}
+        : market
+          ? { market }
+          : {}),
       ...(instrumentType ? { instrumentType } : {}),
     },
     include: {
       optionDetail: true,
       structuredNoteDetail: true,
+      cryptoDetail: true,
       asset: {
         select: {
           entityId: true,
@@ -340,11 +372,13 @@ async function buildMarketSummary(
   let equityCount = 0;
   let optionCount = 0;
   let structuredNoteCount = 0;
+  let cryptoCount = 0;
 
   for (const holding of holdings) {
     if (holding.instrumentType === "EQUITY") equityCount += 1;
     if (holding.instrumentType === "OPTION") optionCount += 1;
     if (holding.instrumentType === "STRUCTURED_NOTE") structuredNoteCount += 1;
+    if (holding.instrumentType === "CRYPTO") cryptoCount += 1;
     const normalized = normalizeHoldingValues({
       quantity: toNumber(holding.quantity) ?? 0,
       costBasis: toNumber(holding.costBasis),
@@ -383,6 +417,7 @@ async function buildMarketSummary(
     equityCount,
     optionCount,
     structuredNoteCount,
+    cryptoCount,
     brokerCount: brokers.size,
     currency: config.currency,
     lastUpdated,
@@ -436,6 +471,7 @@ export async function getAllMarketsSummary(
     equityCount: activeMarkets.reduce((sum, m) => sum + m.equityCount, 0),
     optionCount: activeMarkets.reduce((sum, m) => sum + m.optionCount, 0),
     structuredNoteCount: activeMarkets.reduce((sum, m) => sum + m.structuredNoteCount, 0),
+    cryptoCount: activeMarkets.reduce((sum, m) => sum + m.cryptoCount, 0),
     brokerCount: new Set(
       (
         await getPublicHoldings(ctx, { entityId: entity.id })
