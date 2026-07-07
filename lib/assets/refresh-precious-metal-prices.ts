@@ -9,6 +9,7 @@ export type PreciousMetalRefreshResult = {
   updated: number;
   failed: number;
   assetIds: string[];
+  error?: string;
 };
 
 function toNumber(value: { toString(): string } | number | null | undefined) {
@@ -17,33 +18,74 @@ function toNumber(value: { toString(): string } | number | null | undefined) {
   return Number.isNaN(num) ? 0 : num;
 }
 
-export async function refreshPreciousMetalPrices(assetId?: string): Promise<PreciousMetalRefreshResult> {
-  await ensurePreciousMetalsSchema();
+function formatError(error: unknown, fallback: string) {
+  return error instanceof Error && error.message ? error.message : fallback;
+}
 
-  const assets = await db.asset.findMany({
-    where: {
-      category: "PRECIOUS_METALS",
-      status: { not: "EXITED" },
-      preciousMetal: { isNot: null },
-      ...(assetId ? { id: assetId } : {}),
-    },
-    include: {
-      preciousMetal: true,
-    },
-  });
-
+export async function refreshPreciousMetalPrices(
+  assetId?: string,
+): Promise<PreciousMetalRefreshResult> {
   const result: PreciousMetalRefreshResult = {
-    scanned: assets.length,
+    scanned: 0,
     updated: 0,
     failed: 0,
     assetIds: [],
   };
 
+  try {
+    await ensurePreciousMetalsSchema();
+  } catch (error) {
+    result.error = formatError(error, "Precious metals schema is not available.");
+    return result;
+  }
+
+  let assets: Array<{
+    id: string;
+    currency: string;
+    preciousMetal: {
+      id: string;
+      metal: "GOLD" | "SILVER";
+      unit: "GRAM" | "TOLA_10" | "KG" | "OZ";
+      quantity: { toString(): string };
+      priceBasis: "OMR_BUY" | "OMR_SELL" | "USD_SPOT_OZ";
+    } | null;
+  }>;
+  try {
+    assets = await db.asset.findMany({
+      where: {
+        category: "PRECIOUS_METALS",
+        status: { not: "EXITED" },
+        preciousMetal: { isNot: null },
+        ...(assetId ? { id: assetId } : {}),
+      },
+      include: {
+        preciousMetal: true,
+      },
+    });
+  } catch (error) {
+    console.error("refreshPreciousMetalPrices load failed:", error);
+    result.error = formatError(error, "Could not load gold/silver assets.");
+    return result;
+  }
+
+  result.scanned = assets.length;
   if (assets.length === 0) {
     return result;
   }
 
-  const board = await fetchMuscatBullionBoard();
+  let board: Awaited<ReturnType<typeof fetchMuscatBullionBoard>>;
+  try {
+    board = await fetchMuscatBullionBoard();
+  } catch (error) {
+    console.error("refreshPreciousMetalPrices price fetch failed:", error);
+    result.failed = assets.length;
+    result.error = formatError(
+      error,
+      "Could not fetch live gold/silver prices. Check GOLD_API_KEY in environment settings.",
+    );
+    return result;
+  }
+
   const now = new Date();
 
   for (const asset of assets) {
@@ -64,29 +106,33 @@ export async function refreshPreciousMetalPrices(assetId?: string): Promise<Prec
         board,
       });
 
-      await db.$transaction([
-        db.preciousMetalDetail.update({
+      if (!Number.isFinite(valuation.unitPrice) || !Number.isFinite(valuation.totalValue)) {
+        throw new Error("Price calculation returned an invalid value.");
+      }
+
+      await db.$transaction(async (tx) => {
+        await tx.preciousMetalDetail.update({
           where: { id: detail.id },
           data: {
             lastUnitPrice: valuation.unitPrice.toFixed(6),
             priceFetchedAt: now,
             priceSource: valuation.priceSource,
           },
-        }),
-        db.asset.update({
+        });
+        await tx.asset.update({
           where: { id: asset.id },
           data: {
             currentValue: valuation.totalValue.toFixed(2),
             valueUpdatedAt: now,
           },
-        }),
-      ]);
+        });
+      });
 
       await recordAssetValuation({
         assetId: asset.id,
         value: valuation.totalValue,
         currency: asset.currency,
-      });
+      }).catch(() => null);
 
       result.updated += 1;
       result.assetIds.push(asset.id);
@@ -94,6 +140,11 @@ export async function refreshPreciousMetalPrices(assetId?: string): Promise<Prec
       console.error(`Failed to refresh precious metal asset ${asset.id}:`, error);
       result.failed += 1;
     }
+  }
+
+  if (result.updated === 0 && result.failed > 0 && !result.error) {
+    result.error =
+      "No gold/silver holdings were updated. Check GOLD_API_KEY, units, and price basis settings.";
   }
 
   return result;

@@ -7,6 +7,7 @@ import { recordAssetValuation } from "@/lib/portfolio/valuations";
 import { parseAssetCategorySelection } from "@/lib/assets/category-display";
 import { refreshPreciousMetalPrices } from "@/lib/assets/refresh-precious-metal-prices";
 import { createCustomAssetType, resolveCustomAssetType } from "@/lib/data/asset-types";
+import { getAssetWithRelations, listAssetsWithRelations } from "@/lib/data/assets";
 import { ensurePreciousMetalsSchema } from "@/lib/db/ensure-precious-metals-schema";
 import { canWrite, requireModuleAccess } from "@/lib/permissions/access";
 import { getAssetLinkedModule, isModuleManagedAsset } from "@/lib/assets/linked-module";
@@ -248,23 +249,10 @@ export async function listAssets(filter: "all" | "active" | "exited" = "all") {
         ? { status: "EXITED" as const }
         : {};
 
-  return db.asset.findMany({
-    where: {
-      ...assetEntityFilter(ctx),
-      ...statusFilter,
-      peCompany: null,
-    },
-    include: {
-      entity: true,
-      assetType: { select: { name: true } },
-      preciousMetal: true,
-      exit: true,
-      landParcel: { select: { id: true } },
-      vehicle: { select: { id: true } },
-      registeredCompany: { select: { id: true } },
-      reProperty: { select: { id: true } },
-    },
-    orderBy: { updatedAt: "desc" },
+  return listAssetsWithRelations({
+    ...assetEntityFilter(ctx),
+    ...statusFilter,
+    peCompany: null,
   });
 }
 
@@ -309,20 +297,7 @@ export async function deleteAsset(id: string) {
 
 export async function getAsset(id: string) {
   const ctx = await requireModuleAccess("ASSETS");
-  return db.asset.findFirst({
-    where: { id, ...assetEntityFilter(ctx) },
-    include: {
-      entity: true,
-      assetType: { select: { name: true } },
-      preciousMetal: true,
-      exit: { include: { documents: { orderBy: { createdAt: "desc" } } } },
-      landParcel: { select: { id: true, sale: { select: { id: true } } } },
-      vehicle: { select: { id: true } },
-      registeredCompany: { select: { id: true } },
-      peCompany: { select: { id: true } },
-      reProperty: { select: { id: true } },
-    },
-  });
+  return getAssetWithRelations({ id, ...assetEntityFilter(ctx) });
 }
 
 export async function updateAsset(id: string, input: CreateAssetInput) {
