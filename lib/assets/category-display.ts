@@ -3,9 +3,12 @@ import { ASSET_CATEGORY_LABELS } from "@/lib/labels";
 type AssetCategorySource = {
   category: string;
   assetType?: { name: string } | null;
+  preciousMetal?: { metal: string } | null;
 };
 
 export function getAssetCategoryLabel(asset: AssetCategorySource): string {
+  if (asset.preciousMetal?.metal === "GOLD") return "Gold";
+  if (asset.preciousMetal?.metal === "SILVER") return "Silver";
   if (asset.assetType?.name) return asset.assetType.name;
   return ASSET_CATEGORY_LABELS[asset.category] ?? asset.category;
 }

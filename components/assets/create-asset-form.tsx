@@ -1,13 +1,16 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { createAsset } from "@/lib/actions/assets";
 import { encodeBuiltInAssetCategory } from "@/lib/assets/category-display";
-import {
-  EDITABLE_ASSET_STATUS_ENTRIES,
-} from "@/lib/labels";
+import { EDITABLE_ASSET_STATUS_ENTRIES } from "@/lib/labels";
 import { AssetCategorySelect, type CustomAssetTypeOption } from "@/components/assets/asset-category-select";
+import {
+  EMPTY_PRECIOUS_METAL_FORM,
+  PreciousMetalFields,
+  isPreciousMetalsSelection,
+} from "@/components/assets/precious-metal-fields";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -37,6 +40,12 @@ export function CreateAssetForm({
   const [status, setStatus] = useState("ACTIVE");
   const [entityId, setEntityId] = useState(entities[0]?.id ?? "");
   const [currency, setCurrency] = useState("OMR");
+  const [preciousMetal, setPreciousMetal] = useState(EMPTY_PRECIOUS_METAL_FORM);
+
+  const isPreciousMetal = useMemo(
+    () => isPreciousMetalsSelection(categorySelection),
+    [categorySelection],
+  );
 
   function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -53,10 +62,11 @@ export function CreateAssetForm({
           currency,
           acquisitionDate: String(form.get("acquisitionDate") ?? ""),
           acquisitionCost: String(form.get("acquisitionCost") ?? ""),
-          currentValue: String(form.get("currentValue") ?? ""),
+          currentValue: isPreciousMetal ? undefined : String(form.get("currentValue") ?? ""),
           description: String(form.get("description") ?? ""),
           managerName: String(form.get("managerName") ?? ""),
           managerEmail: String(form.get("managerEmail") ?? ""),
+          preciousMetal: isPreciousMetal ? preciousMetal : undefined,
         });
         router.push("/assets");
         router.refresh();
@@ -92,6 +102,10 @@ export function CreateAssetForm({
             <Label>Entity</Label>
             <EntitySelect entities={entities} value={entityId} onValueChange={setEntityId} />
           </div>
+
+          {isPreciousMetal ? (
+            <PreciousMetalFields value={preciousMetal} onChange={setPreciousMetal} />
+          ) : null}
 
           <div className="space-y-2">
             <Label>Status</Label>
@@ -140,10 +154,19 @@ export function CreateAssetForm({
             <Input id="acquisitionCost" name="acquisitionCost" type="number" step="0.01" min="0" />
           </div>
 
-          <div className="space-y-2">
-            <Label htmlFor="currentValue">Current Value</Label>
-            <Input id="currentValue" name="currentValue" type="number" step="0.01" min="0" />
-          </div>
+          {!isPreciousMetal ? (
+            <div className="space-y-2">
+              <Label htmlFor="currentValue">Current Value</Label>
+              <Input id="currentValue" name="currentValue" type="number" step="0.01" min="0" />
+            </div>
+          ) : (
+            <div className="space-y-2">
+              <Label>Current Value</Label>
+              <p className="text-sm text-muted-foreground">
+                Calculated automatically from live gold/silver prices after creation.
+              </p>
+            </div>
+          )}
 
           <div className="space-y-2 md:col-span-2">
             <Label htmlFor="description">Description</Label>

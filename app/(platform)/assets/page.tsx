@@ -9,6 +9,7 @@ import { canWrite, requireModuleAccess } from "@/lib/permissions/access";
 import { getAssetCategoryLabel } from "@/lib/assets/category-display";
 import { ASSET_STATUS_LABELS } from "@/lib/labels";
 import { formatMoney, formatDate } from "@/lib/format";
+import { RefreshPreciousMetalPricesButton } from "@/components/assets/refresh-precious-metal-prices-button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import {
@@ -51,7 +52,12 @@ export default async function AssetsPage({
               </div>
               <AssetsFilterSelect current={filter} />
             </div>
-            {showAdd ? <AddLinkButton href="/assets/new" label="Add Asset" /> : null}
+            {showAdd ? (
+              <div className="flex flex-col items-end gap-2">
+                <AddLinkButton href="/assets/new" label="Add Asset" />
+                <RefreshPreciousMetalPricesButton />
+              </div>
+            ) : null}
           </CardHeader>
           <CardContent>
             {assets.length === 0 ? (
