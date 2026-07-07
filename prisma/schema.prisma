@@ -133,6 +133,7 @@ enum AssetCategory {
   FIXED_ASSET
   BONDS
   CASH
+  PRECIOUS_METALS
   OTHER
 }
 
@@ -148,6 +149,24 @@ enum FixedAssetType {
   JEWELRY
   ART
   OTHER
+}
+
+enum PreciousMetalType {
+  GOLD
+  SILVER
+}
+
+enum PreciousMetalUnit {
+  GRAM
+  TOLA_10
+  KG
+  OZ
+}
+
+enum PreciousMetalPriceBasis {
+  OMR_BUY
+  OMR_SELL
+  USD_SPOT_OZ
 }
 
 enum LiabilityType {
@@ -431,6 +450,7 @@ model Asset {
   realEstate      RealEstateDetail?
   privateEquity   PrivateEquityDetail?
   fixedAsset      FixedAssetDetail?
+  preciousMetal   PreciousMetalDetail?
   bond            BondDetail?
   cash            CashDetail?
   custom          CustomAssetDetail?
@@ -803,6 +823,19 @@ model FixedAssetDetail {
   assetType   FixedAssetType @default(OTHER)
   condition   String?
   reportNotes String?
+}
+
+model PreciousMetalDetail {
+  id             String                  @id @default(cuid())
+  assetId        String                  @unique
+  asset          Asset                   @relation(fields: [assetId], references: [id], onDelete: Cascade)
+  metal          PreciousMetalType
+  unit           PreciousMetalUnit
+  quantity       Decimal                 @db.Decimal(18, 6)
+  priceBasis     PreciousMetalPriceBasis @default(OMR_BUY)
+  lastUnitPrice  Decimal?                @db.Decimal(18, 6)
+  priceFetchedAt DateTime?
+  priceSource    String?
 }
 
 model BondDetail {

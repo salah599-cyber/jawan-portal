@@ -9,8 +9,13 @@ import { getAsset, deleteAsset } from "@/lib/actions/assets";
 import { getAssetLinkedModule } from "@/lib/assets/linked-module";
 import { canWrite, requireModuleAccess } from "@/lib/permissions/access";
 import { getAssetCategoryLabel } from "@/lib/assets/category-display";
+import {
+  PRECIOUS_METAL_PRICE_BASIS_LABELS,
+  PRECIOUS_METAL_UNIT_LABELS,
+} from "@/lib/assets/precious-metals/constants";
 import { ASSET_STATUS_LABELS } from "@/lib/labels";
 import { formatMoney, formatDate, formatDecimalInput } from "@/lib/format";
+import { RefreshPreciousMetalPricesButton } from "@/components/assets/refresh-precious-metal-prices-button";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -37,6 +42,7 @@ export default async function AssetDetailPage({ params }: { params: Promise<{ id
   const linked = linkedModule(asset);
   const showWrite = canWrite(ctx, "ASSETS") && !linked;
   const showExit = canRecordExit(ctx, asset);
+  const isPreciousMetal = asset.category === "PRECIOUS_METALS" && asset.preciousMetal;
 
   return (
     <>
@@ -54,6 +60,7 @@ export default async function AssetDetailPage({ params }: { params: Promise<{ id
           {showWrite ? (
             <>
               <EditLinkButton href={"/assets/" + asset.id + "/edit"} />
+              {isPreciousMetal ? <RefreshPreciousMetalPricesButton assetId={asset.id} /> : null}
               <DeleteEntryButton
                 itemId={asset.id}
                 itemLabel={asset.name}
@@ -92,6 +99,35 @@ export default async function AssetDetailPage({ params }: { params: Promise<{ id
                 <div className="sm:col-span-2">
                   <Detail label="Description" value={asset.description} />
                 </div>
+              ) : null}
+              {isPreciousMetal ? (
+                <>
+                  <Detail
+                    label="Metal"
+                    value={getAssetCategoryLabel(asset)}
+                  />
+                  <Detail
+                    label="Quantity"
+                    value={`${formatDecimalInput(asset.preciousMetal!.quantity)} ${PRECIOUS_METAL_UNIT_LABELS[asset.preciousMetal!.unit]}`}
+                  />
+                  <Detail
+                    label="Price Basis"
+                    value={PRECIOUS_METAL_PRICE_BASIS_LABELS[asset.preciousMetal!.priceBasis]}
+                  />
+                  <Detail
+                    label="Last Unit Price"
+                    value={
+                      asset.preciousMetal!.lastUnitPrice
+                        ? `${formatMoney(asset.preciousMetal!.lastUnitPrice, asset.currency)} / ${PRECIOUS_METAL_UNIT_LABELS[asset.preciousMetal!.unit]}`
+                        : "—"
+                    }
+                  />
+                  <Detail
+                    label="Price Updated"
+                    value={formatDate(asset.preciousMetal!.priceFetchedAt)}
+                  />
+                  <Detail label="Price Source" value={asset.preciousMetal!.priceSource} />
+                </>
               ) : null}
             </CardContent>
           </Card>

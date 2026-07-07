@@ -6,6 +6,7 @@ export const ASSET_CATEGORY_LABELS: Record<string, string> = {
   FIXED_ASSET: "Fixed Asset",
   BONDS: "Bonds",
   CASH: "Cash",
+  PRECIOUS_METALS: "Precious Metals",
   OTHER: "Other",
 };
 
