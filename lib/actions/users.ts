@@ -223,3 +223,37 @@ export async function cancelPendingInvite(inviteId: string) {
 
   revalidatePath("/admin/users");
 }
+
+export async function resendPendingInvite(inviteId: string) {
+  const ctx = await requireSuperAdmin();
+  await ensureUsersSchema();
+
+  const invite = await db.pendingUserInvite.findUnique({ where: { id: inviteId } });
+  if (!invite || invite.acceptedAt) throw new Error("Pending invite not found.");
+
+  const existingUser = await db.user.findUnique({ where: { email: invite.email } });
+  if (existingUser) throw new Error("A user with this email already exists.");
+
+  const invitation = await createClerkInvitation(invite.email, invite.id);
+
+  await db.pendingUserInvite.update({
+    where: { id: invite.id },
+    data: {
+      clerkInvitationId: invitation.id,
+      invitedById: ctx.id,
+      createdAt: new Date(),
+    },
+  });
+
+  await logAudit({
+    userId: ctx.id,
+    action: "INVITE",
+    resource: "User",
+    resourceId: invite.id,
+    metadata: { email: invite.email, resend: true },
+  }).catch(() => {
+    // Audit logging should not block a successful resend.
+  });
+
+  revalidatePath("/admin/users");
+}

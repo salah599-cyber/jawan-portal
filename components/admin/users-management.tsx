@@ -7,6 +7,7 @@ import {
   deactivateUser,
   inviteUser,
   reactivateUser,
+  resendPendingInvite,
   updateUserAccess,
 } from "@/lib/actions/users";
 import {
@@ -431,20 +432,41 @@ export function UsersManagement({
                     <TableCell>{invite.isSuperAdmin ? "Yes" : "No"}</TableCell>
                     <TableCell>{formatDate(invite.createdAt)}</TableCell>
                     <TableCell className="text-right">
-                      <Button
-                        type="button"
-                        size="sm"
-                        variant="outline"
-                        disabled={pending}
-                        onClick={() =>
-                          startTransition(async () => {
-                            await cancelPendingInvite(invite.id);
-                            router.refresh();
-                          })
-                        }
-                      >
-                        Cancel
-                      </Button>
+                      <div className="flex justify-end gap-2">
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="outline"
+                          disabled={pending}
+                          onClick={() => {
+                            setError(null);
+                            startTransition(async () => {
+                              try {
+                                await resendPendingInvite(invite.id);
+                                router.refresh();
+                              } catch (err) {
+                                setError(getActionErrorMessage(err, "Failed to resend invitation."));
+                              }
+                            });
+                          }}
+                        >
+                          Resend
+                        </Button>
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="outline"
+                          disabled={pending}
+                          onClick={() =>
+                            startTransition(async () => {
+                              await cancelPendingInvite(invite.id);
+                              router.refresh();
+                            })
+                          }
+                        >
+                          Cancel
+                        </Button>
+                      </div>
                     </TableCell>
                   </TableRow>
                 ))}
