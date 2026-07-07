@@ -2,6 +2,7 @@ import { currentUser } from "@clerk/nextjs/server";
 import { db } from "@/lib/db";
 import { SUPER_ADMIN_EMAIL } from "@/lib/auth/constants";
 import { applyPendingInvite } from "@/lib/auth/apply-invite";
+import { hasInviteAccess } from "@/lib/auth/invite-access";
 import type { UserRole } from "@/lib/permissions/types";
 
 function isBootstrapSuperAdmin(email: string) {
@@ -42,6 +43,10 @@ export async function syncClerkUser() {
     }
 
     return user;
+  }
+
+  if (!(await hasInviteAccess(email))) {
+    return null;
   }
 
   const user = await db.user.create({

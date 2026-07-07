@@ -3,6 +3,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { db } from "@/lib/db";
 import { SUPER_ADMIN_EMAIL } from "@/lib/auth/constants";
 import { applyPendingInvite } from "@/lib/auth/apply-invite";
+import { hasInviteAccess } from "@/lib/auth/invite-access";
 
 export async function POST(req: NextRequest) {
   try {
@@ -21,6 +22,11 @@ export async function POST(req: NextRequest) {
             : undefined;
 
         if (!email) break;
+
+        const existingDbUser = await db.user.findUnique({ where: { clerkId } });
+        if (!existingDbUser && !(await hasInviteAccess(email))) {
+          break;
+        }
 
         const isBootstrap = email.toLowerCase() === SUPER_ADMIN_EMAIL.toLowerCase();
 
