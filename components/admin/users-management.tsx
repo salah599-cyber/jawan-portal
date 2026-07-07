@@ -17,7 +17,7 @@ import {
 import type {
   SerializedPendingInviteRow,
   SerializedUserRow,
-} from "@/lib/data/users";
+} from "@/lib/admin/users-serialization";
 import type { ModuleName, PermissionLevel, UserRole } from "@/lib/permissions/types";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";

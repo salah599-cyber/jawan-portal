@@ -1,6 +1,8 @@
 import Link from "next/link";
+import { unstable_rethrow } from "next/navigation";
 import { PlatformHeader } from "@/components/platform/platform-header";
 import { UsersManagement } from "@/components/admin/users-management";
+import { toClientProps } from "@/lib/admin/users-serialization";
 import { listEntities } from "@/lib/data/entities";
 import { listDocumentCategories } from "@/lib/data/document-categories";
 import { listPendingInvites, listUsers } from "@/lib/data/users";
@@ -34,9 +36,9 @@ function UsersLoadError({ message, digest }: { message: string; digest?: string 
 }
 
 export default async function AdminUsersPage() {
-  await requireSuperAdmin();
-
   try {
+    await requireSuperAdmin();
+
     const [users, pendingInvites, entities, documentCategories] = await Promise.all([
       listUsers(),
       listPendingInvites(),
@@ -44,23 +46,27 @@ export default async function AdminUsersPage() {
       listDocumentCategories(),
     ]);
 
+    const props = toClientProps({
+      users,
+      pendingInvites,
+      entities: entities.map((entity) => ({ id: entity.id, name: entity.name })),
+      documentCategories: documentCategories.map((category) => ({
+        id: category.id,
+        name: category.name,
+      })),
+    });
+
     return (
       <>
         <PlatformHeader title="User Management" />
         <main className="flex flex-1 flex-col gap-4 p-4 md:p-6">
-          <UsersManagement
-            users={users}
-            pendingInvites={pendingInvites}
-            entities={entities.map((entity) => ({ id: entity.id, name: entity.name }))}
-            documentCategories={documentCategories.map((category) => ({
-              id: category.id,
-              name: category.name,
-            }))}
-          />
+          <UsersManagement {...props} />
         </main>
       </>
     );
   } catch (error) {
+    unstable_rethrow(error);
+
     console.error("Admin users page failed:", error);
     const message =
       error instanceof Error && error.message
