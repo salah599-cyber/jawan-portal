@@ -20,25 +20,29 @@ export function getClerkErrorMessage(error: unknown, fallback = "Request failed.
 }
 
 export async function revokePendingClerkInvitations(email: string) {
-  const clerk = await clerkClient();
-  const pending = await clerk.invitations.getInvitationList({
-    query: email,
-    status: "pending",
-  });
+  try {
+    const clerk = await clerkClient();
+    const pending = await clerk.invitations.getInvitationList({
+      query: email,
+      status: "pending",
+    });
 
-  for (const invitation of pending.data) {
-    try {
-      await clerk.invitations.revokeInvitation(invitation.id);
-    } catch {
-      // Invitation may already be accepted or revoked.
+    for (const invitation of pending.data) {
+      try {
+        await clerk.invitations.revokeInvitation(invitation.id);
+      } catch {
+        // Invitation may already be accepted or revoked.
+      }
     }
+  } catch {
+    // Listing invitations can fail if Clerk is misconfigured; create may still work.
   }
 }
 
 export async function createClerkInvitation(email: string, pendingInviteId: string) {
-  const clerk = await clerkClient();
   await revokePendingClerkInvitations(email);
 
+  const clerk = await clerkClient();
   const baseUrl = getAppBaseUrl();
   try {
     return await clerk.invitations.createInvitation({

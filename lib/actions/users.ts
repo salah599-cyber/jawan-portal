@@ -29,54 +29,61 @@ function toInviteConfig(input: UserAccessInput): InviteConfig {
 
 export async function inviteUser(input: UserAccessInput) {
   const ctx = await requireSuperAdmin();
-  await ensureUsersSchema();
-  const email = normalizeEmail(input.email ?? "");
-  if (!email) throw new Error("Email is required.");
 
-  const existingUser = await db.user.findUnique({ where: { email } });
-  if (existingUser) throw new Error("A user with this email already exists.");
+  try {
+    await ensureUsersSchema();
+    const email = normalizeEmail(input.email ?? "");
+    if (!email) throw new Error("Email is required.");
 
-  const config = toInviteConfig(input);
+    const existingUser = await db.user.findUnique({ where: { email } });
+    if (existingUser) throw new Error("A user with this email already exists.");
 
-  const invite = await db.pendingUserInvite.upsert({
-    where: { email },
-    create: {
-      email,
-      role: config.role,
-      isSuperAdmin: config.isSuperAdmin,
-      entityIds: config.entityIds,
-      moduleOverrides: config.moduleOverrides,
-      documentCategories: config.documentCategories,
-      invitedById: ctx.id,
-    },
-    update: {
-      role: config.role,
-      isSuperAdmin: config.isSuperAdmin,
-      entityIds: config.entityIds,
-      moduleOverrides: config.moduleOverrides,
-      documentCategories: config.documentCategories,
-      invitedById: ctx.id,
-      acceptedAt: null,
-    },
-  });
+    const config = toInviteConfig(input);
 
-  const invitation = await createClerkInvitation(email, invite.id);
+    const invite = await db.pendingUserInvite.upsert({
+      where: { email },
+      create: {
+        email,
+        role: config.role,
+        isSuperAdmin: config.isSuperAdmin,
+        entityIds: config.entityIds,
+        moduleOverrides: config.moduleOverrides,
+        documentCategories: config.documentCategories,
+        invitedById: ctx.id,
+      },
+      update: {
+        role: config.role,
+        isSuperAdmin: config.isSuperAdmin,
+        entityIds: config.entityIds,
+        moduleOverrides: config.moduleOverrides,
+        documentCategories: config.documentCategories,
+        invitedById: ctx.id,
+        acceptedAt: null,
+      },
+    });
 
-  await db.pendingUserInvite.update({
-    where: { id: invite.id },
-    data: { clerkInvitationId: invitation.id },
-  });
+    const invitation = await createClerkInvitation(email, invite.id);
 
-  await logAudit({
-    userId: ctx.id,
-    action: "INVITE",
-    resource: "User",
-    resourceId: invite.id,
-    metadata: { email, role: config.role, isSuperAdmin: config.isSuperAdmin },
-  });
+    await db.pendingUserInvite.update({
+      where: { id: invite.id },
+      data: { clerkInvitationId: invitation.id },
+    });
 
-  revalidatePath("/admin/users");
-  return invite;
+    await logAudit({
+      userId: ctx.id,
+      action: "INVITE",
+      resource: "User",
+      resourceId: invite.id,
+      metadata: { email, role: config.role, isSuperAdmin: config.isSuperAdmin },
+    }).catch(() => {
+      // Audit logging should not block a successful invitation.
+    });
+
+    revalidatePath("/admin/users");
+  } catch (error) {
+    if (error instanceof Error) throw error;
+    throw new Error("Failed to send invitation.");
+  }
 }
 
 export async function updateUserAccess(userId: string, input: UserAccessInput) {
