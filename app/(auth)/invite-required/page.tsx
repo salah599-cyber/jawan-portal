@@ -1,6 +1,6 @@
-import { SignInPanel } from "@/components/auth/sign-in-panel";
+import { InviteRequiredPanel } from "@/components/auth/invite-required-panel";
 
-export default async function SignInPage({
+export default async function InviteRequiredPage({
   searchParams,
 }: {
   searchParams: Promise<{ reason?: string }>;
@@ -9,7 +9,7 @@ export default async function SignInPage({
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-muted/30 p-4">
-      <SignInPanel reason={reason} />
+      <InviteRequiredPanel reason={reason} />
     </div>
   );
 }

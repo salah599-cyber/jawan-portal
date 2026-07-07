@@ -5,11 +5,18 @@ const isPublicRoute = createRouteMatcher([
   "/",
   "/sign-in(.*)",
   "/forgot-password",
+  "/invite-required",
   "/api/webhooks(.*)",
   "/api/share/(.*)",
 ]);
 
 export default clerkMiddleware(async (auth, req) => {
+  if (req.nextUrl.pathname.startsWith("/sign-up")) {
+    const url = req.nextUrl.clone();
+    url.pathname = "/sign-in";
+    return NextResponse.redirect(url);
+  }
+
   if (isPublicRoute(req)) {
     if (req.nextUrl.pathname === "/") {
       const { userId } = await auth();
