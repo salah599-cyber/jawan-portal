@@ -12,26 +12,39 @@ export type { SerializedPendingInviteRow, SerializedUserRow };
 
 export async function listUsers(): Promise<SerializedUserRow[]> {
   await requireSuperAdmin();
-  await ensureUsersSchema();
-  const users = await db.user.findMany({
-    include: {
-      entityAccess: { include: { entity: true } },
-      permissionOverrides: true,
-      documentScopes: { include: { category: true } },
-    },
-    orderBy: [{ isSuperAdmin: "desc" }, { email: "asc" }],
-  });
 
-  return users.map(serializeUser);
+  const [users, categories] = await Promise.all([
+    db.user.findMany({
+      include: {
+        entityAccess: { include: { entity: true } },
+        permissionOverrides: true,
+        documentScopes: true,
+      },
+      orderBy: [{ isSuperAdmin: "desc" }, { email: "asc" }],
+    }),
+    db.documentCategoryRecord.findMany({
+      where: { isActive: true },
+      select: { id: true, name: true },
+    }),
+  ]);
+
+  const categoryLookup = new Map(categories.map((category) => [category.id, category]));
+  return users.map((user) => serializeUser(user, categoryLookup));
 }
 
 export async function listPendingInvites(): Promise<SerializedPendingInviteRow[]> {
   await requireSuperAdmin();
-  await ensureUsersSchema();
-  const invites = await db.pendingUserInvite.findMany({
-    where: { acceptedAt: null },
-    orderBy: { createdAt: "desc" },
-  });
 
-  return invites.map(serializePendingInvite);
+  try {
+    await ensureUsersSchema();
+    const invites = await db.pendingUserInvite.findMany({
+      where: { acceptedAt: null },
+      orderBy: { createdAt: "desc" },
+    });
+
+    return invites.map(serializePendingInvite);
+  } catch (error) {
+    console.error("listPendingInvites failed:", error);
+    return [];
+  }
 }

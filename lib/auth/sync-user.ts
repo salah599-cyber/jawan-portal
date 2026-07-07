@@ -56,6 +56,6 @@ export async function syncClerkUser() {
     },
   });
 
-  await applyPendingInvite(user.id, email);
+  await applyPendingInvite(user.id, email).catch(() => null);
   return user;
 }

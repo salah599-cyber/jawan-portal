@@ -23,43 +23,58 @@ export type SerializedPendingInviteRow = {
   createdAt: string;
 };
 
+type CategoryLookup = Map<string, { id: string; name: string }>;
+
+export function toClientProps<T>(value: T): T {
+  return JSON.parse(JSON.stringify(value)) as T;
+}
+
 export function serializeUser(
   user: User & {
-    entityAccess: { entityId: string; entity: { name: string } }[];
+    entityAccess: { entityId: string; entity: { name: string } | null }[];
     permissionOverrides: { module: string; level: string }[];
-    documentScopes: { categoryId: string; category: { id: string; name: string } }[];
+    documentScopes: { categoryId: string; category?: { id: string; name: string } | null }[];
   },
+  categoryLookup?: CategoryLookup,
 ): SerializedUserRow {
   return {
-    id: user.id,
-    email: user.email,
-    firstName: user.firstName,
-    lastName: user.lastName,
+    id: String(user.id),
+    email: String(user.email),
+    firstName: user.firstName ?? null,
+    lastName: user.lastName ?? null,
     role: user.role,
-    isSuperAdmin: user.isSuperAdmin,
-    isActive: user.isActive,
+    isSuperAdmin: Boolean(user.isSuperAdmin),
+    isActive: Boolean(user.isActive),
     updatedAt: user.updatedAt.toISOString(),
-    entityAccess: user.entityAccess.map((access) => ({
-      entityId: access.entityId,
-      entity: { name: access.entity.name },
-    })),
+    entityAccess: user.entityAccess
+      .filter((access) => access.entity?.name)
+      .map((access) => ({
+        entityId: access.entityId,
+        entity: { name: access.entity!.name },
+      })),
     permissionOverrides: user.permissionOverrides.map((override) => ({
-      module: override.module as ModuleName,
-      level: override.level as PermissionLevel,
+      module: String(override.module) as ModuleName,
+      level: String(override.level) as PermissionLevel,
     })),
-    documentScopes: user.documentScopes.map((scope) => ({
-      categoryId: scope.categoryId,
-      category: { id: scope.category.id, name: scope.category.name },
-    })),
+    documentScopes: user.documentScopes
+      .map((scope) => {
+        const category = scope.category ?? categoryLookup?.get(scope.categoryId);
+        if (!category) return null;
+        return {
+          categoryId: scope.categoryId,
+          category: { id: category.id, name: category.name },
+        };
+      })
+      .filter((scope): scope is NonNullable<typeof scope> => scope !== null),
   };
 }
 
 export function serializePendingInvite(invite: PendingUserInvite): SerializedPendingInviteRow {
   return {
-    id: invite.id,
-    email: invite.email,
+    id: String(invite.id),
+    email: String(invite.email),
     role: invite.role,
-    isSuperAdmin: invite.isSuperAdmin,
+    isSuperAdmin: Boolean(invite.isSuperAdmin),
     createdAt: invite.createdAt.toISOString(),
   };
 }
