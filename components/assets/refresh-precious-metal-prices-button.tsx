@@ -19,7 +19,11 @@ export function RefreshPreciousMetalPricesButton({ assetId }: { assetId?: string
     startTransition(async () => {
       try {
         const result = await refreshPreciousMetalPricesAction(assetId);
-        if (result.updated === 0 && result.failed > 0) {
+        if (result.error) {
+          setError(result.error);
+        } else if (result.scanned === 0) {
+          setMessage("No active gold/silver holdings to refresh.");
+        } else if (result.updated === 0 && result.failed > 0) {
           setError(
             `Could not refresh ${result.failed} holding${result.failed === 1 ? "" : "s"}. Check GOLD_API_KEY or try again later.`,
           );
