@@ -4,9 +4,11 @@ import { clerkClient } from "@clerk/nextjs/server";
 import { revalidatePath } from "next/cache";
 import { db } from "@/lib/db";
 import { applyUserAccess, type InviteConfig } from "@/lib/auth/apply-invite";
+import { createClerkInvitation } from "@/lib/auth/clerk-invite";
 import { logAudit } from "@/lib/audit/log";
+import { ensureUsersSchema } from "@/lib/db/ensure-users-schema";
 import { requireSuperAdmin } from "@/lib/permissions/access";
-import type { ModuleName, PermissionLevel, UserRole } from "@/lib/generated/prisma/client";
+import type { ModuleName, PermissionLevel } from "@/lib/generated/prisma/client";
 import type { UserAccessInput } from "@/lib/admin/user-options";
 
 export type { UserAccessInput } from "@/lib/admin/user-options";
@@ -25,28 +27,9 @@ function toInviteConfig(input: UserAccessInput): InviteConfig {
   };
 }
 
-export async function listUsers() {
-  await requireSuperAdmin();
-  return db.user.findMany({
-    include: {
-      entityAccess: { include: { entity: true } },
-      permissionOverrides: true,
-      documentScopes: { include: { category: true } },
-    },
-    orderBy: [{ isSuperAdmin: "desc" }, { email: "asc" }],
-  });
-}
-
-export async function listPendingInvites() {
-  await requireSuperAdmin();
-  return db.pendingUserInvite.findMany({
-    where: { acceptedAt: null },
-    orderBy: { createdAt: "desc" },
-  });
-}
-
 export async function inviteUser(input: UserAccessInput) {
   const ctx = await requireSuperAdmin();
+  await ensureUsersSchema();
   const email = normalizeEmail(input.email ?? "");
   if (!email) throw new Error("Email is required.");
 
@@ -77,11 +60,7 @@ export async function inviteUser(input: UserAccessInput) {
     },
   });
 
-  const clerk = await clerkClient();
-  const invitation = await clerk.invitations.createInvitation({
-    emailAddress: email,
-    publicMetadata: { pendingInviteId: invite.id },
-  });
+  const invitation = await createClerkInvitation(email, invite.id);
 
   await db.pendingUserInvite.update({
     where: { id: invite.id },
@@ -212,6 +191,7 @@ export async function reactivateUser(userId: string) {
 
 export async function cancelPendingInvite(inviteId: string) {
   const ctx = await requireSuperAdmin();
+  await ensureUsersSchema();
   const invite = await db.pendingUserInvite.findUnique({ where: { id: inviteId } });
   if (!invite || invite.acceptedAt) throw new Error("Pending invite not found.");
 

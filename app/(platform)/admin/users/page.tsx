@@ -2,7 +2,7 @@ import { PlatformHeader } from "@/components/platform/platform-header";
 import { UsersManagement } from "@/components/admin/users-management";
 import { listEntities } from "@/lib/data/entities";
 import { listDocumentCategories } from "@/lib/data/document-categories";
-import { listPendingInvites, listUsers } from "@/lib/actions/users";
+import { listPendingInvites, listUsers } from "@/lib/data/users";
 import { requireSuperAdmin } from "@/lib/permissions/access";
 
 export default async function AdminUsersPage() {
