@@ -14,8 +14,11 @@ import {
   USER_ROLE_OPTIONS,
   type UserAccessInput,
 } from "@/lib/admin/user-options";
-import type { UserRole } from "@/lib/generated/prisma/client";
-import type { ModuleName, PermissionLevel } from "@/lib/permissions/types";
+import type {
+  SerializedPendingInviteRow,
+  SerializedUserRow,
+} from "@/lib/data/users";
+import type { ModuleName, PermissionLevel, UserRole } from "@/lib/permissions/types";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -49,28 +52,6 @@ import { formatDate } from "@/lib/format";
 import { AddEntityButton, type EntityOption } from "@/components/platform/entity-select";
 
 type DocumentCategoryOption = { id: string; name: string };
-
-type UserRow = {
-  id: string;
-  email: string;
-  firstName: string | null;
-  lastName: string | null;
-  role: UserRole;
-  isSuperAdmin: boolean;
-  isActive: boolean;
-  updatedAt: Date;
-  entityAccess: { entityId: string; entity: { name: string } }[];
-  permissionOverrides: { module: ModuleName; level: PermissionLevel }[];
-  documentScopes: { categoryId: string; category: { id: string; name: string } }[];
-};
-
-type PendingInviteRow = {
-  id: string;
-  email: string;
-  role: UserRole;
-  isSuperAdmin: boolean;
-  createdAt: Date;
-};
 
 const PERMISSION_LEVELS: { value: PermissionLevel | "DEFAULT"; label: string }[] = [
   { value: "DEFAULT", label: "Role default" },
@@ -244,7 +225,7 @@ function UserAccessFields({
   );
 }
 
-function userToAccessInput(user: UserRow): UserAccessInput {
+function userToAccessInput(user: SerializedUserRow): UserAccessInput {
   const moduleOverrides: Partial<Record<ModuleName, PermissionLevel>> = {};
   for (const override of user.permissionOverrides) {
     moduleOverrides[override.module] = override.level;
@@ -264,8 +245,8 @@ export function UsersManagement({
   entities,
   documentCategories,
 }: {
-  users: UserRow[];
-  pendingInvites: PendingInviteRow[];
+  users: SerializedUserRow[];
+  pendingInvites: SerializedPendingInviteRow[];
   entities: EntityOption[];
   documentCategories: DocumentCategoryOption[];
 }) {
@@ -277,7 +258,7 @@ export function UsersManagement({
   );
   const [inviteOpen, setInviteOpen] = useState(false);
   const [inviteData, setInviteData] = useState<UserAccessInput>(emptyAccess());
-  const [editUser, setEditUser] = useState<UserRow | null>(null);
+  const [editUser, setEditUser] = useState<SerializedUserRow | null>(null);
   const [editData, setEditData] = useState<UserAccessInput>(emptyAccess());
 
   const activeUsers = useMemo(() => users.filter((u) => u.isActive), [users]);
@@ -290,6 +271,11 @@ export function UsersManagement({
     });
   }
 
+  function getActionErrorMessage(err: unknown, fallback: string) {
+    if (err instanceof Error && err.message) return err.message;
+    return fallback;
+  }
+
   function handleInvite(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
@@ -300,7 +286,7 @@ export function UsersManagement({
         setInviteData(emptyAccess());
         router.refresh();
       } catch (err) {
-        setError(err instanceof Error ? err.message : "Failed to send invitation.");
+        setError(getActionErrorMessage(err, "Failed to send invitation."));
       }
     });
   }
@@ -315,12 +301,12 @@ export function UsersManagement({
         setEditUser(null);
         router.refresh();
       } catch (err) {
-        setError(err instanceof Error ? err.message : "Failed to update user.");
+        setError(getActionErrorMessage(err, "Failed to update user."));
       }
     });
   }
 
-  function openEdit(user: UserRow) {
+  function openEdit(user: SerializedUserRow) {
     setEditUser(user);
     setEditData(userToAccessInput(user));
     setError(null);
