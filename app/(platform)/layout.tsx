@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { auth } from "@clerk/nextjs/server";
 import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/platform/app-sidebar";
+import { InactivityLogout } from "@/components/auth/inactivity-logout";
 import { syncClerkUser } from "@/lib/auth/sync-user";
 import { db } from "@/lib/db";
 import { getCurrentUserContext, isSuperAdmin, canAccess } from "@/lib/permissions/access";
@@ -37,6 +38,7 @@ export default async function PlatformLayout({ children }: { children: React.Rea
 
   return (
     <SidebarProvider>
+      <InactivityLogout />
       <AppSidebar
         showAdmin={showAdmin}
         showReports={showReports}

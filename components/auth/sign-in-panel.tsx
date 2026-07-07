@@ -6,7 +6,9 @@ export function SignInPanel({ reason }: { reason?: string }) {
   const inviteMessage =
     reason === "invite_required"
       ? "Access is by invitation only. Use the link in your invitation email or contact your administrator."
-      : "Sign in with the email address your administrator invited.";
+      : reason === "session_timeout"
+        ? "You were signed out after 30 minutes of inactivity."
+        : "Sign in with the email address your administrator invited.";
 
   return (
     <div className="flex w-full max-w-md flex-col gap-4">
@@ -17,7 +19,7 @@ export function SignInPanel({ reason }: { reason?: string }) {
         </CardHeader>
       </Card>
 
-      {reason === "invite_required" ? (
+      {reason === "invite_required" || reason === "session_timeout" ? (
         <Card>
           <CardContent className="p-4 text-center text-sm text-muted-foreground">
             {inviteMessage}
