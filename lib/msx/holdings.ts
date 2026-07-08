@@ -130,7 +130,7 @@ export function rowToHolding(
   mapping: Partial<Record<keyof ParsedHolding, number>>,
 ): ParsedHolding | null {
   const symbolRaw = cellValue(row, mapping.symbol);
-  let symbol =
+  const symbol =
     extractSymbolFromText(symbolRaw) ??
     row.map((cell) => extractSymbolFromText(cell)).find((value): value is string => !!value);
 

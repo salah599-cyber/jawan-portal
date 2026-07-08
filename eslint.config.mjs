@@ -12,6 +12,9 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    // One-off CommonJS build/codegen scripts run directly with `node`, not
+    // part of the app bundle — they intentionally use require().
+    "scripts/**",
   ]),
 ]);
 

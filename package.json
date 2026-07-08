@@ -4,7 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "next dev --turbopack",
-    "build": "next build",
+    "build": "bash scripts/build.sh",
     "db:sync-pe": "node scripts/sync-pe-schema.cjs",
     "start": "next start",
     "lint": "eslint",

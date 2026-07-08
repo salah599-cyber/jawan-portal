@@ -8,6 +8,9 @@ const isPublicRoute = createRouteMatcher([
   "/invite-required",
   "/api/webhooks(.*)",
   "/api/share/(.*)",
+  // Vercel Cron requests carry no Clerk session; these routes authenticate
+  // themselves via the CRON_SECRET bearer token instead.
+  "/api/cron/(.*)",
 ]);
 
 export default clerkMiddleware(async (auth, req) => {

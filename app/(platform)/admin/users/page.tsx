@@ -35,35 +35,31 @@ function UsersLoadError({ message, digest }: { message: string; digest?: string 
   );
 }
 
+async function loadAdminUsersData() {
+  await requireSuperAdmin();
+
+  const [users, pendingInvites, entities, documentCategories] = await Promise.all([
+    listUsers(),
+    listPendingInvites(),
+    listEntities(),
+    listDocumentCategories(),
+  ]);
+
+  return toClientProps({
+    users,
+    pendingInvites,
+    entities: entities.map((entity) => ({ id: entity.id, name: entity.name })),
+    documentCategories: documentCategories.map((category) => ({
+      id: category.id,
+      name: category.name,
+    })),
+  });
+}
+
 export default async function AdminUsersPage() {
+  let props: Awaited<ReturnType<typeof loadAdminUsersData>>;
   try {
-    await requireSuperAdmin();
-
-    const [users, pendingInvites, entities, documentCategories] = await Promise.all([
-      listUsers(),
-      listPendingInvites(),
-      listEntities(),
-      listDocumentCategories(),
-    ]);
-
-    const props = toClientProps({
-      users,
-      pendingInvites,
-      entities: entities.map((entity) => ({ id: entity.id, name: entity.name })),
-      documentCategories: documentCategories.map((category) => ({
-        id: category.id,
-        name: category.name,
-      })),
-    });
-
-    return (
-      <>
-        <PlatformHeader title="User Management" />
-        <main className="flex flex-1 flex-col gap-4 p-4 md:p-6">
-          <UsersManagement {...props} />
-        </main>
-      </>
-    );
+    props = await loadAdminUsersData();
   } catch (error) {
     unstable_rethrow(error);
 
@@ -79,4 +75,13 @@ export default async function AdminUsersPage() {
 
     return <UsersLoadError message={message} digest={digest || undefined} />;
   }
+
+  return (
+    <>
+      <PlatformHeader title="User Management" />
+      <main className="flex flex-1 flex-col gap-4 p-4 md:p-6">
+        <UsersManagement {...props} />
+      </main>
+    </>
+  );
 }

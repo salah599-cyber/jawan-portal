@@ -152,7 +152,7 @@ export function rowToHolding(
   market: PublicMarket,
 ): ParsedHolding | null {
   const symbolRaw = cellValue(row, mapping.symbol);
-  let symbol =
+  const symbol =
     extractSymbolFromText(symbolRaw, market) ??
     row.map((cell) => extractSymbolFromText(cell, market)).find((value): value is string => !!value);
 

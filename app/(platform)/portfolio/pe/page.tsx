@@ -41,6 +41,20 @@ function PeLoadError({ message, digest }: { message: string; digest?: string }) 
   );
 }
 
+async function loadPePageData(ctx: Awaited<ReturnType<typeof requireModuleAccess>>, entityParam?: string) {
+  const entities = await listPePortfolioEntities(ctx);
+  const entityId = entityParam && entities.some((entity) => entity.id === entityParam)
+    ? entityParam
+    : entities[0]?.id;
+
+  const [summary, companies] = await Promise.all([
+    getPePortfolioSummary(ctx, entityId),
+    listPeCompanies(ctx, entityId),
+  ]);
+
+  return { entities, entityId, summary, companies, canEdit: canWrite(ctx, "PRIVATE_EQUITY") };
+}
+
 export default async function PePortfolioPage({
   searchParams,
 }: {
@@ -49,51 +63,9 @@ export default async function PePortfolioPage({
   const { entity: entityParam } = await searchParams;
   const ctx = await requireModuleAccess("PRIVATE_EQUITY");
 
+  let data: Awaited<ReturnType<typeof loadPePageData>>;
   try {
-    const entities = await listPePortfolioEntities(ctx);
-    const entityId = entityParam && entities.some((entity) => entity.id === entityParam)
-      ? entityParam
-      : entities[0]?.id;
-
-    const [summary, companies] = await Promise.all([
-      getPePortfolioSummary(ctx, entityId),
-      listPeCompanies(ctx, entityId),
-    ]);
-
-    const canEdit = canWrite(ctx, "PRIVATE_EQUITY");
-
-    return (
-      <>
-        <PlatformHeader title="PE / VC Portfolio" />
-        <main className="flex flex-1 flex-col gap-4 p-4 md:p-6">
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <div>
-              <h2 className="text-lg font-semibold">Private Equity & Venture Capital</h2>
-              <p className="text-sm text-muted-foreground">
-                Track direct investments, cap tables, valuations, and portfolio company performance.
-              </p>
-            </div>
-            {canEdit ? <AddLinkButton href="/portfolio/pe/new" label="Add Company" /> : null}
-          </div>
-
-          <PePortfolioFilters entityId={entityId} entities={entities} />
-
-          <PePortfolioSummaryCards summary={summary} />
-
-          <Card>
-            <CardHeader>
-              <CardTitle>Portfolio Companies</CardTitle>
-              <CardDescription>
-                Direct and fund investments across stages from pre-seed to growth.
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <PeCompaniesTable companies={companies} canEdit={canEdit} />
-            </CardContent>
-          </Card>
-        </main>
-      </>
-    );
+    data = await loadPePageData(ctx, entityParam);
   } catch (error) {
     console.error("PE portfolio page failed:", error);
     const message =
@@ -107,4 +79,39 @@ export default async function PePortfolioPage({
 
     return <PeLoadError message={message} digest={digest || undefined} />;
   }
+
+  const { entities, entityId, summary, companies, canEdit } = data;
+
+  return (
+    <>
+      <PlatformHeader title="PE / VC Portfolio" />
+      <main className="flex flex-1 flex-col gap-4 p-4 md:p-6">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <h2 className="text-lg font-semibold">Private Equity & Venture Capital</h2>
+            <p className="text-sm text-muted-foreground">
+              Track direct investments, cap tables, valuations, and portfolio company performance.
+            </p>
+          </div>
+          {canEdit ? <AddLinkButton href="/portfolio/pe/new" label="Add Company" /> : null}
+        </div>
+
+        <PePortfolioFilters entityId={entityId} entities={entities} />
+
+        <PePortfolioSummaryCards summary={summary} />
+
+        <Card>
+          <CardHeader>
+            <CardTitle>Portfolio Companies</CardTitle>
+            <CardDescription>
+              Direct and fund investments across stages from pre-seed to growth.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <PeCompaniesTable companies={companies} canEdit={canEdit} />
+          </CardContent>
+        </Card>
+      </main>
+    </>
+  );
 }

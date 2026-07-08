@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useTransition } from "react";
+import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import type { PublicHoldingRow } from "@/lib/data/public-markets";
 import { updatePublicHolding } from "@/lib/actions/public-markets";
@@ -64,16 +64,22 @@ export function EditHoldingDialog({ holding }: { holding: PublicHoldingRow }) {
     holding.option?.contractMultiplier ?? 100,
   );
 
-  useEffect(() => {
-    if (!open) return;
-    setQuantity(holding.quantity);
-    setMarketPrice(holding.marketPrice);
-    setCostBasis(holding.costBasis);
-    setMarketValue(holding.marketValue);
-    setUnrealisedPnl(holding.unrealisedPnl);
-    setContractMultiplier(holding.option?.contractMultiplier ?? 100);
-    setError(null);
-  }, [open, holding]);
+  // Reset the form fields to the latest holding values whenever the dialog
+  // transitions to open, without an effect (React's documented pattern for
+  // adjusting state during render in response to a prop/state change).
+  const [wasOpen, setWasOpen] = useState(open);
+  if (open !== wasOpen) {
+    setWasOpen(open);
+    if (open) {
+      setQuantity(holding.quantity);
+      setMarketPrice(holding.marketPrice);
+      setCostBasis(holding.costBasis);
+      setMarketValue(holding.marketValue);
+      setUnrealisedPnl(holding.unrealisedPnl);
+      setContractMultiplier(holding.option?.contractMultiplier ?? 100);
+      setError(null);
+    }
+  }
 
   function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();

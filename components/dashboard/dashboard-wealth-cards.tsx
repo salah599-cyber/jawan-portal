@@ -25,6 +25,14 @@ type FxRatesResponse = {
   source: string;
 };
 
+function getStoredDisplayCurrency(): DisplayCurrency {
+  if (typeof window === "undefined") return DEFAULT_DISPLAY_CURRENCY;
+  const stored = localStorage.getItem(DISPLAY_CURRENCY_STORAGE_KEY);
+  return stored && DISPLAY_CURRENCIES.includes(stored as DisplayCurrency)
+    ? (stored as DisplayCurrency)
+    : DEFAULT_DISPLAY_CURRENCY;
+}
+
 export function DashboardWealthCards({
   portfolioTotalOmr,
   netWorthTotalOmr,
@@ -46,17 +54,10 @@ export function DashboardWealthCards({
   reminderCount: number;
   reminderDetail: string;
 }) {
-  const [displayCurrency, setDisplayCurrency] = useState<DisplayCurrency>(DEFAULT_DISPLAY_CURRENCY);
+  const [displayCurrency, setDisplayCurrency] = useState<DisplayCurrency>(getStoredDisplayCurrency);
   const [rates, setRates] = useState<Record<string, number> | null>(null);
   const [ratesUpdatedAt, setRatesUpdatedAt] = useState<string | null>(null);
   const [ratesLoading, setRatesLoading] = useState(true);
-
-  useEffect(() => {
-    const stored = localStorage.getItem(DISPLAY_CURRENCY_STORAGE_KEY);
-    if (stored && DISPLAY_CURRENCIES.includes(stored as DisplayCurrency)) {
-      setDisplayCurrency(stored as DisplayCurrency);
-    }
-  }, []);
 
   useEffect(() => {
     let cancelled = false;

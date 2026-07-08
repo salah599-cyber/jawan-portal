@@ -41,6 +41,20 @@ function LpLoadError({ message, digest }: { message: string; digest?: string }) 
   );
 }
 
+async function loadFundLpPageData(ctx: Awaited<ReturnType<typeof requireModuleAccess>>, entityParam?: string) {
+  const entities = await listLpPortfolioEntities(ctx);
+  const entityId = entityParam && entities.some((entity) => entity.id === entityParam)
+    ? entityParam
+    : entities[0]?.id;
+
+  const [summary, commitments] = await Promise.all([
+    getLpPortfolioSummary(ctx, entityId),
+    listLpCommitments(ctx, entityId),
+  ]);
+
+  return { entities, entityId, summary, commitments, canEdit: canWrite(ctx, "FUND_LP") };
+}
+
 export default async function FundLpPortfolioPage({
   searchParams,
 }: {
@@ -49,52 +63,9 @@ export default async function FundLpPortfolioPage({
   const { entity: entityParam } = await searchParams;
   const ctx = await requireModuleAccess("FUND_LP");
 
+  let data: Awaited<ReturnType<typeof loadFundLpPageData>>;
   try {
-    const entities = await listLpPortfolioEntities(ctx);
-    const entityId = entityParam && entities.some((entity) => entity.id === entityParam)
-      ? entityParam
-      : entities[0]?.id;
-
-    const [summary, commitments] = await Promise.all([
-      getLpPortfolioSummary(ctx, entityId),
-      listLpCommitments(ctx, entityId),
-    ]);
-
-    const canEdit = canWrite(ctx, "FUND_LP");
-
-    return (
-      <>
-        <PlatformHeader title="Fund LP Investments" />
-        <main className="flex flex-1 flex-col gap-4 p-4 md:p-6">
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <div>
-              <h2 className="text-lg font-semibold">Fund LP Investments</h2>
-              <p className="text-sm text-muted-foreground">
-                Track passive LP positions in externally managed funds — commitments, capital calls,
-                distributions, and NAV.
-              </p>
-            </div>
-            {canEdit ? <AddLinkButton href="/portfolio/fund-lp/new" label="Add Commitment" /> : null}
-          </div>
-
-          <FundLpPortfolioFilters entityId={entityId} entities={entities} />
-
-          <LpPortfolioSummaryCards summary={summary} />
-
-          <Card>
-            <CardHeader>
-              <CardTitle>Fund Commitments</CardTitle>
-              <CardDescription>
-                LP positions across buyout, venture, growth, and other fund strategies.
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <LpCommitmentsTable commitments={commitments} canEdit={canEdit} />
-            </CardContent>
-          </Card>
-        </main>
-      </>
-    );
+    data = await loadFundLpPageData(ctx, entityParam);
   } catch (error) {
     console.error("Fund LP portfolio page failed:", error);
     const message =
@@ -108,4 +79,40 @@ export default async function FundLpPortfolioPage({
 
     return <LpLoadError message={message} digest={digest || undefined} />;
   }
+
+  const { entities, entityId, summary, commitments, canEdit } = data;
+
+  return (
+    <>
+      <PlatformHeader title="Fund LP Investments" />
+      <main className="flex flex-1 flex-col gap-4 p-4 md:p-6">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <h2 className="text-lg font-semibold">Fund LP Investments</h2>
+            <p className="text-sm text-muted-foreground">
+              Track passive LP positions in externally managed funds — commitments, capital calls,
+              distributions, and NAV.
+            </p>
+          </div>
+          {canEdit ? <AddLinkButton href="/portfolio/fund-lp/new" label="Add Commitment" /> : null}
+        </div>
+
+        <FundLpPortfolioFilters entityId={entityId} entities={entities} />
+
+        <LpPortfolioSummaryCards summary={summary} />
+
+        <Card>
+          <CardHeader>
+            <CardTitle>Fund Commitments</CardTitle>
+            <CardDescription>
+              LP positions across buyout, venture, growth, and other fund strategies.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <LpCommitmentsTable commitments={commitments} canEdit={canEdit} />
+          </CardContent>
+        </Card>
+      </main>
+    </>
+  );
 }

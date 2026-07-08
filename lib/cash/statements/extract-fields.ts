@@ -324,12 +324,12 @@ function parseFlexibleDate(raw: string): Date | null {
   const parts = trimmed.split(/[\/\-.]/).map((part) => part.trim());
   if (parts.length !== 3) return null;
 
-  let [a, b, c] = parts.map((part) => parseInt(part, 10));
+  const [a, b, c] = parts.map((part) => parseInt(part, 10));
   if ([a, b, c].some((n) => Number.isNaN(n))) return null;
 
   let day = a;
   let month = b;
-  let year = c;
+  const year = c;
   let date = parseNumericDate(day, month, year);
   if (!date) {
     day = b;

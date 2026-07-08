@@ -534,13 +534,13 @@ export async function updatePublicHolding(holdingId: string, input: UpdatePublic
     throw new Error("Quantity must be a positive number.");
   }
 
-  let costBasis =
+  const costBasis =
     input.costBasis !== undefined
       ? input.costBasis
       : existing.costBasis
         ? parseFloat(existing.costBasis.toString())
         : null;
-  let marketPrice =
+  const marketPrice =
     input.marketPrice !== undefined
       ? input.marketPrice
       : existing.marketPrice

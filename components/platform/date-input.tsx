@@ -45,14 +45,10 @@ export function DateInput({
   ...props
 }: DateInputProps) {
   const isControlled = value !== undefined;
+  // Only used in uncontrolled mode — the controlled `value`/`visibleValue`/
+  // `submittedIso` below are derived directly from props during render.
   const [displayValue, setDisplayValue] = React.useState(() => toDisplayValue(defaultValue));
   const [isoValue, setIsoValue] = React.useState(() => toIsoValue(defaultValue));
-
-  React.useEffect(() => {
-    if (!isControlled) return;
-    setDisplayValue(toDisplayValue(value));
-    setIsoValue(toIsoValue(value));
-  }, [isControlled, value]);
 
   const emitChange = React.useCallback(
     (event: React.ChangeEvent<HTMLInputElement>, nextIso: string) => {

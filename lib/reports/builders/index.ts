@@ -1101,7 +1101,7 @@ export async function buildContactsDirectoryReport(
   const entityName = await resolveEntityName(params.entityId);
   await ensureContactsSchema();
 
-  let contacts = await listDirectoryContacts({
+  const contacts = await listDirectoryContacts({
     entityId: params.entityId,
     activeOnly: false,
   });

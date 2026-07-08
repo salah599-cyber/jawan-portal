@@ -19,14 +19,12 @@ export function CalendarListView({
     );
   }
 
-  let lastDate = "";
-
   return (
     <ul className="divide-y divide-border rounded-lg border border-border">
-      {items.map((item) => {
+      {items.map((item, index) => {
         const dateKey = item.date.toISOString().slice(0, 10);
-        const showDate = dateKey !== lastDate;
-        lastDate = dateKey;
+        const prevDateKey = index > 0 ? items[index - 1].date.toISOString().slice(0, 10) : null;
+        const showDate = dateKey !== prevDateKey;
 
         return (
           <li key={item.id}>
