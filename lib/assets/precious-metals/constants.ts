@@ -27,6 +27,8 @@ export const SILVER_UNITS: PreciousMetalUnit[] = ["GRAM", "KG", "OZ"];
 
 export const PRICE_SOURCE_MUSCAT_BULLION = "GOLDAPI+MUSCAT_BULLION";
 
+export const PRICE_SOURCE_COINGECKO = "COINGECKO+MUSCAT_BULLION";
+
 export function unitsForMetal(metal: PreciousMetalType): PreciousMetalUnit[] {
   return metal === "GOLD" ? GOLD_UNITS : SILVER_UNITS;
 }

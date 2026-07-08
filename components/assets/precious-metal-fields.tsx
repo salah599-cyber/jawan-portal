@@ -56,7 +56,7 @@ export function PreciousMetalFields({
       <div className="md:col-span-2">
         <p className="text-sm font-medium">Precious metal details</p>
         <p className="text-xs text-muted-foreground">
-          Values refresh from GoldAPI.io using Muscat Bullion OMR board formulas.
+          Values refresh from live spot prices (GoldAPI.io when configured, otherwise CoinGecko).
         </p>
       </div>
 
