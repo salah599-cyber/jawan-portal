@@ -4,6 +4,7 @@ import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { createLoan } from "@/lib/actions/loans";
 import {
+  INTEREST_CALCULATION_METHOD_LABELS,
   LIABILITY_STATUS_LABELS,
   LIABILITY_TYPE_LABELS,
   PAYMENT_FREQUENCY_LABELS,
@@ -43,6 +44,7 @@ export function CreateLoanForm({
   const [assetId, setAssetId] = useState("none");
   const [currency, setCurrency] = useState("OMR");
   const [paymentFrequency, setPaymentFrequency] = useState("MONTHLY");
+  const [interestCalculationMethod, setInterestCalculationMethod] = useState("REDUCING_BALANCE");
 
   const entityAssets = assets.filter((a) => a.entityId === entityId);
 
@@ -56,6 +58,7 @@ export function CreateLoanForm({
     formData.set("assetId", assetId);
     formData.set("currency", currency);
     formData.set("paymentFrequency", paymentFrequency);
+    formData.set("interestCalculationMethod", interestCalculationMethod);
 
     startTransition(async () => {
       try {
@@ -161,6 +164,18 @@ export function CreateLoanForm({
           <div className="space-y-2">
             <Label htmlFor="interestRate">Interest Rate (%)</Label>
             <Input id="interestRate" name="interestRate" type="number" step="0.0001" min="0" placeholder="e.g. 5.25" />
+          </div>
+
+          <div className="space-y-2">
+            <Label>Interest Calculation</Label>
+            <Select value={interestCalculationMethod} onValueChange={setInterestCalculationMethod}>
+              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectContent>
+                {Object.entries(INTEREST_CALCULATION_METHOD_LABELS).map(([value, label]) => (
+                  <SelectItem key={value} value={value}>{label}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
 
           <div className="space-y-2">

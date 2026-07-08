@@ -4,6 +4,7 @@ import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { updateLoan } from "@/lib/actions/loans";
 import {
+  INTEREST_CALCULATION_METHOD_LABELS,
   LIABILITY_STATUS_LABELS,
   LIABILITY_TYPE_LABELS,
   PAYMENT_FREQUENCY_LABELS,
@@ -27,6 +28,7 @@ type LoanRecord = {
   outstandingBalance: { toString(): string } | null;
   currency: string;
   interestRate: { toString(): string } | null;
+  interestCalculationMethod: string | null;
   startDate: Date | null;
   maturityDate: Date | null;
   paymentAmount: { toString(): string } | null;
@@ -60,6 +62,9 @@ export function EditLoanForm({
   const [assetId, setAssetId] = useState(loan.assetId ?? "none");
   const [currency, setCurrency] = useState(loan.currency);
   const [paymentFrequency, setPaymentFrequency] = useState(loan.paymentFrequency ?? "MONTHLY");
+  const [interestCalculationMethod, setInterestCalculationMethod] = useState(
+    loan.interestCalculationMethod ?? "REDUCING_BALANCE",
+  );
 
   const entityAssets = assets.filter((a) => a.entityId === entityId);
   const hasPayments = (loan.paymentCount ?? 0) > 0;
@@ -74,6 +79,7 @@ export function EditLoanForm({
     formData.set("assetId", assetId);
     formData.set("currency", currency);
     formData.set("paymentFrequency", paymentFrequency);
+    formData.set("interestCalculationMethod", interestCalculationMethod);
 
     startTransition(async () => {
       try {
@@ -193,6 +199,18 @@ export function EditLoanForm({
           <div className="space-y-2">
             <Label htmlFor="interestRate">Interest Rate (%)</Label>
             <Input id="interestRate" name="interestRate" type="number" step="0.0001" min="0" defaultValue={formatDecimalInput(loan.interestRate)} />
+          </div>
+
+          <div className="space-y-2">
+            <Label>Interest Calculation</Label>
+            <Select value={interestCalculationMethod} onValueChange={setInterestCalculationMethod}>
+              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectContent>
+                {Object.entries(INTEREST_CALCULATION_METHOD_LABELS).map(([value, label]) => (
+                  <SelectItem key={value} value={value}>{label}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
 
           <div className="space-y-2">

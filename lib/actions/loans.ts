@@ -3,11 +3,13 @@
 import { put } from "@vercel/blob";
 import { revalidatePath } from "next/cache";
 import { db } from "@/lib/db";
+import { ensureLoanSchema } from "@/lib/db/ensure-loan-schema";
 import { deleteBlobUrl } from "@/lib/blob";
 import { logAudit } from "@/lib/audit/log";
 import { canWrite, requireModuleAccess } from "@/lib/permissions/access";
 import { assetEntityFilter, loanEntityFilter } from "@/lib/permissions/scoped-queries";
 import type {
+  InterestCalculationMethod,
   LiabilityStatus,
   LiabilityType,
   LoanDocumentType,
@@ -67,6 +69,8 @@ function readLoanFormData(formData: FormData) {
     outstandingBalance: parseDecimal(String(formData.get("outstandingBalance") ?? "")),
     currency: String(formData.get("currency") ?? "OMR").trim() || "OMR",
     interestRate: parseDecimal(String(formData.get("interestRate") ?? "")),
+    interestCalculationMethod: (String(formData.get("interestCalculationMethod") ?? "REDUCING_BALANCE").trim() ||
+      "REDUCING_BALANCE") as InterestCalculationMethod,
     startDate: parseDate(String(formData.get("startDate") ?? "")),
     maturityDate: parseDate(String(formData.get("maturityDate") ?? "")),
     paymentAmount: parseDecimal(String(formData.get("paymentAmount") ?? "")),
@@ -133,6 +137,7 @@ async function uploadLoanFiles(
 }
 
 export async function createLoan(formData: FormData) {
+  await ensureLoanSchema();
   const ctx = await requireModuleAccess("LOANS");
   if (!canWrite(ctx, "LOANS")) {
     throw new Error("You do not have permission to register loans.");
@@ -187,6 +192,7 @@ export async function createLoan(formData: FormData) {
 }
 
 export async function updateLoan(id: string, formData: FormData) {
+  await ensureLoanSchema();
   const ctx = await requireModuleAccess("LOANS");
   if (!canWrite(ctx, "LOANS")) {
     throw new Error("You do not have permission to update loans.");
@@ -237,6 +243,7 @@ export async function updateLoan(id: string, formData: FormData) {
 }
 
 export async function uploadLoanDocuments(formData: FormData) {
+  await ensureLoanSchema();
   const ctx = await requireModuleAccess("LOANS");
   if (!canWrite(ctx, "LOANS")) {
     throw new Error("You do not have permission to upload loan documents.");
@@ -285,6 +292,7 @@ export async function uploadLoanDocuments(formData: FormData) {
 }
 
 export async function listLoans() {
+  await ensureLoanSchema();
   const ctx = await requireModuleAccess("LOANS");
   return db.liability.findMany({
     where: loanEntityFilter(ctx),
@@ -292,12 +300,19 @@ export async function listLoans() {
       entity: true,
       asset: { select: { id: true, name: true } },
       documents: { select: { id: true, documentType: true } },
+      payments: {
+        select: {
+          principalPortion: true,
+          interestPortion: true,
+        },
+      },
     },
     orderBy: { updatedAt: "desc" },
   });
 }
 
 export async function getLoan(id: string) {
+  await ensureLoanSchema();
   const ctx = await requireModuleAccess("LOANS");
   return db.liability.findFirst({
     where: { id, ...loanEntityFilter(ctx) },
@@ -314,6 +329,7 @@ export async function getLoan(id: string) {
 }
 
 export async function listLoanAssetOptions() {
+  await ensureLoanSchema();
   const ctx = await requireModuleAccess("LOANS");
   return db.asset.findMany({
     where: assetEntityFilter(ctx),
@@ -323,6 +339,7 @@ export async function listLoanAssetOptions() {
 }
 
 export async function deleteLoanDocument(id: string) {
+  await ensureLoanSchema();
   const ctx = await requireModuleAccess("LOANS");
   if (!canWrite(ctx, "LOANS")) {
     throw new Error("You do not have permission to delete loan documents.");
@@ -349,6 +366,7 @@ export async function deleteLoanDocument(id: string) {
 }
 
 export async function deleteLoan(id: string) {
+  await ensureLoanSchema();
   const ctx = await requireModuleAccess("LOANS");
   if (!canWrite(ctx, "LOANS")) {
     throw new Error("You do not have permission to delete loans.");
