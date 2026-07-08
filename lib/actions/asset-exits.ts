@@ -1,27 +1,15 @@
 "use server";
 
-import { put } from "@vercel/blob";
 import { revalidatePath } from "next/cache";
-import { db } from "@/lib/db";
-import { deleteBlobUrl } from "@/lib/blob";
+import { db, type DbClient } from "@/lib/db";
+import { deleteBlobUrl, uploadPrivateFile } from "@/lib/blob";
 import { logAudit } from "@/lib/audit/log";
 import { canWrite, requireModuleAccess, requireUserContext } from "@/lib/permissions/access";
 import { assetEntityFilter } from "@/lib/permissions/scoped-queries";
+import { assertEnumValue, parseOrThrow, zOptionalDecimal, zRequiredDate } from "@/lib/validation/primitives";
 import type { AssetExitDocumentType, ExitType } from "@/lib/generated/prisma/client";
 
-function parseDecimal(value?: string | null) {
-  if (!value || value.trim() === "") return undefined;
-  return value.trim();
-}
-
-function parseDate(value?: string | null) {
-  if (!value || value.trim() === "") return undefined;
-  return new Date(value);
-}
-
-function sanitizeFileName(name: string) {
-  return name.replace(/[^a-zA-Z0-9._-]/g, "_");
-}
+const EXIT_TYPE_VALUES = ["SALE", "TRANSFER", "LIQUIDATION", "WRITE_OFF", "OTHER"] as const satisfies readonly ExitType[];
 
 function getFilesFromFormData(formData: FormData, field: string): File[] {
   return formData
@@ -52,8 +40,8 @@ async function canRecordExitForAsset(
   return false;
 }
 
-async function syncLinkedModuleStatus(assetId: string, status: "EXITED") {
-  const asset = await db.asset.findUnique({
+async function syncLinkedModuleStatus(client: DbClient, assetId: string, status: "EXITED") {
+  const asset = await client.asset.findUnique({
     where: { id: assetId },
     select: {
       landParcel: { select: { id: true } },
@@ -64,16 +52,21 @@ async function syncLinkedModuleStatus(assetId: string, status: "EXITED") {
   if (!asset) return;
 
   if (asset.landParcel) {
-    await db.landParcel.update({ where: { id: asset.landParcel.id }, data: { status } });
+    await client.landParcel.update({ where: { id: asset.landParcel.id }, data: { status } });
   }
   if (asset.vehicle) {
-    await db.vehicle.update({ where: { id: asset.vehicle.id }, data: { status } });
+    await client.vehicle.update({ where: { id: asset.vehicle.id }, data: { status } });
   }
   if (asset.registeredCompany) {
-    await db.registeredCompany.update({ where: { id: asset.registeredCompany.id }, data: { status } });
+    await client.registeredCompany.update({ where: { id: asset.registeredCompany.id }, data: { status } });
   }
 }
 
+/**
+ * Creates an asset exit record and applies its downstream effects (asset status,
+ * linked module status, optional cash inflow) as a single Prisma transaction so a
+ * failure partway through never leaves the asset half-exited.
+ */
 export async function createAssetExitRecord(input: {
   assetId: string;
   exitType: ExitType;
@@ -86,61 +79,63 @@ export async function createAssetExitRecord(input: {
   landSaleId?: string;
   recordCashInflow?: boolean;
 }) {
-  const asset = await db.asset.findUnique({
-    where: { id: input.assetId },
-    include: { exit: true },
-  });
-  if (!asset) throw new Error("Asset not found.");
-  if (asset.exit || asset.status === "EXITED") {
-    throw new Error("This asset has already been exited.");
-  }
+  return db.$transaction(async (tx) => {
+    const asset = await tx.asset.findUnique({
+      where: { id: input.assetId },
+      include: { exit: true },
+    });
+    if (!asset) throw new Error("Asset not found.");
+    if (asset.exit || asset.status === "EXITED") {
+      throw new Error("This asset has already been exited.");
+    }
 
-  const acquisitionCost = asset.acquisitionCost?.toString() ?? undefined;
-  const realizedGain = computeRealizedGain(input.proceeds, acquisitionCost);
+    const acquisitionCost = asset.acquisitionCost?.toString() ?? undefined;
+    const realizedGain = computeRealizedGain(input.proceeds, acquisitionCost);
 
-  const exit = await db.assetExit.create({
-    data: {
-      assetId: input.assetId,
-      exitType: input.exitType,
-      exitDate: input.exitDate,
-      proceeds: input.proceeds,
-      currency: input.currency,
-      counterparty: input.counterparty,
-      acquisitionCost,
-      realizedGain,
-      recordCashInflow: input.recordCashInflow ?? false,
-      notes: input.notes,
-      recordedById: input.recordedById,
-      landSaleId: input.landSaleId,
-    },
-  });
-
-  await db.asset.update({
-    where: { id: input.assetId },
-    data: {
-      status: "EXITED",
-      exitedAt: input.exitDate,
-      currentValue: null,
-      valueUpdatedAt: null,
-    },
-  });
-
-  await syncLinkedModuleStatus(input.assetId, "EXITED");
-
-  if (input.recordCashInflow && input.proceeds) {
-    await db.assetCashFlow.create({
+    const exit = await tx.assetExit.create({
       data: {
         assetId: input.assetId,
-        type: "INFLOW",
-        amount: input.proceeds,
+        exitType: input.exitType,
+        exitDate: input.exitDate,
+        proceeds: input.proceeds,
         currency: input.currency,
-        occurredAt: input.exitDate,
-        description: "Exit proceeds",
+        counterparty: input.counterparty,
+        acquisitionCost,
+        realizedGain,
+        recordCashInflow: input.recordCashInflow ?? false,
+        notes: input.notes,
+        recordedById: input.recordedById,
+        landSaleId: input.landSaleId,
       },
     });
-  }
 
-  return exit;
+    await tx.asset.update({
+      where: { id: input.assetId },
+      data: {
+        status: "EXITED",
+        exitedAt: input.exitDate,
+        currentValue: null,
+        valueUpdatedAt: null,
+      },
+    });
+
+    await syncLinkedModuleStatus(tx, input.assetId, "EXITED");
+
+    if (input.recordCashInflow && input.proceeds) {
+      await tx.assetCashFlow.create({
+        data: {
+          assetId: input.assetId,
+          type: "INFLOW",
+          amount: input.proceeds,
+          currency: input.currency,
+          occurredAt: input.exitDate,
+          description: "Exit proceeds",
+        },
+      });
+    }
+
+    return exit;
+  });
 }
 
 async function uploadExitFiles(
@@ -150,47 +145,31 @@ async function uploadExitFiles(
   documentType: AssetExitDocumentType,
   uploadedById: string,
 ) {
-  const token = process.env.BLOB_READ_WRITE_TOKEN;
-  if (!token) {
-    throw new Error(
-      "BLOB_READ_WRITE_TOKEN is not configured. Document uploads require Vercel Blob storage.",
-    );
-  }
-
   for (let i = 0; i < files.length; i++) {
     const file = files[i];
     if (!(file instanceof File) || file.size === 0) continue;
 
-    const pathname =
-      "asset-exits/" +
-      assetId +
-      "/" +
-      documentType.toLowerCase() +
-      "/" +
-      Date.now() +
-      "-" +
-      i +
-      "-" +
-      sanitizeFileName(file.name);
-
-    const blob = await put(pathname, file, {
-      access: "public",
-      token,
-      contentType: file.type || undefined,
-    });
-
-    await db.assetExitDocument.create({
-      data: {
-        assetExitId,
-        documentType,
-        label: file.name,
-        fileName: file.name,
-        fileUrl: blob.url,
-        mimeType: file.type || "application/octet-stream",
-        fileSize: file.size,
-        uploadedById,
-      },
-    });
+    const uploaded = await uploadPrivateFile(
+      ["asset-exits", assetId, documentType.toLowerCase()],
+      file,
+    );
+    try {
+      await db.assetExitDocument.create({
+        data: {
+          assetExitId,
+          documentType,
+          label: uploaded.fileName,
+          fileName: uploaded.fileName,
+          fileUrl: uploaded.fileUrl,
+          mimeType: uploaded.mimeType,
+          fileSize: uploaded.fileSize,
+          uploadedById,
+        },
+      });
+    } catch (error) {
+      await deleteBlobUrl(uploaded.fileUrl);
+      throw error;
+    }
   }
 }
 
@@ -198,19 +177,16 @@ export async function recordAssetExit(formData: FormData) {
   const ctx = await requireUserContext();
 
   const assetId = String(formData.get("assetId") ?? "").trim();
-  const exitType = String(formData.get("exitType") ?? "SALE") as ExitType;
-  const exitDateRaw = String(formData.get("exitDate") ?? "").trim();
-  const proceeds = parseDecimal(String(formData.get("proceeds") ?? ""));
+  const exitType = assertEnumValue(String(formData.get("exitType") ?? "SALE"), EXIT_TYPE_VALUES, "Exit type");
+  const proceeds = parseOrThrow(zOptionalDecimal("Proceeds", { min: 0 }), formData.get("proceeds") ?? "");
   const currency = String(formData.get("currency") ?? "OMR").trim() || "OMR";
   const counterparty = String(formData.get("counterparty") ?? "").trim() || undefined;
   const notes = String(formData.get("notes") ?? "").trim() || undefined;
   const recordCashInflow = String(formData.get("recordCashInflow") ?? "") === "on";
 
   if (!assetId) throw new Error("Asset is required.");
-  if (!exitDateRaw) throw new Error("Exit date is required.");
 
-  const exitDate = parseDate(exitDateRaw);
-  if (!exitDate) throw new Error("Exit date is invalid.");
+  const exitDate = parseOrThrow(zRequiredDate("Exit date"), formData.get("exitDate") ?? "");
 
   if ((exitType === "SALE" || exitType === "LIQUIDATION") && !proceeds) {
     throw new Error("Proceeds are required for this exit type.");

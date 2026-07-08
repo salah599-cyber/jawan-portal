@@ -1,0 +1,52 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  ci:
+    name: Lint, typecheck, test, audit
+    runs-on: ubuntu-latest
+    env:
+      # Dummy values so modules that read env at import time (e.g. lib/db.ts)
+      # can be constructed during typecheck/tests without a live database or
+      # third-party services. No test or type check performs real network I/O.
+      DATABASE_URL: "postgresql://user:password@localhost:5432/jawan_ci"
+      SUPER_ADMIN_EMAIL: "ci@example.com"
+      BLOB_READ_WRITE_TOKEN: "vercel_blob_rw_ci_dummy_token"
+      CRON_SECRET: "ci-dummy-secret"
+      NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY: "pk_test_dummy"
+      CLERK_SECRET_KEY: "sk_test_dummy"
+      CLERK_WEBHOOK_SIGNING_SECRET: "whsec_dummy"
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: "npm"
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Validate Prisma schema
+        run: npx prisma validate
+
+      - name: Generate Prisma client
+        run: npx prisma generate
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Test
+        run: npm test
+
+      - name: Dependency audit (high/critical only)
+        run: npm audit --audit-level=high

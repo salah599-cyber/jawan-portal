@@ -7,6 +7,7 @@ import { UploadLoanDocumentsForm } from "@/components/loans/upload-loan-document
 import { RecordLoanPaymentForm } from "@/components/loans/record-loan-payment-form";
 import { LoanPaymentHistory } from "@/components/loans/loan-payment-history";
 import { getLoan, deleteLoan, deleteLoanDocument } from "@/lib/actions/loans";
+import { fileHref } from "@/lib/files/href";
 import { canWrite, requireModuleAccess } from "@/lib/permissions/access";
 import {
   LIABILITY_STATUS_LABELS,
@@ -141,7 +142,7 @@ export default async function LoanDetailPage({ params }: { params: Promise<{ id:
                         </p>
                       </div>
                       <Button variant="outline" size="sm" asChild>
-                        <a href={doc.fileUrl} target="_blank" rel="noopener noreferrer">
+                        <a href={fileHref("loan", doc.id)} target="_blank" rel="noopener noreferrer">
                           Open
                         </a>
                       </Button>

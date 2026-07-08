@@ -5,6 +5,7 @@ import { DeleteEntryButton } from "@/components/platform/delete-entry-button";
 import { EditLinkButton } from "@/components/platform/edit-link-button";
 import { UploadExpenseAttachmentsForm } from "@/components/expenses/upload-expense-attachments-form";
 import { getExpense, deleteExpense, deleteExpenseAttachment } from "@/lib/actions/expenses";
+import { fileHref } from "@/lib/files/href";
 import { canWrite, requireModuleAccess } from "@/lib/permissions/access";
 import { EXPENSE_ATTACHMENT_TYPE_LABELS, EXPENSE_STATUS_LABELS } from "@/lib/labels";
 import { formatMoney, formatDate } from "@/lib/format";
@@ -89,7 +90,7 @@ export default async function ExpenseDetailPage({ params }: { params: Promise<{ 
                         </p>
                       </div>
                       <Button variant="outline" size="sm" asChild>
-                        <a href={doc.fileUrl} target="_blank" rel="noopener noreferrer">
+                        <a href={fileHref("expense", doc.id)} target="_blank" rel="noopener noreferrer">
                           Open
                         </a>
                       </Button>

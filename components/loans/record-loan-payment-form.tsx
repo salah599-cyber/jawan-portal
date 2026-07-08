@@ -10,6 +10,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { ALLOWED_UPLOAD_ACCEPT } from "@/lib/upload-limits";
 
 export function RecordLoanPaymentForm({
   liabilityId,
@@ -118,7 +119,7 @@ export function RecordLoanPaymentForm({
           </div>
           <div className="space-y-2">
             <Label htmlFor="receiptFiles">Receipt / Confirmation (optional)</Label>
-            <Input id="receiptFiles" name="receiptFiles" type="file" multiple accept=".pdf,.jpg,.jpeg,.png,.webp,.doc,.docx" />
+            <Input id="receiptFiles" name="receiptFiles" type="file" multiple accept={ALLOWED_UPLOAD_ACCEPT} />
           </div>
           {error ? <p className="text-sm text-destructive">{error}</p> : null}
           <div className="flex gap-2">

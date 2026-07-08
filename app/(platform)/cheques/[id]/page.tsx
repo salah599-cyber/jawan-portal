@@ -5,6 +5,7 @@ import { DeleteEntryButton } from "@/components/platform/delete-entry-button";
 import { EditLinkButton } from "@/components/platform/edit-link-button";
 import { UploadChequeDocumentsForm } from "@/components/cheques/upload-cheque-documents-form";
 import { getCheque, deleteCheque, deleteChequeDocument } from "@/lib/actions/cheques";
+import { fileHref } from "@/lib/files/href";
 import { canWrite, requireModuleAccess } from "@/lib/permissions/access";
 import {
   CHEQUE_DIRECTION_LABELS,
@@ -108,7 +109,7 @@ export default async function ChequeDetailPage({ params }: { params: Promise<{ i
                         </p>
                       </div>
                       <Button variant="outline" size="sm" asChild>
-                        <a href={doc.fileUrl} target="_blank" rel="noopener noreferrer">
+                        <a href={fileHref("cheque", doc.id)} target="_blank" rel="noopener noreferrer">
                           Open
                         </a>
                       </Button>

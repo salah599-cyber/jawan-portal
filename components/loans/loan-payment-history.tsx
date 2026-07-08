@@ -1,5 +1,6 @@
 import { DeleteEntryButton } from "@/components/platform/delete-entry-button";
 import { deleteLoanPayment, deleteLoanPaymentDocument } from "@/lib/actions/loan-payments";
+import { fileHref } from "@/lib/files/href";
 import { LOAN_PAYMENT_METHOD_LABELS } from "@/lib/labels";
 import { formatMoney, formatDate } from "@/lib/format";
 import { Button } from "@/components/ui/button";
@@ -88,7 +89,7 @@ export function LoanPaymentHistory({
                         {payment.documents.map((doc) => (
                           <div key={doc.id} className="flex items-center gap-1">
                             <Button variant="link" className="h-auto p-0 text-xs" asChild>
-                              <a href={doc.fileUrl} target="_blank" rel="noopener noreferrer">
+                              <a href={fileHref("loan-payment", doc.id)} target="_blank" rel="noopener noreferrer">
                                 {doc.label ?? doc.fileName}
                               </a>
                             </Button>

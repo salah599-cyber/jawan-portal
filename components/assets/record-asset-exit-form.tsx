@@ -10,12 +10,13 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { ALLOWED_UPLOAD_ACCEPT } from "@/lib/upload-limits";
 
 function FileSection({ id, name, label }: { id: string; name: string; label: string }) {
   return (
     <div className="space-y-2">
       <Label htmlFor={id}>{label} (optional)</Label>
-      <Input id={id} name={name} type="file" multiple accept=".pdf,.jpg,.jpeg,.png,.webp,.doc,.docx" />
+      <Input id={id} name={name} type="file" multiple accept={ALLOWED_UPLOAD_ACCEPT} />
     </div>
   );
 }

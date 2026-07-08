@@ -1,12 +1,12 @@
 "use server";
 
-import { put } from "@vercel/blob";
 import { revalidatePath } from "next/cache";
 import { db } from "@/lib/db";
-import { deleteBlobUrl } from "@/lib/blob";
+import { deleteBlobUrl, uploadPrivateFile } from "@/lib/blob";
 import { logAudit } from "@/lib/audit/log";
 import { canWrite, getModulePermission, requireModuleAccess, requireUserContext } from "@/lib/permissions/access";
 import { proposalEntityFilter } from "@/lib/permissions/scoped-queries";
+import { assertCanViewProposal } from "@/lib/proposals/access";
 import { evaluateMajorityOutcome } from "@/lib/proposals/approval";
 import { canSubmitProposal } from "@/lib/proposals/submit-access";
 import type { ProposalCommentKind, ProposalDecision, ProposalStatus } from "@/lib/generated/prisma/client";
@@ -14,10 +14,6 @@ import type { ProposalCommentKind, ProposalDecision, ProposalStatus } from "@/li
 function parseDecimal(value?: string | null) {
   if (!value || value.trim() === "") return undefined;
   return value.trim();
-}
-
-function sanitizeFileName(name: string) {
-  return name.replace(/[^a-zA-Z0-9._-]/g, "_");
 }
 
 function getFilesFromFormData(formData: FormData, field: string): File[] {
@@ -61,32 +57,6 @@ function readProposalFields(formData: FormData) {
   };
 }
 
-async function assertCanViewProposal(
-  ctx: Awaited<ReturnType<typeof requireUserContext>>,
-  proposal: {
-    submittedById: string;
-    entityId: string | null;
-    approvers: { userId: string }[];
-  },
-) {
-  if (proposal.submittedById === ctx.id) return;
-  if (proposal.approvers.some((a) => a.userId === ctx.id)) return;
-
-  const level = getModulePermission(ctx, "PROPOSALS");
-  if (level === "NONE") throw new Error("Forbidden");
-
-  if (
-    level === "FILTERED" &&
-    proposal.entityId &&
-    ctx.entityIds.length > 0 &&
-    !ctx.entityIds.includes(proposal.entityId) &&
-    ctx.role !== "PRINCIPAL" &&
-    !ctx.isSuperAdmin
-  ) {
-    throw new Error("You do not have access to this proposal.");
-  }
-}
-
 async function syncApprovers(proposalId: string, approverIds: string[], submitterId: string) {
   const uniqueIds = [...new Set(approverIds.filter((id) => id && id !== submitterId))];
   if (uniqueIds.length === 0) throw new Error("Select at least one approver (excluding yourself).");
@@ -113,13 +83,6 @@ async function uploadDeckFiles(
   uploadedById: string,
   replaceExisting = false,
 ) {
-  const token = process.env.BLOB_READ_WRITE_TOKEN;
-  if (!token) {
-    throw new Error(
-      "BLOB_READ_WRITE_TOKEN is not configured. Document uploads require Vercel Blob storage.",
-    );
-  }
-
   if (replaceExisting) {
     const existing = await db.proposalDocument.findMany({
       where: { proposalId, documentType: "DECK" },
@@ -131,24 +94,23 @@ async function uploadDeckFiles(
   }
 
   for (const file of files) {
-    const pathname = `proposals/${proposalId}/deck/${Date.now()}-${sanitizeFileName(file.name)}`;
-    const blob = await put(pathname, file, {
-      access: "public",
-      token,
-      contentType: file.type || undefined,
-    });
-
-    await db.proposalDocument.create({
-      data: {
-        proposalId,
-        documentType: "DECK",
-        fileName: file.name,
-        fileUrl: blob.url,
-        mimeType: file.type || "application/octet-stream",
-        fileSize: file.size,
-        uploadedById,
-      },
-    });
+    const uploaded = await uploadPrivateFile(["proposals", proposalId, "deck"], file);
+    try {
+      await db.proposalDocument.create({
+        data: {
+          proposalId,
+          documentType: "DECK",
+          fileName: uploaded.fileName,
+          fileUrl: uploaded.fileUrl,
+          mimeType: uploaded.mimeType,
+          fileSize: uploaded.fileSize,
+          uploadedById,
+        },
+      });
+    } catch (error) {
+      await deleteBlobUrl(uploaded.fileUrl);
+      throw error;
+    }
   }
 }
 

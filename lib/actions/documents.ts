@@ -77,6 +77,17 @@ export async function saveDocumentMetadata(input: SaveDocumentMetadataInput) {
   return { id: document.id, name: document.name };
 }
 
+/**
+ * Best-effort cleanup for a file that was uploaded to Blob storage but whose metadata
+ * record failed to save (e.g. validation error). Only deletes blobs under the calling
+ * user's own upload prefix so this cannot be used to delete arbitrary blobs.
+ */
+export async function cleanupFailedDocumentUpload(fileUrl: string) {
+  const ctx = await requireModuleAccess("DOCUMENTS");
+  if (!fileUrl.includes(`/documents/${ctx.id}/`)) return;
+  await deleteBlobUrl(fileUrl);
+}
+
 export async function deleteDocument(id: string) {
   const ctx = await requireModuleAccess("DOCUMENTS");
   if (!canWrite(ctx, "DOCUMENTS")) {

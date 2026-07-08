@@ -11,6 +11,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { EntitySelect } from "@/components/platform/entity-select";
 import { ApproverSelect, type ApproverOption } from "@/components/proposals/approver-select";
+import { ALLOWED_UPLOAD_ACCEPT } from "@/lib/upload-limits";
 
 export function CreateProposalForm({
   entities,
@@ -105,7 +106,7 @@ export function CreateProposalForm({
               id="deckFiles"
               name="deckFiles"
               type="file"
-              accept=".pdf,.ppt,.pptx,.doc,.docx"
+              accept={ALLOWED_UPLOAD_ACCEPT}
             />
             <p className="text-xs text-muted-foreground">Required when submitting for approval. PDF or PowerPoint preferred.</p>
           </div>

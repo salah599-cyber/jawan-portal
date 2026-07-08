@@ -9,6 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { ALLOWED_UPLOAD_ACCEPT } from "@/lib/upload-limits";
 
 export function UploadLandDocumentsForm({
   landParcelId,
@@ -61,7 +62,7 @@ export function UploadLandDocumentsForm({
           </div>
           <div className="space-y-2">
             <Label htmlFor="land-doc-files">Files</Label>
-            <Input id="land-doc-files" name={fileField} type="file" multiple required accept=".pdf,.jpg,.jpeg,.png,.webp,.doc,.docx" />
+            <Input id="land-doc-files" name={fileField} type="file" multiple required accept={ALLOWED_UPLOAD_ACCEPT} />
           </div>
           {error ? <p className="text-sm text-destructive">{error}</p> : null}
           <Button type="submit" disabled={pending}>{pending ? "Uploading..." : "Upload"}</Button>

@@ -9,6 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { ALLOWED_UPLOAD_ACCEPT } from "@/lib/upload-limits";
 
 export function UploadLandSaleDocumentsForm({ landParcelId }: { landParcelId: string }) {
   const router = useRouter();
@@ -73,7 +74,7 @@ export function UploadLandSaleDocumentsForm({ landParcelId }: { landParcelId: st
               type="file"
               multiple
               required
-              accept=".pdf,.jpg,.jpeg,.png,.webp,.doc,.docx"
+              accept={ALLOWED_UPLOAD_ACCEPT}
             />
           </div>
           {error ? <p className="text-sm text-destructive">{error}</p> : null}

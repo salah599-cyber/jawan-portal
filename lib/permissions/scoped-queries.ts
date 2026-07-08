@@ -67,6 +67,9 @@ export function documentFilter(ctx: UserContext) {
 
 export function expenseEntityFilter(ctx: UserContext) {
   const level = getModulePermission(ctx, "EXPENSES");
-  if (level === "FULL") return {};
+  if (level === "FULL" || level === "READ") return {};
+  if (level === "FILTERED") {
+    return { OR: [{ entityId: null }, { entityId: { in: ctx.entityIds } }] };
+  }
   return { id: "__none__" };
 }

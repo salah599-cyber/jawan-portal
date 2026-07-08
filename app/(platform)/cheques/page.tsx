@@ -1,24 +1,9 @@
-import Link from "next/link";
 import { PlatformHeader } from "@/components/platform/platform-header";
 import { AddLinkButton } from "@/components/platform/add-link-button";
-import { RowActions } from "@/components/platform/row-actions";
-import { listCheques, deleteCheque } from "@/lib/actions/cheques";
+import { ChequesTable } from "@/components/cheques/cheques-table";
+import { listCheques } from "@/lib/actions/cheques";
 import { canWrite, requireModuleAccess } from "@/lib/permissions/access";
-import {
-  CHEQUE_DIRECTION_LABELS,
-  CHEQUE_STATUS_LABELS,
-} from "@/lib/labels";
-import { formatMoney, formatDate } from "@/lib/format";
-import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-
-function statusVariant(status: string): "default" | "secondary" | "destructive" | "outline" {
-  if (status === "CLEARED") return "default";
-  if (status === "BOUNCED" || status === "STOPPED") return "destructive";
-  if (status === "CANCELLED") return "outline";
-  return "secondary";
-}
 
 export default async function ChequesPage() {
   const ctx = await requireModuleAccess("CHEQUES");
@@ -77,65 +62,7 @@ export default async function ChequesPage() {
             {showAdd ? <AddLinkButton href="/cheques/new" label="Register Cheque" /> : null}
           </CardHeader>
           <CardContent>
-            {cheques.length === 0 ? (
-              <p className="text-sm text-muted-foreground">No cheques registered yet.</p>
-            ) : (
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Cheque #</TableHead>
-                    <TableHead>Direction</TableHead>
-                    <TableHead>Payee / Payer</TableHead>
-                    <TableHead>Entity</TableHead>
-                    <TableHead>Bank</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead className="text-right">Amount</TableHead>
-                    <TableHead>Issue</TableHead>
-                    <TableHead>Due</TableHead>
-                    <TableHead>Docs</TableHead>
-                    {showAdd ? <TableHead className="w-[60px]">Actions</TableHead> : null}
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {cheques.map((cheque) => (
-                    <TableRow key={cheque.id}>
-                      <TableCell className="font-medium">
-                        <Link href={"/cheques/" + cheque.id} className="hover:underline">
-                          {cheque.chequeNumber}
-                        </Link>
-                      </TableCell>
-                      <TableCell>{CHEQUE_DIRECTION_LABELS[cheque.direction] ?? cheque.direction}</TableCell>
-                      <TableCell>{cheque.payee}</TableCell>
-                      <TableCell>{cheque.entity.name}</TableCell>
-                      <TableCell>
-                        {cheque.bankAccount
-                          ? cheque.bankAccount.bankName
-                          : cheque.bankName ?? "-"}
-                      </TableCell>
-                      <TableCell>
-                        <Badge variant={statusVariant(cheque.status)}>
-                          {CHEQUE_STATUS_LABELS[cheque.status] ?? cheque.status}
-                        </Badge>
-                      </TableCell>
-                      <TableCell className="text-right">{formatMoney(cheque.amount, cheque.currency)}</TableCell>
-                      <TableCell>{formatDate(cheque.issueDate)}</TableCell>
-                      <TableCell>{formatDate(cheque.dueDate)}</TableCell>
-                      <TableCell>{cheque.documents.length}</TableCell>
-                      {showAdd ? (
-                        <TableCell>
-                          <RowActions
-                            editHref={"/cheques/" + cheque.id + "/edit"}
-                            itemId={cheque.id}
-                            itemLabel={"Cheque #" + cheque.chequeNumber}
-                            deleteAction={deleteCheque}
-                          />
-                        </TableCell>
-                      ) : null}
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            )}
+            <ChequesTable cheques={cheques} showAdd={showAdd} />
           </CardContent>
         </Card>
       </main>

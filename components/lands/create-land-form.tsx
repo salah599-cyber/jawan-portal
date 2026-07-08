@@ -14,6 +14,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { EntitySelect } from "@/components/platform/entity-select";
 import { LandLocationFields, initialLandLocationValues } from "@/components/lands/land-location-fields";
 import { LandRegisteredHoldersFields } from "@/components/lands/land-registered-holders-fields";
+import { ALLOWED_UPLOAD_ACCEPT } from "@/lib/upload-limits";
 
 function FileSection({
   id,
@@ -29,7 +30,7 @@ function FileSection({
   return (
     <div className="space-y-2 md:col-span-2">
       <Label htmlFor={id}>{label}</Label>
-      <Input id={id} name={name} type="file" multiple accept=".pdf,.jpg,.jpeg,.png,.webp,.doc,.docx" />
+      <Input id={id} name={name} type="file" multiple accept={ALLOWED_UPLOAD_ACCEPT} />
       <p className="text-xs text-muted-foreground">{description}</p>
     </div>
   );

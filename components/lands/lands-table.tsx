@@ -1,6 +1,10 @@
 "use client";
 
-import { useState } from "react";
+import { useCallback, useState } from "react";
+import { useSearchFilter } from "@/hooks/use-search-filter";
+import { usePagination } from "@/hooks/use-pagination";
+import { TableSearchInput } from "@/components/platform/table-search-input";
+import { TablePagination } from "@/components/platform/table-pagination";
 import { RowActions } from "@/components/platform/row-actions";
 import { LandDetailSheet } from "@/components/lands/land-detail-sheet";
 import { deleteLand } from "@/lib/actions/lands";
@@ -42,6 +46,16 @@ export function LandsTable({
   const [sheetOpen, setSheetOpen] = useState(false);
   const hasInternational = lands.some((land) => isInternationalLand(land));
 
+  const getSearchText = useCallback(
+    (land: LandRow) =>
+      [land.name, land.entity.name, land.krookiNumber, land.mulkiaNumber, land.status, land.city, land.wilayat, land.country]
+        .filter(Boolean)
+        .join(" "),
+    [],
+  );
+  const { query, setQuery, filtered } = useSearchFilter(lands, getSearchText);
+  const { page, setPage, pageCount, paged, total, pageSize } = usePagination(filtered, { resetKey: query });
+
   function openLand(id: string) {
     setSelectedLandId(id);
     setSheetOpen(true);
@@ -49,6 +63,11 @@ export function LandsTable({
 
   return (
     <>
+      <div className="flex flex-col gap-3">
+      <TableSearchInput value={query} onChange={setQuery} placeholder="Search lands..." />
+      {filtered.length === 0 ? (
+        <p className="text-sm text-muted-foreground">No land parcels match your search.</p>
+      ) : (
       <Table>
         <TableHeader>
           <TableRow>
@@ -64,7 +83,7 @@ export function LandsTable({
           </TableRow>
         </TableHeader>
         <TableBody>
-          {lands.map((land) => {
+          {paged.map((land) => {
             const international = isInternationalLand(land);
             return (
             <TableRow
@@ -112,6 +131,9 @@ export function LandsTable({
           })}
         </TableBody>
       </Table>
+      )}
+      <TablePagination page={page} pageCount={pageCount} total={total} pageSize={pageSize} onPageChange={setPage} />
+      </div>
 
       <LandDetailSheet
         landId={selectedLandId}

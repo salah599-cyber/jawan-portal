@@ -2,8 +2,9 @@
 
 import { useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { saveDocumentMetadata } from "@/lib/actions/documents";
-import { MAX_UPLOAD_LABEL, validateUploadFileSize } from "@/lib/upload-limits";
+import { toast } from "sonner";
+import { cleanupFailedDocumentUpload, saveDocumentMetadata } from "@/lib/actions/documents";
+import { ALLOWED_UPLOAD_ACCEPT, MAX_UPLOAD_LABEL, validateUploadFile } from "@/lib/upload-limits";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -14,24 +15,26 @@ import {
   type DocumentCategoryOption,
 } from "@/components/documents/document-category-select";
 
-function sanitizeFileName(name: string): string {
-  return name.replace(/[^a-zA-Z0-9._-]/g, "_");
-}
-
 export function UploadDocumentForm({
   entities,
   categories,
   canAddCategory = true,
+  existingNames = [],
 }: {
   entities: EntityOption[];
   categories: DocumentCategoryOption[];
   canAddCategory?: boolean;
+  existingNames?: string[];
 }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
-  const [success, setSuccess] = useState<string | null>(null);
+  const [duplicateWarning, setDuplicateWarning] = useState<string | null>(null);
   const [categoryList, setCategoryList] = useState(categories);
+  const existingNameSet = useMemo(
+    () => new Set(existingNames.map((n) => n.trim().toLowerCase())),
+    [existingNames],
+  );
   const defaultCategoryId = useMemo(
     () =>
       categoryList.find((c) => c.name === "Corporate")?.id ??
@@ -45,7 +48,6 @@ export function UploadDocumentForm({
   function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     setError(null);
-    setSuccess(null);
 
     const form = e.currentTarget;
     const formData = new FormData(form);
@@ -55,9 +57,9 @@ export function UploadDocumentForm({
       return;
     }
 
-    const sizeError = validateUploadFileSize(file);
-    if (sizeError) {
-      setError(sizeError);
+    const fileError = validateUploadFile(file);
+    if (fileError) {
+      setError(fileError);
       return;
     }
 
@@ -75,12 +77,10 @@ export function UploadDocumentForm({
     }
 
     startTransition(async () => {
+      let uploadedUrl: string | undefined;
       try {
-        const pathname = "documents/" + Date.now() + "-" + sanitizeFileName(file.name);
-
         const uploadData = new FormData();
         uploadData.set("file", file);
-        uploadData.set("pathname", pathname);
 
         const uploadRes = await fetch("/api/documents/upload", {
           method: "POST",
@@ -90,37 +90,55 @@ export function UploadDocumentForm({
 
         const uploadBody = (await uploadRes.json().catch(() => ({}))) as {
           url?: string;
+          fileName?: string;
+          mimeType?: string;
+          fileSize?: number;
           error?: string;
         };
 
         if (!uploadRes.ok || !uploadBody.url) {
           throw new Error(uploadBody.error ?? "Failed to upload file to storage.");
         }
+        uploadedUrl = uploadBody.url;
 
         const doc = await saveDocumentMetadata({
           name,
           categoryId,
-          fileName: file.name,
+          fileName: uploadBody.fileName ?? file.name,
           fileUrl: uploadBody.url,
-          mimeType: file.type || "application/octet-stream",
-          fileSize: file.size,
+          mimeType: uploadBody.mimeType ?? (file.type || "application/octet-stream"),
+          fileSize: uploadBody.fileSize ?? file.size,
           expiryDate: expiryDateRaw || undefined,
           entityId: entityIdValue || undefined,
         });
 
-        setSuccess("Uploaded " + doc.name);
+        toast.success("Uploaded " + doc.name);
         form.reset();
         setEntityId("none");
+        setDuplicateWarning(null);
         router.refresh();
       } catch (err) {
-        const message = err instanceof Error ? err.message : "Failed to upload document.";
-        if (message.toLowerCase().includes("body exceeded") || message.includes("413")) {
-          setError(`File is too large. Maximum upload size is ${MAX_UPLOAD_LABEL}.`);
-          return;
+        if (uploadedUrl) {
+          cleanupFailedDocumentUpload(uploadedUrl).catch(() => {});
         }
-        setError(message);
+        const message = err instanceof Error ? err.message : "Failed to upload document.";
+        const friendlyMessage =
+          message.toLowerCase().includes("body exceeded") || message.includes("413")
+            ? `File is too large. Maximum upload size is ${MAX_UPLOAD_LABEL}.`
+            : message;
+        setError(friendlyMessage);
+        toast.error(friendlyMessage);
       }
     });
+  }
+
+  function handleNameChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const value = e.target.value.trim().toLowerCase();
+    setDuplicateWarning(
+      value && existingNameSet.has(value)
+        ? "A document with this name already exists. You can still upload — it will be stored as a separate record."
+        : null,
+    );
   }
 
   return (
@@ -137,14 +155,15 @@ export function UploadDocumentForm({
               name="file"
               type="file"
               required
-              accept=".pdf,.jpg,.jpeg,.png,.webp,.doc,.docx"
+              accept={ALLOWED_UPLOAD_ACCEPT}
             />
             <p className="text-xs text-muted-foreground">Maximum file size: {MAX_UPLOAD_LABEL}</p>
           </div>
 
           <div className="space-y-2 md:col-span-2">
             <Label htmlFor="name">Name</Label>
-            <Input id="name" name="name" required placeholder="Document title" />
+            <Input id="name" name="name" required placeholder="Document title" onChange={handleNameChange} />
+            {duplicateWarning ? <p className="text-xs text-amber-600">{duplicateWarning}</p> : null}
           </div>
 
           <div className="space-y-2">
@@ -180,9 +199,6 @@ export function UploadDocumentForm({
 
           {error ? (
             <p className="text-sm text-destructive md:col-span-2">{error}</p>
-          ) : null}
-          {success ? (
-            <p className="text-sm text-green-600 md:col-span-2">{success}</p>
           ) : null}
 
           <div className="md:col-span-2">

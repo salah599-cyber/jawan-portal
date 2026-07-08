@@ -1,7 +1,6 @@
-import { put } from "@vercel/blob";
 import { NextResponse } from "next/server";
+import { uploadPrivateFile } from "@/lib/blob";
 import { canWrite, getCurrentUserContext } from "@/lib/permissions/access";
-import { MAX_UPLOAD_BYTES } from "@/lib/upload-limits";
 
 export async function POST(request: Request): Promise<NextResponse> {
   const ctx = await getCurrentUserContext();
@@ -15,8 +14,7 @@ export async function POST(request: Request): Promise<NextResponse> {
     );
   }
 
-  const token = process.env.BLOB_READ_WRITE_TOKEN;
-  if (!token) {
+  if (!process.env.BLOB_READ_WRITE_TOKEN) {
     return NextResponse.json(
       {
         error:
@@ -34,31 +32,23 @@ export async function POST(request: Request): Promise<NextResponse> {
   }
 
   const file = formData.get("file");
-  if (!(file instanceof File) || file.size === 0) {
+  if (!(file instanceof File)) {
     return NextResponse.json({ error: "A file is required." }, { status: 400 });
   }
-  if (file.size > MAX_UPLOAD_BYTES) {
-    return NextResponse.json(
-      { error: "File is too large. Maximum size is 14 MB." },
-      { status: 413 },
-    );
-  }
-
-  const pathnameRaw = String(formData.get("pathname") ?? "").trim();
-  const pathname =
-    pathnameRaw ||
-    "documents/" + Date.now() + "-" + file.name.replace(/[^a-zA-Z0-9._-]/g, "_");
 
   try {
-    const blob = await put(pathname, file, {
-      access: "public",
-      token,
-      contentType: file.type || undefined,
+    // Pathname is generated entirely server-side from trusted context (uploader id) —
+    // any client-supplied path/name is ignored to prevent path traversal or collisions.
+    const uploaded = await uploadPrivateFile(["documents", ctx.id], file);
+    return NextResponse.json({
+      url: uploaded.fileUrl,
+      fileName: uploaded.fileName,
+      mimeType: uploaded.mimeType,
+      fileSize: uploaded.fileSize,
     });
-
-    return NextResponse.json({ url: blob.url });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Upload failed";
-    return NextResponse.json({ error: message }, { status: 500 });
+    const status = message.includes("too large") || message.includes("Unsupported") ? 400 : 500;
+    return NextResponse.json({ error: message }, { status });
   }
 }

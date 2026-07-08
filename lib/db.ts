@@ -1,7 +1,13 @@
 import { neonConfig } from "@neondatabase/serverless";
 import { PrismaNeon } from "@prisma/adapter-neon";
 import ws from "ws";
-import { PrismaClient } from "@/lib/generated/prisma/client";
+import { PrismaClient, type Prisma } from "@/lib/generated/prisma/client";
+
+/**
+ * Accepts either the top-level client or an interactive `$transaction` callback
+ * client, so shared write helpers can run standalone or inside a transaction.
+ */
+export type DbClient = PrismaClient | Prisma.TransactionClient;
 
 neonConfig.webSocketConstructor = ws;
 

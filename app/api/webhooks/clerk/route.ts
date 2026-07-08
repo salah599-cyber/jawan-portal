@@ -1,7 +1,7 @@
 import { verifyWebhook } from "@clerk/nextjs/webhooks";
 import { NextResponse, type NextRequest } from "next/server";
 import { db } from "@/lib/db";
-import { SUPER_ADMIN_EMAIL } from "@/lib/auth/constants";
+import { isBootstrapSuperAdminEmail } from "@/lib/auth/constants";
 import { applyPendingInvite } from "@/lib/auth/apply-invite";
 
 export async function POST(req: NextRequest) {
@@ -12,17 +12,16 @@ export async function POST(req: NextRequest) {
       case "user.created":
       case "user.updated": {
         const clerkId = event.data.id;
-        const email =
-          event.data.email_addresses?.[0]?.email_address ??
-          event.data.primary_email_address_id
-            ? event.data.email_addresses?.find(
-                (e) => e.id === event.data.primary_email_address_id,
-              )?.email_address
-            : undefined;
+        // Prefer the user's designated primary email; fall back to the first email on
+        // file only if no primary is set (avoids ambiguous operator-precedence bugs).
+        const primaryEmail = event.data.email_addresses?.find(
+          (e) => e.id === event.data.primary_email_address_id,
+        )?.email_address;
+        const email = primaryEmail ?? event.data.email_addresses?.[0]?.email_address;
 
         if (!email) break;
 
-        const isBootstrap = email.toLowerCase() === SUPER_ADMIN_EMAIL.toLowerCase();
+        const isBootstrap = isBootstrapSuperAdminEmail(email);
 
         const user = await db.user.upsert({
           where: { clerkId },

@@ -1,9 +1,8 @@
 "use server";
 
-import { put } from "@vercel/blob";
 import { revalidatePath } from "next/cache";
 import { db } from "@/lib/db";
-import { deleteBlobUrl } from "@/lib/blob";
+import { deleteBlobUrl, uploadPrivateFile } from "@/lib/blob";
 import { logAudit } from "@/lib/audit/log";
 import { canWrite, requireModuleAccess } from "@/lib/permissions/access";
 import { loanEntityFilter } from "@/lib/permissions/scoped-queries";
@@ -19,10 +18,6 @@ function parseDate(value?: string | null) {
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return undefined;
   return date;
-}
-
-function sanitizeFileName(name: string) {
-  return name.replace(/[^a-zA-Z0-9._-]/g, "_");
 }
 
 function getFilesFromFormData(formData: FormData, field: string): File[] {
@@ -42,32 +37,23 @@ async function uploadPaymentFiles(
   files: File[],
   uploadedById: string,
 ) {
-  const token = process.env.BLOB_READ_WRITE_TOKEN;
-  if (!token) {
-    throw new Error(
-      "BLOB_READ_WRITE_TOKEN is not configured. Document uploads require Vercel Blob storage.",
-    );
-  }
-
   for (const file of files) {
-    const pathname =
-      "loans/" + liabilityId + "/payments/" + paymentId + "/" + Date.now() + "-" + sanitizeFileName(file.name);
-    const blob = await put(pathname, file, {
-      access: "public",
-      token,
-      contentType: file.type || undefined,
-    });
-
-    await db.loanPaymentDocument.create({
-      data: {
-        paymentId,
-        fileName: file.name,
-        fileUrl: blob.url,
-        mimeType: file.type || "application/octet-stream",
-        fileSize: file.size,
-        uploadedById,
-      },
-    });
+    const uploaded = await uploadPrivateFile(["loans", liabilityId, "payments", paymentId], file);
+    try {
+      await db.loanPaymentDocument.create({
+        data: {
+          paymentId,
+          fileName: uploaded.fileName,
+          fileUrl: uploaded.fileUrl,
+          mimeType: uploaded.mimeType,
+          fileSize: uploaded.fileSize,
+          uploadedById,
+        },
+      });
+    } catch (error) {
+      await deleteBlobUrl(uploaded.fileUrl);
+      throw error;
+    }
   }
 }
 

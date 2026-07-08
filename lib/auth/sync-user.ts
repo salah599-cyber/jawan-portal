@@ -1,15 +1,11 @@
 import { currentUser } from "@clerk/nextjs/server";
 import { db } from "@/lib/db";
-import { SUPER_ADMIN_EMAIL } from "@/lib/auth/constants";
+import { isBootstrapSuperAdminEmail } from "@/lib/auth/constants";
 import { applyPendingInvite } from "@/lib/auth/apply-invite";
 import type { UserRole } from "@/lib/permissions/types";
 
-function isBootstrapSuperAdmin(email: string) {
-  return email.toLowerCase() === SUPER_ADMIN_EMAIL.toLowerCase();
-}
-
 function bootstrapData(email: string) {
-  if (!isBootstrapSuperAdmin(email)) return {};
+  if (!isBootstrapSuperAdminEmail(email)) return {};
   return {
     isSuperAdmin: true,
     role: "PRINCIPAL" as UserRole,
@@ -17,11 +13,19 @@ function bootstrapData(email: string) {
   };
 }
 
+function getPrimaryEmail(clerkUser: {
+  emailAddresses: { id: string; emailAddress: string }[];
+  primaryEmailAddressId: string | null;
+}): string | undefined {
+  const primary = clerkUser.emailAddresses.find((e) => e.id === clerkUser.primaryEmailAddressId);
+  return primary?.emailAddress ?? clerkUser.emailAddresses[0]?.emailAddress;
+}
+
 export async function syncClerkUser() {
   const clerkUser = await currentUser();
   if (!clerkUser) return null;
 
-  const email = clerkUser.emailAddresses[0]?.emailAddress;
+  const email = getPrimaryEmail(clerkUser);
   if (!email) return null;
 
   const existing = await db.user.findUnique({ where: { clerkId: clerkUser.id } });
@@ -37,7 +41,7 @@ export async function syncClerkUser() {
       },
     });
 
-    if (!existing.isSuperAdmin && isBootstrapSuperAdmin(email)) {
+    if (!existing.isSuperAdmin && isBootstrapSuperAdminEmail(email)) {
       await applyPendingInvite(user.id, email).catch(() => null);
     }
 
@@ -50,8 +54,8 @@ export async function syncClerkUser() {
       email,
       firstName: clerkUser.firstName,
       lastName: clerkUser.lastName,
-      role: isBootstrapSuperAdmin(email) ? "PRINCIPAL" : "EXTERNAL",
-      isSuperAdmin: isBootstrapSuperAdmin(email),
+      role: isBootstrapSuperAdminEmail(email) ? "PRINCIPAL" : "EXTERNAL",
+      isSuperAdmin: isBootstrapSuperAdminEmail(email),
       isActive: true,
     },
   });

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useTransition } from "react";
+import { useState, useTransition } from "react";
 import { createEntity } from "@/lib/actions/entities";
 import { Button } from "@/components/ui/button";
 import {
@@ -44,15 +44,19 @@ export function EntitySelect({
   onEntityAdded?: (entity: EntityOption) => void;
 }) {
   const [entities, setEntities] = useState(() => sortEntities(initialEntities));
+  const [prevInitialEntities, setPrevInitialEntities] = useState(initialEntities);
   const [open, setOpen] = useState(false);
   const [newName, setNewName] = useState("");
   const [newDescription, setNewDescription] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
 
-  useEffect(() => {
+  // Re-derive sorted entities when the server-provided list changes, without
+  // an effect (React's documented pattern for adjusting state from props).
+  if (initialEntities !== prevInitialEntities) {
+    setPrevInitialEntities(initialEntities);
     setEntities(sortEntities(initialEntities));
-  }, [initialEntities]);
+  }
 
   function handleAddEntity() {
     setError(null);

@@ -29,20 +29,21 @@ import {
   SidebarMenuButton,
   SidebarMenuItem,
 } from "@/components/ui/sidebar";
+import type { ModuleName } from "@/lib/permissions/types";
 
-const platformNav = [
-  { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
-  { href: "/assets", label: "Assets", icon: Building2 },
-  { href: "/lands", label: "Lands", icon: Map },
-  { href: "/cars", label: "Cars", icon: Car },
-  { href: "/companies", label: "Companies", icon: Factory },
-  { href: "/loans", label: "Loans", icon: HandCoins },
-  { href: "/cheques", label: "Cheques", icon: Banknote },
-  { href: "/proposals", label: "Proposals", icon: Lightbulb },
-  { href: "/assets/bank-details", label: "Bank Details", icon: Landmark },
-  { href: "/documents", label: "Documents", icon: FileText },
-  { href: "/expenses", label: "Expenses", icon: Receipt },
-  { href: "/reports", label: "Reports", icon: BarChart3 },
+const platformNav: { href: string; label: string; icon: typeof LayoutDashboard; module: ModuleName }[] = [
+  { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard, module: "DASHBOARD" },
+  { href: "/assets", label: "Assets", icon: Building2, module: "ASSETS" },
+  { href: "/lands", label: "Lands", icon: Map, module: "LANDS" },
+  { href: "/cars", label: "Cars", icon: Car, module: "CARS" },
+  { href: "/companies", label: "Companies", icon: Factory, module: "COMPANIES" },
+  { href: "/loans", label: "Loans", icon: HandCoins, module: "LOANS" },
+  { href: "/cheques", label: "Cheques", icon: Banknote, module: "CHEQUES" },
+  { href: "/proposals", label: "Proposals", icon: Lightbulb, module: "PROPOSALS" },
+  { href: "/assets/bank-details", label: "Bank Details", icon: Landmark, module: "ASSETS" },
+  { href: "/documents", label: "Documents", icon: FileText, module: "DOCUMENTS" },
+  { href: "/expenses", label: "Expenses", icon: Receipt, module: "EXPENSES" },
+  { href: "/reports", label: "Reports", icon: BarChart3, module: "REPORTS" },
 ];
 
 const adminNav = [
@@ -50,9 +51,18 @@ const adminNav = [
   { href: "/admin/audit-log", label: "Audit Log", icon: ScrollText },
 ];
 
-export function AppSidebar({ showAdmin = false }: { showAdmin?: boolean }) {
+export function AppSidebar({
+  showAdmin = false,
+  moduleAccess,
+}: {
+  showAdmin?: boolean;
+  moduleAccess?: Partial<Record<ModuleName, boolean>>;
+}) {
   const pathname = usePathname();
-  const nav = showAdmin ? [...platformNav, ...adminNav] : platformNav;
+  const visiblePlatformNav = moduleAccess
+    ? platformNav.filter((item) => moduleAccess[item.module] !== false)
+    : platformNav;
+  const nav = showAdmin ? [...visiblePlatformNav, ...adminNav] : visiblePlatformNav;
 
   return (
     <Sidebar>

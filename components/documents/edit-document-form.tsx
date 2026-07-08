@@ -3,6 +3,7 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { updateDocument, type UpdateDocumentInput } from "@/lib/actions/documents";
+import { fileHref } from "@/lib/files/href";
 import { formatDateInput } from "@/lib/format";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -73,7 +74,7 @@ export function EditDocumentForm({
         <CardTitle>Edit Document</CardTitle>
         <CardDescription>
           File: {document.fileName} —{" "}
-          <a href={document.fileUrl} target="_blank" rel="noopener noreferrer" className="underline">
+          <a href={fileHref("document", document.id)} target="_blank" rel="noopener noreferrer" className="underline">
             Open file
           </a>
         </CardDescription>

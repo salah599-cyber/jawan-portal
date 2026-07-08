@@ -1,14 +1,9 @@
-import Link from "next/link";
 import { PlatformHeader } from "@/components/platform/platform-header";
 import { AddLinkButton } from "@/components/platform/add-link-button";
-import { RowActions } from "@/components/platform/row-actions";
-import { listCompanies, deleteCompany } from "@/lib/actions/companies";
+import { CompaniesTable } from "@/components/companies/companies-table";
+import { listCompanies } from "@/lib/actions/companies";
 import { canWrite, requireModuleAccess } from "@/lib/permissions/access";
-import { ASSET_STATUS_LABELS } from "@/lib/labels";
-import { formatDate } from "@/lib/format";
-import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 
 export default async function CompaniesPage() {
   const ctx = await requireModuleAccess("COMPANIES");
@@ -30,57 +25,7 @@ export default async function CompaniesPage() {
             {showAdd ? <AddLinkButton href="/companies/new" label="Register Company" /> : null}
           </CardHeader>
           <CardContent>
-            {companies.length === 0 ? (
-              <p className="text-sm text-muted-foreground">No companies registered yet.</p>
-            ) : (
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Company</TableHead>
-                    <TableHead>Registration No.</TableHead>
-                    <TableHead>Entity</TableHead>
-                    <TableHead>Owners</TableHead>
-                    <TableHead>CEO</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead>Expiry</TableHead>
-                    <TableHead>Docs</TableHead>
-                    <TableHead>Updated</TableHead>
-                    {showAdd ? <TableHead className="w-[60px]">Actions</TableHead> : null}
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {companies.map((company) => (
-                    <TableRow key={company.id}>
-                      <TableCell className="font-medium">
-                        <Link href={"/companies/" + company.id} className="hover:underline">
-                          {company.name}
-                        </Link>
-                      </TableCell>
-                      <TableCell>{company.registrationNumber}</TableCell>
-                      <TableCell>{company.entity.name}</TableCell>
-                      <TableCell>{company.owners.length}</TableCell>
-                      <TableCell>{company.ceoName ?? "-"}</TableCell>
-                      <TableCell>
-                        <Badge variant="secondary">{ASSET_STATUS_LABELS[company.status] ?? company.status}</Badge>
-                      </TableCell>
-                      <TableCell>{formatDate(company.registrationExpiryDate)}</TableCell>
-                      <TableCell>{company.documents.length}</TableCell>
-                      <TableCell>{formatDate(company.updatedAt)}</TableCell>
-                      {showAdd ? (
-                        <TableCell>
-                          <RowActions
-                            editHref={"/companies/" + company.id + "/edit"}
-                            itemId={company.id}
-                            itemLabel={company.name}
-                            deleteAction={deleteCompany}
-                          />
-                        </TableCell>
-                      ) : null}
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            )}
+            <CompaniesTable companies={companies} showAdd={showAdd} />
           </CardContent>
         </Card>
       </main>

@@ -1,15 +1,26 @@
 ﻿"use server";
 
-import { put } from "@vercel/blob";
 import { createAssetExitRecord } from "@/lib/actions/asset-exits";
 import { assertStatusNotExited } from "@/lib/assets/status";
 import { revalidatePath } from "next/cache";
-import { db } from "@/lib/db";
-import { deleteBlobUrl } from "@/lib/blob";
+import { db, type DbClient } from "@/lib/db";
+import { deleteBlobUrl, uploadPrivateFile } from "@/lib/blob";
 import { logAudit } from "@/lib/audit/log";
 import { canWrite, requireModuleAccess } from "@/lib/permissions/access";
 import { landEntityFilter } from "@/lib/permissions/scoped-queries";
+import {
+  assertEnumValue,
+  assertOwnershipPercentagesValid,
+  parseOrThrow,
+  zOptionalDate,
+  zOptionalDecimal,
+  zRequiredDate,
+  zRequiredDecimal,
+  zRequiredString,
+} from "@/lib/validation/primitives";
 import type { AssetStatus, LandDocumentType, LandLocationType, LandSaleDocumentType } from "@/lib/generated/prisma/client";
+
+const ASSET_STATUS_VALUES = ["ACTIVE", "MONITOR", "EXITED", "DEFERRED"] as const satisfies readonly AssetStatus[];
 
 export type LandRegisteredHolderInput = {
   name: string;
@@ -19,20 +30,6 @@ export type LandRegisteredHolderInput = {
   notes?: string;
 };
 
-function parseDecimal(value?: string | null) {
-  if (!value || value.trim() === "") return undefined;
-  return value.trim();
-}
-
-function parseDate(value?: string | null) {
-  if (!value || value.trim() === "") return undefined;
-  return new Date(value);
-}
-
-function sanitizeFileName(name: string) {
-  return name.replace(/[^a-zA-Z0-9._-]/g, "_");
-}
-
 async function uploadLandFiles(
   landParcelId: string,
   files: File[],
@@ -40,49 +37,30 @@ async function uploadLandFiles(
   uploadedById: string,
   labelPrefix?: string,
 ) {
-  const token = process.env.BLOB_READ_WRITE_TOKEN;
-  if (!token) {
-    throw new Error(
-      "BLOB_READ_WRITE_TOKEN is not configured. Document uploads require Vercel Blob storage.",
-    );
-  }
-
   const created = [];
   for (let i = 0; i < files.length; i++) {
     const file = files[i];
     if (!(file instanceof File) || file.size === 0) continue;
 
-    const pathname =
-      "lands/" +
-      landParcelId +
-      "/" +
-      documentType.toLowerCase() +
-      "/" +
-      Date.now() +
-      "-" +
-      i +
-      "-" +
-      sanitizeFileName(file.name);
-
-    const blob = await put(pathname, file, {
-      access: "public",
-      token,
-      contentType: file.type || undefined,
-    });
-
-    const doc = await db.landDocument.create({
-      data: {
-        landParcelId,
-        documentType,
-        label: labelPrefix ? labelPrefix + " " + (i + 1) : file.name,
-        fileName: file.name,
-        fileUrl: blob.url,
-        mimeType: file.type || "application/octet-stream",
-        fileSize: file.size,
-        uploadedById,
-      },
-    });
-    created.push(doc);
+    const uploaded = await uploadPrivateFile(["lands", landParcelId, documentType.toLowerCase()], file);
+    try {
+      const doc = await db.landDocument.create({
+        data: {
+          landParcelId,
+          documentType,
+          label: labelPrefix ? labelPrefix + " " + (i + 1) : uploaded.fileName,
+          fileName: uploaded.fileName,
+          fileUrl: uploaded.fileUrl,
+          mimeType: uploaded.mimeType,
+          fileSize: uploaded.fileSize,
+          uploadedById,
+        },
+      });
+      created.push(doc);
+    } catch (error) {
+      await deleteBlobUrl(uploaded.fileUrl);
+      throw error;
+    }
   }
   return created;
 }
@@ -95,47 +73,31 @@ async function uploadLandSaleFiles(
   uploadedById: string,
   labelPrefix?: string,
 ) {
-  const token = process.env.BLOB_READ_WRITE_TOKEN;
-  if (!token) {
-    throw new Error(
-      "BLOB_READ_WRITE_TOKEN is not configured. Document uploads require Vercel Blob storage.",
-    );
-  }
-
   for (let i = 0; i < files.length; i++) {
     const file = files[i];
     if (!(file instanceof File) || file.size === 0) continue;
 
-    const pathname =
-      "lands/" +
-      landParcelId +
-      "/sale/" +
-      documentType.toLowerCase() +
-      "/" +
-      Date.now() +
-      "-" +
-      i +
-      "-" +
-      sanitizeFileName(file.name);
-
-    const blob = await put(pathname, file, {
-      access: "public",
-      token,
-      contentType: file.type || undefined,
-    });
-
-    await db.landSaleDocument.create({
-      data: {
-        landSaleId,
-        documentType,
-        label: labelPrefix ? labelPrefix + " " + (i + 1) : file.name,
-        fileName: file.name,
-        fileUrl: blob.url,
-        mimeType: file.type || "application/octet-stream",
-        fileSize: file.size,
-        uploadedById,
-      },
-    });
+    const uploaded = await uploadPrivateFile(
+      ["lands", landParcelId, "sale", documentType.toLowerCase()],
+      file,
+    );
+    try {
+      await db.landSaleDocument.create({
+        data: {
+          landSaleId,
+          documentType,
+          label: labelPrefix ? labelPrefix + " " + (i + 1) : uploaded.fileName,
+          fileName: uploaded.fileName,
+          fileUrl: uploaded.fileUrl,
+          mimeType: uploaded.mimeType,
+          fileSize: uploaded.fileSize,
+          uploadedById,
+        },
+      });
+    } catch (error) {
+      await deleteBlobUrl(uploaded.fileUrl);
+      throw error;
+    }
   }
 }
 
@@ -178,14 +140,25 @@ function parseHoldersJson(raw: string): LandRegisteredHolderInput[] {
     const record = item as Record<string, unknown>;
     const name = String(record.name ?? "").trim();
     if (!name) continue;
+    const ownershipPct = String(record.ownershipPct ?? "").trim() || undefined;
+    if (ownershipPct !== undefined) {
+      const n = Number(ownershipPct);
+      if (!Number.isFinite(n) || n < 0 || n > 100) {
+        throw new Error(`Ownership % for "${name}" must be between 0 and 100.`);
+      }
+    }
     holders.push({
       name,
-      ownershipPct: String(record.ownershipPct ?? "").trim() || undefined,
+      ownershipPct,
       email: String(record.email ?? "").trim() || undefined,
       phone: String(record.phone ?? "").trim() || undefined,
       notes: String(record.notes ?? "").trim() || undefined,
     });
   }
+  assertOwnershipPercentagesValid(
+    holders.map((h) => h.ownershipPct),
+    "Registered holder ownership percentages",
+  );
   return holders;
 }
 
@@ -193,11 +166,11 @@ function formatRegisteredHolderSummary(holders: LandRegisteredHolderInput[]) {
   return holders.map((holder) => holder.name).join(", ") || undefined;
 }
 
-async function replaceLandHolders(landParcelId: string, holders: LandRegisteredHolderInput[]) {
-  await db.landRegisteredHolder.deleteMany({ where: { landParcelId } });
+async function replaceLandHolders(client: DbClient, landParcelId: string, holders: LandRegisteredHolderInput[]) {
+  await client.landRegisteredHolder.deleteMany({ where: { landParcelId } });
   if (holders.length === 0) return;
 
-  await db.landRegisteredHolder.createMany({
+  await client.landRegisteredHolder.createMany({
     data: holders.map((holder, index) => ({
       landParcelId,
       name: holder.name,
@@ -255,13 +228,14 @@ export async function createLand(formData: FormData) {
     throw new Error("You do not have permission to register land.");
   }
 
-  const name = String(formData.get("name") ?? "").trim();
+  const name = parseOrThrow(zRequiredString("Land name"), formData.get("name") ?? "");
   const locationFields = readLandLocationFromForm(formData);
-  const entityId = String(formData.get("entityId") ?? "").trim();
-  const status = String(formData.get("status") ?? "ACTIVE") as AssetStatus;
-
-  if (!name) throw new Error("Land name is required.");
-  if (!entityId) throw new Error("Entity is required.");
+  const entityId = parseOrThrow(zRequiredString("Entity"), formData.get("entityId") ?? "");
+  const status = assertEnumValue(
+    String(formData.get("status") ?? "ACTIVE"),
+    ASSET_STATUS_VALUES,
+    "Status",
+  );
 
   assertStatusNotExited(status);
 
@@ -281,65 +255,75 @@ export async function createLand(formData: FormData) {
   const registeredHolder = formatRegisteredHolderSummary(holders);
   const notes = String(formData.get("notes") ?? "").trim() || undefined;
   const currency = String(formData.get("currency") ?? "OMR").trim() || "OMR";
-  const ownershipPct = parseDecimal(String(formData.get("ownershipPct") ?? "100")) ?? "100";
-  const areaSqm = parseDecimal(String(formData.get("areaSqm") ?? ""));
-  const acquisitionCost = parseDecimal(String(formData.get("acquisitionCost") ?? ""));
-  const currentValue = parseDecimal(String(formData.get("currentValue") ?? ""));
-  const acquisitionDate = parseDate(String(formData.get("acquisitionDate") ?? ""));
+  const ownershipPct =
+    parseOrThrow(zOptionalDecimal("Ownership %", { min: 0, max: 100 }), formData.get("ownershipPct") ?? "100") ??
+    "100";
+  const areaSqm = parseOrThrow(zOptionalDecimal("Area", { min: 0 }), formData.get("areaSqm") ?? "");
+  const acquisitionCost = parseOrThrow(
+    zOptionalDecimal("Acquisition cost", { min: 0 }),
+    formData.get("acquisitionCost") ?? "",
+  );
+  const currentValue = parseOrThrow(zOptionalDecimal("Current value", { min: 0 }), formData.get("currentValue") ?? "");
+  const acquisitionDate = parseOrThrow(zOptionalDate("Acquisition date"), formData.get("acquisitionDate") ?? "");
 
   const location = buildLocation(locationFields, village);
 
-  const asset = await db.asset.create({
-    data: {
-      name,
-      category: "REAL_ESTATE",
-      status,
-      entityId,
-      currency,
-      acquisitionDate,
-      acquisitionCost,
-      currentValue,
-      ownershipPct,
-      description: notes,
-      valueUpdatedAt: currentValue ? new Date() : undefined,
-      realEstate: {
-        create: {
-          plotNumber,
-          location,
-          titleDeed: mulkiaNumber,
-          isEmptyLand: true,
+  const land = await db.$transaction(async (tx) => {
+    const asset = await tx.asset.create({
+      data: {
+        name,
+        category: "REAL_ESTATE",
+        status,
+        entityId,
+        currency,
+        acquisitionDate,
+        acquisitionCost,
+        currentValue,
+        ownershipPct,
+        description: notes,
+        valueUpdatedAt: currentValue ? new Date() : undefined,
+        realEstate: {
+          create: {
+            plotNumber,
+            location,
+            titleDeed: mulkiaNumber,
+            isEmptyLand: true,
+          },
         },
       },
-    },
-  });
+    });
 
-  const land = await db.landParcel.create({
-    data: {
-      name,
-      locationType: locationFields.locationType,
-      country: locationFields.country,
-      governorate: locationFields.governorate,
-      wilayat: locationFields.wilayat,
-      region: locationFields.region,
-      city: locationFields.city,
-      village,
-      plotNumber,
-      krookiNumber,
-      mulkiaNumber,
-      landUse,
-      areaSqm,
-      coordinates,
-      acquisitionDate,
-      acquisitionCost,
-      currentValue,
-      currency,
-      ownershipPct,
-      registeredHolder,
-      status,
-      notes,
-      entityId,
-      assetId: asset.id,
-    },
+    const created = await tx.landParcel.create({
+      data: {
+        name,
+        locationType: locationFields.locationType,
+        country: locationFields.country,
+        governorate: locationFields.governorate,
+        wilayat: locationFields.wilayat,
+        region: locationFields.region,
+        city: locationFields.city,
+        village,
+        plotNumber,
+        krookiNumber,
+        mulkiaNumber,
+        landUse,
+        areaSqm,
+        coordinates,
+        acquisitionDate,
+        acquisitionCost,
+        currentValue,
+        currency,
+        ownershipPct,
+        registeredHolder,
+        status,
+        notes,
+        entityId,
+        assetId: asset.id,
+      },
+    });
+
+    await replaceLandHolders(tx, created.id, holders);
+    return created;
   });
 
   const krookiFiles = getFilesFromFormData(formData, "krookiFiles");
@@ -351,8 +335,6 @@ export async function createLand(formData: FormData) {
     if (mulkiaFiles.length) await uploadLandFiles(land.id, mulkiaFiles, "MULKIA", ctx.id);
     if (otherFiles.length) await uploadLandFiles(land.id, otherFiles, "OTHER", ctx.id, "Other document");
   }
-
-  await replaceLandHolders(land.id, holders);
 
   await logAudit({
     userId: ctx.id,
@@ -407,7 +389,7 @@ export async function uploadLandDocuments(formData: FormData) {
     action: "UPLOAD",
     resource: "LandDocument",
     resourceId: landParcelId,
-    metadata: { documentType, count: files.length },
+    metadata: { documentType, count: files.length, fileNames: files.map((f) => f.name) },
   });
 
   revalidatePath("/lands/" + landParcelId);
@@ -528,13 +510,14 @@ export async function updateLand(id: string, formData: FormData) {
   });
   if (!land) throw new Error("Land parcel not found.");
 
-  const name = String(formData.get("name") ?? "").trim();
+  const name = parseOrThrow(zRequiredString("Land name"), formData.get("name") ?? "");
   const locationFields = readLandLocationFromForm(formData);
-  const entityId = String(formData.get("entityId") ?? "").trim();
-  const status = String(formData.get("status") ?? "ACTIVE") as AssetStatus;
-
-  if (!name) throw new Error("Land name is required.");
-  if (!entityId) throw new Error("Entity is required.");
+  const entityId = parseOrThrow(zRequiredString("Entity"), formData.get("entityId") ?? "");
+  const status = assertEnumValue(
+    String(formData.get("status") ?? "ACTIVE"),
+    ASSET_STATUS_VALUES,
+    "Status",
+  );
 
   assertStatusNotExited(status);
 
@@ -554,69 +537,77 @@ export async function updateLand(id: string, formData: FormData) {
   const registeredHolder = formatRegisteredHolderSummary(holders);
   const notes = String(formData.get("notes") ?? "").trim() || undefined;
   const currency = String(formData.get("currency") ?? "OMR").trim() || "OMR";
-  const ownershipPct = parseDecimal(String(formData.get("ownershipPct") ?? "100")) ?? "100";
-  const areaSqm = parseDecimal(String(formData.get("areaSqm") ?? ""));
-  const acquisitionCost = parseDecimal(String(formData.get("acquisitionCost") ?? ""));
-  const currentValue = parseDecimal(String(formData.get("currentValue") ?? ""));
-  const acquisitionDate = parseDate(String(formData.get("acquisitionDate") ?? ""));
+  const ownershipPct =
+    parseOrThrow(zOptionalDecimal("Ownership %", { min: 0, max: 100 }), formData.get("ownershipPct") ?? "100") ??
+    "100";
+  const areaSqm = parseOrThrow(zOptionalDecimal("Area", { min: 0 }), formData.get("areaSqm") ?? "");
+  const acquisitionCost = parseOrThrow(
+    zOptionalDecimal("Acquisition cost", { min: 0 }),
+    formData.get("acquisitionCost") ?? "",
+  );
+  const currentValue = parseOrThrow(zOptionalDecimal("Current value", { min: 0 }), formData.get("currentValue") ?? "");
+  const acquisitionDate = parseOrThrow(zOptionalDate("Acquisition date"), formData.get("acquisitionDate") ?? "");
 
   const location = buildLocation(locationFields, village);
 
-  const updated = await db.landParcel.update({
-    where: { id },
-    data: {
-      name,
-      locationType: locationFields.locationType,
-      country: locationFields.country,
-      governorate: locationFields.governorate,
-      wilayat: locationFields.wilayat,
-      region: locationFields.region,
-      city: locationFields.city,
-      village,
-      plotNumber,
-      krookiNumber,
-      mulkiaNumber,
-      landUse,
-      areaSqm,
-      coordinates,
-      acquisitionDate,
-      acquisitionCost,
-      currentValue,
-      currency,
-      ownershipPct,
-      registeredHolder,
-      status,
-      notes,
-      entityId,
-    },
-  });
-
-  if (land.assetId) {
-    await db.asset.update({
-      where: { id: land.assetId },
+  const updated = await db.$transaction(async (tx) => {
+    const result = await tx.landParcel.update({
+      where: { id },
       data: {
         name,
-        status,
-        entityId,
-        currency,
+        locationType: locationFields.locationType,
+        country: locationFields.country,
+        governorate: locationFields.governorate,
+        wilayat: locationFields.wilayat,
+        region: locationFields.region,
+        city: locationFields.city,
+        village,
+        plotNumber,
+        krookiNumber,
+        mulkiaNumber,
+        landUse,
+        areaSqm,
+        coordinates,
         acquisitionDate,
         acquisitionCost,
         currentValue,
+        currency,
         ownershipPct,
-        description: notes,
-        valueUpdatedAt: currentValue ? new Date() : land.asset?.valueUpdatedAt,
-        realEstate: {
-          update: {
-            plotNumber,
-            location,
-            titleDeed: mulkiaNumber,
-          },
-        },
+        registeredHolder,
+        status,
+        notes,
+        entityId,
       },
     });
-  }
 
-  await replaceLandHolders(id, holders);
+    if (land.assetId) {
+      await tx.asset.update({
+        where: { id: land.assetId },
+        data: {
+          name,
+          status,
+          entityId,
+          currency,
+          acquisitionDate,
+          acquisitionCost,
+          currentValue,
+          ownershipPct,
+          description: notes,
+          valueUpdatedAt: currentValue ? new Date() : land.asset?.valueUpdatedAt,
+          realEstate: {
+            update: {
+              plotNumber,
+              location,
+              titleDeed: mulkiaNumber,
+            },
+          },
+        },
+      });
+    }
+
+    await replaceLandHolders(tx, id, holders);
+    return result;
+  });
 
   await logAudit({
     userId: ctx.id,
@@ -639,19 +630,15 @@ export async function recordLandSale(formData: FormData) {
     throw new Error("You do not have permission to record land sales.");
   }
 
-  const landParcelId = String(formData.get("landParcelId") ?? "").trim();
-  const soldTo = String(formData.get("soldTo") ?? "").trim();
-  const saleDateRaw = String(formData.get("saleDate") ?? "").trim();
-  const saleAmount = String(formData.get("saleAmount") ?? "").trim();
+  const landParcelId = parseOrThrow(zRequiredString("Land parcel"), formData.get("landParcelId") ?? "");
+  const soldTo = parseOrThrow(zRequiredString("Buyer name"), formData.get("soldTo") ?? "");
+  const saleDate = parseOrThrow(zRequiredDate("Sale date"), formData.get("saleDate") ?? "");
+  const saleAmount = parseOrThrow(
+    zRequiredDecimal("Sale amount", { min: 0 }),
+    formData.get("saleAmount") ?? "",
+  );
   const currency = String(formData.get("currency") ?? "OMR").trim() || "OMR";
   const notes = String(formData.get("notes") ?? "").trim() || undefined;
-
-  if (!landParcelId) throw new Error("Land parcel is required.");
-  if (!soldTo) throw new Error("Buyer name is required.");
-  if (!saleDateRaw) throw new Error("Sale date is required.");
-  if (!saleAmount || Number.isNaN(parseFloat(saleAmount))) {
-    throw new Error("A valid sale amount is required.");
-  }
 
   const land = await db.landParcel.findFirst({
     where: { id: landParcelId, ...landEntityFilter(ctx) },
@@ -660,8 +647,8 @@ export async function recordLandSale(formData: FormData) {
   if (!land) throw new Error("Land parcel not found.");
   if (land.sale) throw new Error("This land parcel already has a recorded sale.");
 
-  const saleDate = new Date(saleDateRaw);
-
+  // The exit-record path below runs its own transaction against the asset, so the
+  // sale row and the (non-asset-linked) status flip are grouped separately here.
   const sale = await db.landSale.create({
     data: {
       landParcelId,
@@ -771,7 +758,7 @@ export async function uploadLandSaleDocuments(formData: FormData) {
     action: "UPLOAD",
     resource: "LandSaleDocument",
     resourceId: land.sale.id,
-    metadata: { documentType, count: files.length },
+    metadata: { documentType, count: files.length, fileNames: files.map((f) => f.name) },
   });
 
   revalidatePath("/lands/" + landParcelId);
@@ -798,7 +785,7 @@ export async function deleteLandSaleDocument(id: string) {
     action: "DELETE",
     resource: "LandSaleDocument",
     resourceId: id,
-    metadata: { landParcelId: document.landSale.landParcelId },
+    metadata: { landParcelId: document.landSale.landParcelId, fileName: document.fileName },
   });
 
   revalidatePath("/lands/" + document.landSale.landParcelId);

@@ -1,14 +1,16 @@
 "use server";
 
-import { put } from "@vercel/blob";
 import { revalidatePath } from "next/cache";
 import { db } from "@/lib/db";
-import { deleteBlobUrl } from "@/lib/blob";
+import { deleteBlobUrl, uploadPrivateFile } from "@/lib/blob";
 import { logAudit } from "@/lib/audit/log";
 import { createExpenseType, resolveExpenseType } from "@/lib/data/expense-types";
 import { canWrite, requireModuleAccess } from "@/lib/permissions/access";
 import { expenseEntityFilter } from "@/lib/permissions/scoped-queries";
+import { assertEnumValue, parseOrThrow, zOptionalDate, zRequiredDecimal, zRequiredString } from "@/lib/validation/primitives";
 import type { ExpenseAttachmentType, ExpenseStatus } from "@/lib/generated/prisma/client";
+
+const EXPENSE_STATUS_VALUES = ["PAID", "PENDING", "OVERDUE"] as const satisfies readonly ExpenseStatus[];
 
 export type CreateExpenseInput = {
   title: string;
@@ -20,10 +22,6 @@ export type CreateExpenseInput = {
   isRecurring: boolean;
   entityId?: string;
 };
-
-function sanitizeFileName(name: string) {
-  return name.replace(/[^a-zA-Z0-9._-]/g, "_");
-}
 
 function getFilesFromFormData(formData: FormData, field: string): File[] {
   return formData
@@ -38,63 +36,43 @@ async function uploadExpenseFiles(
   uploadedById: string,
   labelPrefix?: string,
 ) {
-  const token = process.env.BLOB_READ_WRITE_TOKEN;
-  if (!token) {
-    throw new Error(
-      "BLOB_READ_WRITE_TOKEN is not configured. Document uploads require Vercel Blob storage.",
-    );
-  }
-
   for (let i = 0; i < files.length; i++) {
     const file = files[i];
     if (!(file instanceof File) || file.size === 0) continue;
 
-    const pathname =
-      "expenses/" +
-      expenseId +
-      "/" +
-      attachmentType.toLowerCase() +
-      "/" +
-      Date.now() +
-      "-" +
-      i +
-      "-" +
-      sanitizeFileName(file.name);
-
-    const blob = await put(pathname, file, {
-      access: "public",
-      token,
-      contentType: file.type || undefined,
-    });
-
-    await db.expenseAttachment.create({
-      data: {
-        expenseId,
-        attachmentType,
-        label: labelPrefix ? labelPrefix + " " + (i + 1) : file.name,
-        fileName: file.name,
-        fileUrl: blob.url,
-        mimeType: file.type || "application/octet-stream",
-        fileSize: file.size,
-        uploadedById,
-      },
-    });
+    const uploaded = await uploadPrivateFile(
+      ["expenses", expenseId, attachmentType.toLowerCase()],
+      file,
+    );
+    try {
+      await db.expenseAttachment.create({
+        data: {
+          expenseId,
+          attachmentType,
+          label: labelPrefix ? labelPrefix + " " + (i + 1) : uploaded.fileName,
+          fileName: uploaded.fileName,
+          fileUrl: uploaded.fileUrl,
+          mimeType: uploaded.mimeType,
+          fileSize: uploaded.fileSize,
+          uploadedById,
+        },
+      });
+    } catch (error) {
+      await deleteBlobUrl(uploaded.fileUrl);
+      throw error;
+    }
   }
 }
 
 function readExpenseFields(formData: FormData) {
-  const title = String(formData.get("title") ?? "").trim();
-  const amount = String(formData.get("amount") ?? "").trim();
+  const title = parseOrThrow(zRequiredString("Title"), formData.get("title") ?? "");
+  const amount = parseOrThrow(zRequiredDecimal("Amount", { min: 0.01 }), formData.get("amount") ?? "");
   const currency = String(formData.get("currency") ?? "OMR").trim() || "OMR";
-  const expenseTypeId = String(formData.get("expenseTypeId") ?? "").trim();
-  const status = String(formData.get("status") ?? "PENDING") as ExpenseStatus;
-  const dueDateRaw = String(formData.get("dueDate") ?? "").trim();
+  const expenseTypeId = parseOrThrow(zRequiredString("Expense type"), formData.get("expenseTypeId") ?? "");
+  const status = assertEnumValue(String(formData.get("status") ?? "PENDING"), EXPENSE_STATUS_VALUES, "Status");
+  const dueDate = parseOrThrow(zOptionalDate("Due date"), formData.get("dueDate") ?? "");
   const entityIdRaw = String(formData.get("entityId") ?? "").trim();
   const isRecurring = formData.get("isRecurring") === "true" || formData.get("isRecurring") === "on";
-
-  if (!title) throw new Error("Title is required.");
-  if (!amount || Number.isNaN(parseFloat(amount))) throw new Error("A valid amount is required.");
-  if (!expenseTypeId) throw new Error("Expense type is required.");
 
   return {
     title,
@@ -102,7 +80,7 @@ function readExpenseFields(formData: FormData) {
     currency,
     expenseTypeId,
     status,
-    dueDate: dueDateRaw ? new Date(dueDateRaw) : undefined,
+    dueDate,
     entityId: entityIdRaw || undefined,
     isRecurring,
   };
@@ -265,7 +243,7 @@ export async function uploadExpenseAttachments(formData: FormData) {
     action: "UPLOAD",
     resource: "ExpenseAttachment",
     resourceId: expenseId,
-    metadata: { attachmentType, count: files.length },
+    metadata: { attachmentType, count: files.length, fileNames: files.map((f) => f.name) },
   });
 
   revalidatePath("/expenses/" + expenseId);
@@ -291,7 +269,7 @@ export async function deleteExpenseAttachment(id: string) {
     action: "DELETE",
     resource: "ExpenseAttachment",
     resourceId: id,
-    metadata: { expenseId: attachment.expenseId },
+    metadata: { expenseId: attachment.expenseId, fileName: attachment.fileName },
   });
 
   revalidatePath("/expenses/" + attachment.expenseId);
@@ -341,10 +319,8 @@ export async function updateExpense(id: string, input: CreateExpenseInput) {
 
   assertEntityAccess(ctx, input.entityId);
 
-  const amount = input.amount.trim();
-  if (!amount || Number.isNaN(parseFloat(amount))) {
-    throw new Error("A valid amount is required.");
-  }
+  const amount = parseOrThrow(zRequiredDecimal("Amount", { min: 0.01 }), input.amount);
+  const status = assertEnumValue(input.status, EXPENSE_STATUS_VALUES, "Status");
 
   const expenseType = await resolveExpenseType(input.expenseTypeId);
 
@@ -356,7 +332,7 @@ export async function updateExpense(id: string, input: CreateExpenseInput) {
       currency: input.currency || "OMR",
       category: expenseType.name,
       expenseTypeId: expenseType.id,
-      status: input.status,
+      status,
       dueDate: input.dueDate ? new Date(input.dueDate) : null,
       isRecurring: input.isRecurring,
       entityId: input.entityId || null,

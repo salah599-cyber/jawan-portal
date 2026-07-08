@@ -7,6 +7,7 @@ import { RecordLandSaleForm } from "@/components/lands/record-land-sale-form";
 import { AssetExitSummary } from "@/components/assets/asset-exit-summary";
 import { UploadLandSaleDocumentsForm } from "@/components/lands/upload-land-sale-documents-form";
 import { deleteLandDocument, deleteLandSaleDocument } from "@/lib/actions/lands";
+import { fileHref, type FileKind } from "@/lib/files/href";
 import {
   ASSET_STATUS_LABELS,
   LAND_LOCATION_TYPE_LABELS,
@@ -262,6 +263,7 @@ export function LandDetailContent({
       {(["KROOKI", "MULKIA", "OTHER"] as const).map((type) => (
         <DocumentSection
           key={type}
+          kind="land"
           title={docLabels[type]}
           documents={docsByType[type]}
           showActions={showActions}
@@ -273,6 +275,7 @@ export function LandDetailContent({
         ? (["POWER_OF_ATTORNEY", "SPA", "BUYER_ID", "OTHER"] as const).map((type) => (
             <DocumentSection
               key={"sale-" + type}
+              kind="land-sale"
               title={LAND_SALE_DOCUMENT_TYPE_LABELS[type]}
               documents={saleDocsByType[type]}
               showActions={showActions}
@@ -300,11 +303,13 @@ export function LandDetailContent({
 }
 
 function DocumentSection({
+  kind,
   title,
   documents,
   showActions,
   deleteAction,
 }: {
+  kind: FileKind;
   title: string;
   documents: LandDetailData["documents"];
   showActions: boolean;
@@ -333,12 +338,12 @@ function DocumentSection({
                 </div>
                 <div className="flex shrink-0 items-center gap-1">
                   <Button variant="outline" size="sm" asChild>
-                    <a href={doc.fileUrl} target="_blank" rel="noopener noreferrer">
+                    <a href={fileHref(kind, doc.id)} target="_blank" rel="noopener noreferrer">
                       Open
                     </a>
                   </Button>
                   <Button variant="outline" size="sm" asChild>
-                    <a href={doc.fileUrl} download={doc.fileName}>
+                    <a href={fileHref(kind, doc.id)} download={doc.fileName}>
                       Download
                     </a>
                   </Button>

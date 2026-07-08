@@ -15,15 +15,15 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <ClerkProvider>
-      <html lang="en" className={`${geistSans.variable} ${geistMono.variable} h-full`}>
-        <body className="min-h-full font-sans antialiased">
+    <html lang="en" className={`${geistSans.variable} ${geistMono.variable} h-full`}>
+      <body className="min-h-full font-sans antialiased">
+        <ClerkProvider dynamic>
           <TooltipProvider>
             {children}
             <Toaster />
           </TooltipProvider>
-        </body>
-      </html>
-    </ClerkProvider>
+        </ClerkProvider>
+      </body>
+    </html>
   );
 }

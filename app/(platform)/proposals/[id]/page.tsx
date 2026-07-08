@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { forbidden, notFound } from "next/navigation";
+import { notFound } from "next/navigation";
 import { PlatformHeader } from "@/components/platform/platform-header";
 import { DeleteEntryButton } from "@/components/platform/delete-entry-button";
 import { EditLinkButton } from "@/components/platform/edit-link-button";
@@ -7,6 +7,7 @@ import { ProposalApproverPanel } from "@/components/proposals/proposal-approver-
 import { ProposalCommentThread } from "@/components/proposals/proposal-comment-thread";
 import { ProposalStatusBadge } from "@/components/proposals/proposal-status-badge";
 import { deleteProposal, getProposal } from "@/lib/actions/proposals";
+import { fileHref } from "@/lib/files/href";
 import { canSubmitProposal } from "@/lib/proposals/submit-access";
 import { formatUserName } from "@/lib/proposals/users";
 import { requireModuleAccess, requireUserContext } from "@/lib/permissions/access";
@@ -106,7 +107,7 @@ export default async function ProposalDetailPage({ params }: { params: Promise<{
                   <p className="text-sm text-muted-foreground">Uploaded {formatDate(deck.createdAt)}</p>
                 </div>
                 <Button variant="outline" size="sm" asChild>
-                  <a href={deck.fileUrl} target="_blank" rel="noopener noreferrer">Open Deck</a>
+                  <a href={fileHref("proposal", deck.id)} target="_blank" rel="noopener noreferrer">Open Deck</a>
                 </Button>
               </div>
             ) : (

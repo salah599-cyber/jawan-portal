@@ -31,12 +31,12 @@ export function LandDetailSheet({
 
   useEffect(() => {
     if (!open || !landId) {
-      setLand(null);
-      setError(null);
       return;
     }
 
     startTransition(async () => {
+      setLand(null);
+      setError(null);
       try {
         const data = await getLand(landId);
         if (!data) {

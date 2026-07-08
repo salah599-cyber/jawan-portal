@@ -1,31 +1,34 @@
 "use server";
 
-import { put } from "@vercel/blob";
 import { revalidatePath } from "next/cache";
 import { db } from "@/lib/db";
-import { deleteBlobUrl } from "@/lib/blob";
+import { deleteBlobUrl, uploadPrivateFile } from "@/lib/blob";
 import { logAudit } from "@/lib/audit/log";
 import { canWrite, requireModuleAccess } from "@/lib/permissions/access";
 import { chequeEntityFilter } from "@/lib/permissions/scoped-queries";
+import {
+  assertEnumValue,
+  parseOrThrow,
+  zOptionalDate,
+  zRequiredDate,
+  zRequiredDecimal,
+  zRequiredString,
+} from "@/lib/validation/primitives";
 import type {
   ChequeDirection,
   ChequeDocumentType,
   ChequeStatus,
 } from "@/lib/generated/prisma/client";
 
-function parseDate(value?: string | null) {
-  if (!value || value.trim() === "") return undefined;
-  return new Date(value);
-}
-
-function parseDecimal(value?: string | null) {
-  if (!value || value.trim() === "") return undefined;
-  return value.trim();
-}
-
-function sanitizeFileName(name: string) {
-  return name.replace(/[^a-zA-Z0-9._-]/g, "_");
-}
+const CHEQUE_DIRECTION_VALUES = ["ISSUED", "RECEIVED"] as const satisfies readonly ChequeDirection[];
+const CHEQUE_STATUS_VALUES = [
+  "PENDING",
+  "DEPOSITED",
+  "CLEARED",
+  "BOUNCED",
+  "CANCELLED",
+  "STOPPED",
+] as const satisfies readonly ChequeStatus[];
 
 function getFilesFromFormData(formData: FormData, field: string): File[] {
   return formData
@@ -45,26 +48,20 @@ function assertEntityAccess(
 }
 
 function readChequeFormData(formData: FormData) {
-  const direction = String(formData.get("direction") ?? "ISSUED") as ChequeDirection;
-  const status = String(formData.get("status") ?? "PENDING") as ChequeStatus;
-  const chequeNumber = String(formData.get("chequeNumber") ?? "").trim();
-  const entityId = String(formData.get("entityId") ?? "").trim();
-  const amount = parseDecimal(String(formData.get("amount") ?? ""));
+  const direction = assertEnumValue(
+    String(formData.get("direction") ?? "ISSUED"),
+    CHEQUE_DIRECTION_VALUES,
+    "Direction",
+  );
+  const status = assertEnumValue(String(formData.get("status") ?? "PENDING"), CHEQUE_STATUS_VALUES, "Status");
+  const chequeNumber = parseOrThrow(zRequiredString("Cheque number"), formData.get("chequeNumber") ?? "");
+  const entityId = parseOrThrow(zRequiredString("Entity"), formData.get("entityId") ?? "");
+  const amount = parseOrThrow(zRequiredDecimal("Amount", { min: 0.01 }), formData.get("amount") ?? "");
   const bankAccountIdRaw = String(formData.get("bankAccountId") ?? "").trim();
-  const issueDateRaw = String(formData.get("issueDate") ?? "").trim();
+  const payee = parseOrThrow(zRequiredString("Payee / payer name"), formData.get("payee") ?? "");
+  const issueDate = parseOrThrow(zRequiredDate("Issue date"), formData.get("issueDate") ?? "");
 
-  if (!chequeNumber) throw new Error("Cheque number is required.");
-  if (!entityId) throw new Error("Entity is required.");
-  if (!amount) throw new Error("Amount is required.");
-  if (!issueDateRaw) throw new Error("Issue date is required.");
-
-  const payee = String(formData.get("payee") ?? "").trim();
-  if (!payee) throw new Error("Payee / payer name is required.");
-
-  const issueDate = parseDate(issueDateRaw);
-  if (!issueDate) throw new Error("Issue date is invalid.");
-
-  const clearanceDate = parseDate(String(formData.get("clearanceDate") ?? ""));
+  const clearanceDate = parseOrThrow(zOptionalDate("Clearance date"), formData.get("clearanceDate") ?? "");
   if (status === "CLEARED" && !clearanceDate) {
     throw new Error("Clearance date is required when status is Cleared.");
   }
@@ -78,7 +75,7 @@ function readChequeFormData(formData: FormData) {
     currency: String(formData.get("currency") ?? "OMR").trim() || "OMR",
     payee,
     issueDate,
-    dueDate: parseDate(String(formData.get("dueDate") ?? "")),
+    dueDate: parseOrThrow(zOptionalDate("Due date"), formData.get("dueDate") ?? ""),
     clearanceDate: status === "CLEARED" ? clearanceDate : clearanceDate ?? null,
     bankName: String(formData.get("bankName") ?? "").trim() || undefined,
     bankAccountId: bankAccountIdRaw && bankAccountIdRaw !== "none" ? bankAccountIdRaw : undefined,
@@ -94,47 +91,28 @@ async function uploadChequeFiles(
   uploadedById: string,
   labelPrefix?: string,
 ) {
-  const token = process.env.BLOB_READ_WRITE_TOKEN;
-  if (!token) {
-    throw new Error(
-      "BLOB_READ_WRITE_TOKEN is not configured. Document uploads require Vercel Blob storage.",
-    );
-  }
-
   for (let i = 0; i < files.length; i++) {
     const file = files[i];
     if (!(file instanceof File) || file.size === 0) continue;
 
-    const pathname =
-      "cheques/" +
-      chequeId +
-      "/" +
-      documentType.toLowerCase() +
-      "/" +
-      Date.now() +
-      "-" +
-      i +
-      "-" +
-      sanitizeFileName(file.name);
-
-    const blob = await put(pathname, file, {
-      access: "public",
-      token,
-      contentType: file.type || undefined,
-    });
-
-    await db.chequeDocument.create({
-      data: {
-        chequeId,
-        documentType,
-        label: labelPrefix ? labelPrefix + " " + (i + 1) : file.name,
-        fileName: file.name,
-        fileUrl: blob.url,
-        mimeType: file.type || "application/octet-stream",
-        fileSize: file.size,
-        uploadedById,
-      },
-    });
+    const uploaded = await uploadPrivateFile(["cheques", chequeId, documentType.toLowerCase()], file);
+    try {
+      await db.chequeDocument.create({
+        data: {
+          chequeId,
+          documentType,
+          label: labelPrefix ? labelPrefix + " " + (i + 1) : uploaded.fileName,
+          fileName: uploaded.fileName,
+          fileUrl: uploaded.fileUrl,
+          mimeType: uploaded.mimeType,
+          fileSize: uploaded.fileSize,
+          uploadedById,
+        },
+      });
+    } catch (error) {
+      await deleteBlobUrl(uploaded.fileUrl);
+      throw error;
+    }
   }
 }
 
@@ -308,7 +286,7 @@ export async function uploadChequeDocuments(formData: FormData) {
     action: "UPLOAD",
     resource: "ChequeDocument",
     resourceId: chequeId,
-    metadata: { documentType, count: files.length },
+    metadata: { documentType, count: files.length, fileNames: files.map((f) => f.name) },
   });
 
   revalidatePath("/cheques/" + chequeId);
@@ -381,7 +359,7 @@ export async function deleteChequeDocument(id: string) {
     action: "DELETE",
     resource: "ChequeDocument",
     resourceId: id,
-    metadata: { chequeId: document.chequeId },
+    metadata: { chequeId: document.chequeId, fileName: document.fileName },
   });
 
   revalidatePath("/cheques/" + document.chequeId);

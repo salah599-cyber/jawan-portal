@@ -7,6 +7,7 @@ import { UploadCarDocumentsForm } from "@/components/cars/upload-car-documents-f
 import { AssetExitSummary } from "@/components/assets/asset-exit-summary";
 import { RecordAssetExitForm } from "@/components/assets/record-asset-exit-form";
 import { getCar, deleteCar, deleteCarDocument } from "@/lib/actions/cars";
+import { fileHref } from "@/lib/files/href";
 import { canWrite, requireModuleAccess } from "@/lib/permissions/access";
 import {
   ASSET_STATUS_LABELS,
@@ -140,7 +141,7 @@ export default async function CarDetailPage({ params }: { params: Promise<{ id: 
                         </p>
                       </div>
                       <Button variant="outline" size="sm" asChild>
-                        <a href={doc.fileUrl} target="_blank" rel="noopener noreferrer">
+                        <a href={fileHref("vehicle", doc.id)} target="_blank" rel="noopener noreferrer">
                           Open
                         </a>
                       </Button>

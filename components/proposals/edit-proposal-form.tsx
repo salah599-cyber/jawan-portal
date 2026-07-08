@@ -11,6 +11,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { EntitySelect } from "@/components/platform/entity-select";
 import { ApproverSelect, type ApproverOption } from "@/components/proposals/approver-select";
+import { ALLOWED_UPLOAD_ACCEPT } from "@/lib/upload-limits";
 
 type ProposalRecord = {
   id: string;
@@ -130,7 +131,7 @@ export function EditProposalForm({
           </div>
           <div className="space-y-2 md:col-span-2">
             <Label htmlFor="deckFiles">Investment Deck</Label>
-            <Input id="deckFiles" name="deckFiles" type="file" accept=".pdf,.ppt,.pptx,.doc,.docx" />
+            <Input id="deckFiles" name="deckFiles" type="file" accept={ALLOWED_UPLOAD_ACCEPT} />
             <p className="text-xs text-muted-foreground">
               {hasDeck
                 ? "Upload a new file to replace the current deck. Required when submitting."

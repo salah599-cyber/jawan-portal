@@ -14,6 +14,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { EntitySelect } from "@/components/platform/entity-select";
+import { ALLOWED_UPLOAD_ACCEPT } from "@/lib/upload-limits";
 
 type BankAccountOption = {
   id: string;
@@ -28,7 +29,7 @@ function FileSection({ id, name, label, description }: { id: string; name: strin
   return (
     <div className="space-y-2 md:col-span-2">
       <Label htmlFor={id}>{label}</Label>
-      <Input id={id} name={name} type="file" multiple accept=".pdf,.jpg,.jpeg,.png,.webp,.doc,.docx" />
+      <Input id={id} name={name} type="file" multiple accept={ALLOWED_UPLOAD_ACCEPT} />
       <p className="text-xs text-muted-foreground">{description}</p>
     </div>
   );

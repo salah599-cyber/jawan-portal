@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { DeleteEntryButton } from "@/components/platform/delete-entry-button";
 import { deleteAssetExitDocument } from "@/lib/actions/asset-exits";
+import { fileHref } from "@/lib/files/href";
 import { ASSET_EXIT_DOCUMENT_TYPE_LABELS, EXIT_TYPE_LABELS } from "@/lib/labels";
 import { formatMoney, formatDate } from "@/lib/format";
 import { Badge } from "@/components/ui/badge";
@@ -100,7 +101,7 @@ export function AssetExitSummary({
                     </div>
                     <div className="flex shrink-0 gap-1">
                       <Button variant="outline" size="sm" asChild>
-                        <a href={doc.fileUrl} target="_blank" rel="noopener noreferrer">Open</a>
+                        <a href={fileHref("asset-exit", doc.id)} target="_blank" rel="noopener noreferrer">Open</a>
                       </Button>
                       {showActions ? (
                         <DeleteEntryButton

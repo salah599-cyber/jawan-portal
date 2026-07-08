@@ -1,14 +1,22 @@
 "use server";
 
-import { put } from "@vercel/blob";
 import { assertStatusNotExited } from "@/lib/assets/status";
 import { revalidatePath } from "next/cache";
-import { db } from "@/lib/db";
-import { deleteBlobUrl } from "@/lib/blob";
+import { db, type DbClient } from "@/lib/db";
+import { deleteBlobUrl, uploadPrivateFile } from "@/lib/blob";
 import { logAudit } from "@/lib/audit/log";
 import { canWrite, requireModuleAccess } from "@/lib/permissions/access";
 import { companyEntityFilter } from "@/lib/permissions/scoped-queries";
+import {
+  assertEnumValue,
+  assertOwnershipPercentagesValid,
+  parseOrThrow,
+  zOptionalDate,
+  zRequiredString,
+} from "@/lib/validation/primitives";
 import type { AssetStatus, CompanyDocumentType } from "@/lib/generated/prisma/client";
+
+const ASSET_STATUS_VALUES = ["ACTIVE", "MONITOR", "EXITED", "DEFERRED"] as const satisfies readonly AssetStatus[];
 
 export type CompanyOwnerInput = {
   name: string;
@@ -18,15 +26,6 @@ export type CompanyOwnerInput = {
   address?: string;
   notes?: string;
 };
-
-function parseDate(value?: string | null) {
-  if (!value || value.trim() === "") return undefined;
-  return new Date(value);
-}
-
-function sanitizeFileName(name: string) {
-  return name.replace(/[^a-zA-Z0-9._-]/g, "_");
-}
 
 function getFilesFromFormData(formData: FormData, field: string): File[] {
   return formData
@@ -50,15 +49,26 @@ function parseOwnersJson(raw: string): CompanyOwnerInput[] {
     const record = item as Record<string, unknown>;
     const name = String(record.name ?? "").trim();
     if (!name) continue;
+    const ownershipPct = String(record.ownershipPct ?? "").trim() || undefined;
+    if (ownershipPct !== undefined) {
+      const n = Number(ownershipPct);
+      if (!Number.isFinite(n) || n < 0 || n > 100) {
+        throw new Error(`Ownership % for "${name}" must be between 0 and 100.`);
+      }
+    }
     owners.push({
       name,
-      ownershipPct: String(record.ownershipPct ?? "").trim() || undefined,
+      ownershipPct,
       email: String(record.email ?? "").trim() || undefined,
       phone: String(record.phone ?? "").trim() || undefined,
       address: String(record.address ?? "").trim() || undefined,
       notes: String(record.notes ?? "").trim() || undefined,
     });
   }
+  assertOwnershipPercentagesValid(
+    owners.map((o) => o.ownershipPct),
+    "Owner ownership percentages",
+  );
   return owners;
 }
 
@@ -80,55 +90,36 @@ async function uploadCompanyFiles(
   uploadedById: string,
   labelPrefix?: string,
 ) {
-  const token = process.env.BLOB_READ_WRITE_TOKEN;
-  if (!token) {
-    throw new Error(
-      "BLOB_READ_WRITE_TOKEN is not configured. Document uploads require Vercel Blob storage.",
-    );
-  }
-
   for (let i = 0; i < files.length; i++) {
     const file = files[i];
     if (!(file instanceof File) || file.size === 0) continue;
 
-    const pathname =
-      "companies/" +
-      companyId +
-      "/" +
-      documentType.toLowerCase() +
-      "/" +
-      Date.now() +
-      "-" +
-      i +
-      "-" +
-      sanitizeFileName(file.name);
-
-    const blob = await put(pathname, file, {
-      access: "public",
-      token,
-      contentType: file.type || undefined,
-    });
-
-    await db.companyDocument.create({
-      data: {
-        companyId,
-        documentType,
-        label: labelPrefix ? labelPrefix + " " + (i + 1) : file.name,
-        fileName: file.name,
-        fileUrl: blob.url,
-        mimeType: file.type || "application/octet-stream",
-        fileSize: file.size,
-        uploadedById,
-      },
-    });
+    const uploaded = await uploadPrivateFile(["companies", companyId, documentType.toLowerCase()], file);
+    try {
+      await db.companyDocument.create({
+        data: {
+          companyId,
+          documentType,
+          label: labelPrefix ? labelPrefix + " " + (i + 1) : uploaded.fileName,
+          fileName: uploaded.fileName,
+          fileUrl: uploaded.fileUrl,
+          mimeType: uploaded.mimeType,
+          fileSize: uploaded.fileSize,
+          uploadedById,
+        },
+      });
+    } catch (error) {
+      await deleteBlobUrl(uploaded.fileUrl);
+      throw error;
+    }
   }
 }
 
-async function replaceOwners(companyId: string, owners: CompanyOwnerInput[]) {
-  await db.companyOwner.deleteMany({ where: { companyId } });
+async function replaceOwners(client: DbClient, companyId: string, owners: CompanyOwnerInput[]) {
+  await client.companyOwner.deleteMany({ where: { companyId } });
   if (owners.length === 0) return;
 
-  await db.companyOwner.createMany({
+  await client.companyOwner.createMany({
     data: owners.map((owner, index) => ({
       companyId,
       name: owner.name,
@@ -143,22 +134,24 @@ async function replaceOwners(companyId: string, owners: CompanyOwnerInput[]) {
 }
 
 function readCompanyFormData(formData: FormData) {
-  const name = String(formData.get("name") ?? "").trim();
-  const registrationNumber = String(formData.get("registrationNumber") ?? "").trim();
-  const entityId = String(formData.get("entityId") ?? "").trim();
-  const status = String(formData.get("status") ?? "ACTIVE") as AssetStatus;
-
-  if (!name) throw new Error("Company name is required.");
-  if (!registrationNumber) throw new Error("Registration number is required.");
-  if (!entityId) throw new Error("Entity is required.");
+  const name = parseOrThrow(zRequiredString("Company name"), formData.get("name") ?? "");
+  const registrationNumber = parseOrThrow(
+    zRequiredString("Registration number"),
+    formData.get("registrationNumber") ?? "",
+  );
+  const entityId = parseOrThrow(zRequiredString("Entity"), formData.get("entityId") ?? "");
+  const status = assertEnumValue(String(formData.get("status") ?? "ACTIVE"), ASSET_STATUS_VALUES, "Status");
 
   assertStatusNotExited(status);
 
   return {
     name,
     registrationNumber,
-    registrationDate: parseDate(String(formData.get("registrationDate") ?? "")),
-    registrationExpiryDate: parseDate(String(formData.get("registrationExpiryDate") ?? "")),
+    registrationDate: parseOrThrow(zOptionalDate("Registration date"), formData.get("registrationDate") ?? ""),
+    registrationExpiryDate: parseOrThrow(
+      zOptionalDate("Registration expiry date"),
+      formData.get("registrationExpiryDate") ?? "",
+    ),
     ceoName: String(formData.get("ceoName") ?? "").trim() || undefined,
     ceoEmail: String(formData.get("ceoEmail") ?? "").trim() || undefined,
     ceoPhone: String(formData.get("ceoPhone") ?? "").trim() || undefined,
@@ -182,49 +175,52 @@ export async function createCompany(formData: FormData) {
   const data = readCompanyFormData(formData);
   assertEntityAccess(ctx, data.entityId);
 
-  const asset = await db.asset.create({
-    data: {
-      name: data.name,
-      category: "PRIVATE_EQUITY",
-      status: data.status,
-      entityId: data.entityId,
-      description: "Registration " + data.registrationNumber,
-      managerName: data.ceoName,
-      managerEmail: data.ceoEmail,
-      managerPhone: data.ceoPhone,
-      managerNotes: data.managementNotes,
-      privateEquity: {
-        create: {
-          registeredHolder: data.owners.map((o) => o.name).join(", ") || undefined,
-          contactName: data.managementContactName,
-          contactEmail: data.managementEmail,
-          contactPhone: data.managementPhone,
+  const company = await db.$transaction(async (tx) => {
+    const asset = await tx.asset.create({
+      data: {
+        name: data.name,
+        category: "PRIVATE_EQUITY",
+        status: data.status,
+        entityId: data.entityId,
+        description: "Registration " + data.registrationNumber,
+        managerName: data.ceoName,
+        managerEmail: data.ceoEmail,
+        managerPhone: data.ceoPhone,
+        managerNotes: data.managementNotes,
+        privateEquity: {
+          create: {
+            registeredHolder: data.owners.map((o) => o.name).join(", ") || undefined,
+            contactName: data.managementContactName,
+            contactEmail: data.managementEmail,
+            contactPhone: data.managementPhone,
+          },
         },
       },
-    },
-  });
+    });
 
-  const company = await db.registeredCompany.create({
-    data: {
-      name: data.name,
-      registrationNumber: data.registrationNumber,
-      registrationDate: data.registrationDate,
-      registrationExpiryDate: data.registrationExpiryDate,
-      ceoName: data.ceoName,
-      ceoEmail: data.ceoEmail,
-      ceoPhone: data.ceoPhone,
-      managementContactName: data.managementContactName,
-      managementEmail: data.managementEmail,
-      managementPhone: data.managementPhone,
-      managementNotes: data.managementNotes,
-      status: data.status,
-      notes: data.notes,
-      entityId: data.entityId,
-      assetId: asset.id,
-    },
-  });
+    const created = await tx.registeredCompany.create({
+      data: {
+        name: data.name,
+        registrationNumber: data.registrationNumber,
+        registrationDate: data.registrationDate,
+        registrationExpiryDate: data.registrationExpiryDate,
+        ceoName: data.ceoName,
+        ceoEmail: data.ceoEmail,
+        ceoPhone: data.ceoPhone,
+        managementContactName: data.managementContactName,
+        managementEmail: data.managementEmail,
+        managementPhone: data.managementPhone,
+        managementNotes: data.managementNotes,
+        status: data.status,
+        notes: data.notes,
+        entityId: data.entityId,
+        assetId: asset.id,
+      },
+    });
 
-  await replaceOwners(company.id, data.owners);
+    await replaceOwners(tx, created.id, data.owners);
+    return created;
+  });
 
   const registrationFiles = getFilesFromFormData(formData, "registrationCopyFiles");
   const chamberFiles = getFilesFromFormData(formData, "chamberCopyFiles");
@@ -272,60 +268,64 @@ export async function updateCompany(id: string, formData: FormData) {
   const data = readCompanyFormData(formData);
   assertEntityAccess(ctx, data.entityId);
 
-  const company = await db.registeredCompany.update({
-    where: { id },
-    data: {
-      name: data.name,
-      registrationNumber: data.registrationNumber,
-      registrationDate: data.registrationDate,
-      registrationExpiryDate: data.registrationExpiryDate,
-      ceoName: data.ceoName,
-      ceoEmail: data.ceoEmail,
-      ceoPhone: data.ceoPhone,
-      managementContactName: data.managementContactName,
-      managementEmail: data.managementEmail,
-      managementPhone: data.managementPhone,
-      managementNotes: data.managementNotes,
-      status: data.status,
-      notes: data.notes,
-      entityId: data.entityId,
-    },
-  });
-
-  await replaceOwners(company.id, data.owners);
-
-  if (existing.assetId) {
-    await db.asset.update({
-      where: { id: existing.assetId },
+  const company = await db.$transaction(async (tx) => {
+    const updated = await tx.registeredCompany.update({
+      where: { id },
       data: {
         name: data.name,
+        registrationNumber: data.registrationNumber,
+        registrationDate: data.registrationDate,
+        registrationExpiryDate: data.registrationExpiryDate,
+        ceoName: data.ceoName,
+        ceoEmail: data.ceoEmail,
+        ceoPhone: data.ceoPhone,
+        managementContactName: data.managementContactName,
+        managementEmail: data.managementEmail,
+        managementPhone: data.managementPhone,
+        managementNotes: data.managementNotes,
         status: data.status,
+        notes: data.notes,
         entityId: data.entityId,
-        description: "Registration " + data.registrationNumber,
-        managerName: data.ceoName,
-        managerEmail: data.ceoEmail,
-        managerPhone: data.ceoPhone,
-        managerNotes: data.managementNotes,
-        privateEquity: existing.asset?.privateEquity
-          ? {
-              update: {
-                registeredHolder: data.owners.map((o) => o.name).join(", ") || undefined,
-                contactName: data.managementContactName,
-                contactEmail: data.managementEmail,
-                contactPhone: data.managementPhone,
-              },
-            }
-          : {
-              create: {
-                registeredHolder: data.owners.map((o) => o.name).join(", ") || undefined,
-                contactName: data.managementContactName,
-                contactEmail: data.managementEmail,
-                contactPhone: data.managementPhone,
-              },
-            },
       },
     });
-  }
+
+    await replaceOwners(tx, updated.id, data.owners);
+
+    if (existing.assetId) {
+      await tx.asset.update({
+        where: { id: existing.assetId },
+        data: {
+          name: data.name,
+          status: data.status,
+          entityId: data.entityId,
+          description: "Registration " + data.registrationNumber,
+          managerName: data.ceoName,
+          managerEmail: data.ceoEmail,
+          managerPhone: data.ceoPhone,
+          managerNotes: data.managementNotes,
+          privateEquity: existing.asset?.privateEquity
+            ? {
+                update: {
+                  registeredHolder: data.owners.map((o) => o.name).join(", ") || undefined,
+                  contactName: data.managementContactName,
+                  contactEmail: data.managementEmail,
+                  contactPhone: data.managementPhone,
+                },
+              }
+            : {
+                create: {
+                  registeredHolder: data.owners.map((o) => o.name).join(", ") || undefined,
+                  contactName: data.managementContactName,
+                  contactEmail: data.managementEmail,
+                  contactPhone: data.managementPhone,
+                },
+              },
+        },
+      });
+    }
+
+    return updated;
+  });
 
   await logAudit({
     userId: ctx.id,
@@ -383,7 +383,7 @@ export async function uploadCompanyDocuments(formData: FormData) {
     action: "UPLOAD",
     resource: "CompanyDocument",
     resourceId: companyId,
-    metadata: { documentType, count: files.length },
+    metadata: { documentType, count: files.length, fileNames: files.map((f) => f.name) },
   });
 
   revalidatePath("/companies/" + companyId);
@@ -435,7 +435,7 @@ export async function deleteCompanyDocument(id: string) {
     action: "DELETE",
     resource: "CompanyDocument",
     resourceId: id,
-    metadata: { companyId: document.companyId },
+    metadata: { companyId: document.companyId, fileName: document.fileName },
   });
 
   revalidatePath("/companies/" + document.companyId);
