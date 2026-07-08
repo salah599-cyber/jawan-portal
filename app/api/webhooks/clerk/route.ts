@@ -20,35 +20,42 @@ export async function POST(req: NextRequest) {
 
         if (!email) break;
 
-        const existingDbUser = await db.user.findUnique({ where: { clerkId } });
-        if (!existingDbUser && !(await hasInviteAccess(email))) {
+        const normalizedEmail = email.trim().toLowerCase();
+        const existingByClerk = await db.user.findUnique({ where: { clerkId } });
+        const existingByEmail = await db.user.findUnique({ where: { email: normalizedEmail } });
+
+        if (!existingByClerk && !existingByEmail && !(await hasInviteAccess(normalizedEmail))) {
           break;
         }
 
-        const isBootstrap = isBootstrapSuperAdminEmail(email);
+        const isBootstrap = isBootstrapSuperAdminEmail(normalizedEmail);
+        const profileData = {
+          email: normalizedEmail,
+          firstName: event.data.first_name,
+          lastName: event.data.last_name,
+          ...(isBootstrap
+            ? { isSuperAdmin: true, role: "PRINCIPAL" as const, isActive: true }
+            : {}),
+        };
 
-        const user = await db.user.upsert({
-          where: { clerkId },
-          create: {
-            clerkId,
-            email,
-            firstName: event.data.first_name,
-            lastName: event.data.last_name,
-            role: isBootstrap ? "PRINCIPAL" : "EXTERNAL",
-            isSuperAdmin: isBootstrap,
-            isActive: true,
-          },
-          update: {
-            email,
-            firstName: event.data.first_name,
-            lastName: event.data.last_name,
-            ...(isBootstrap
-              ? { isSuperAdmin: true, role: "PRINCIPAL" as const, isActive: true }
-              : {}),
-          },
-        });
+        const user = existingByEmail
+          ? await db.user.update({
+              where: { id: existingByEmail.id },
+              data: { clerkId, ...profileData },
+            })
+          : await db.user.upsert({
+              where: { clerkId },
+              create: {
+                clerkId,
+                ...profileData,
+                role: isBootstrap ? "PRINCIPAL" : "EXTERNAL",
+                isSuperAdmin: isBootstrap,
+                isActive: true,
+              },
+              update: profileData,
+            });
 
-        await applyPendingInvite(user.id, email);
+        await applyPendingInvite(user.id, normalizedEmail);
         break;
       }
       case "user.deleted": {
