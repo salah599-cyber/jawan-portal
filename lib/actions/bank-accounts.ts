@@ -3,8 +3,9 @@
 import { revalidatePath } from "next/cache";
 import { db } from "@/lib/db";
 import { logAudit } from "@/lib/audit/log";
-import { canWrite, getModulePermission, requireModuleAccess } from "@/lib/permissions/access";
+import { canAccess, canWrite, getModulePermission, requireModuleAccess } from "@/lib/permissions/access";
 import type { UserContext } from "@/lib/permissions/types";
+import { syncBankBalancesToCashAssets } from "@/lib/portfolio/cash-sync";
 
 export type CreateBankAccountInput = {
   accountName: string;
@@ -16,6 +17,7 @@ export type CreateBankAccountInput = {
   currency: string;
   entityId?: string;
   notes?: string;
+  includeInCashPosition?: boolean;
 };
 
 function bankAccountFilter(ctx: UserContext) {
@@ -23,6 +25,13 @@ function bankAccountFilter(ctx: UserContext) {
   if (level === "FULL" || level === "READ") return {};
   if (level === "FILTERED") return { entityId: { in: ctx.entityIds } };
   return { id: "__none__" };
+}
+
+async function syncCashIfNeeded(ctx: UserContext) {
+  if (!canAccess(ctx, "CASH_MANAGEMENT")) return;
+  await syncBankBalancesToCashAssets(ctx);
+  revalidatePath("/dashboard");
+  revalidatePath("/cash");
 }
 
 export async function createBankAccount(input: CreateBankAccountInput) {
@@ -50,6 +59,8 @@ export async function createBankAccount(input: CreateBankAccountInput) {
       currency: input.currency || "OMR",
       entityId: input.entityId || undefined,
       notes: input.notes?.trim() || undefined,
+      isActive: true,
+      includeInCashPosition: input.includeInCashPosition ?? false,
     },
   });
 
@@ -58,8 +69,16 @@ export async function createBankAccount(input: CreateBankAccountInput) {
     action: "CREATE",
     resource: "BankAccount",
     resourceId: account.id,
-    metadata: { accountName: account.accountName, bankName: account.bankName },
+    metadata: {
+      accountName: account.accountName,
+      bankName: account.bankName,
+      includeInCashPosition: account.includeInCashPosition,
+    },
   });
+
+  if (account.includeInCashPosition) {
+    await syncCashIfNeeded(ctx);
+  }
 
   revalidatePath("/assets/bank-details");
   revalidatePath("/assets/bank-details/" + account.id);
@@ -95,6 +114,10 @@ export async function deleteBankAccount(id: string) {
     resourceId: id,
     metadata: { accountName: account.accountName },
   });
+
+  if (account.includeInCashPosition) {
+    await syncCashIfNeeded(ctx);
+  }
 
   revalidatePath("/assets/bank-details");
 }
@@ -144,6 +167,9 @@ export async function updateBankAccount(id: string, input: CreateBankAccountInpu
     throw new Error("You do not have access to this entity.");
   }
 
+  const includeInCashPosition = input.includeInCashPosition ?? false;
+  const usageChanged = account.includeInCashPosition !== includeInCashPosition;
+
   const updated = await db.bankAccount.update({
     where: { id },
     data: {
@@ -156,6 +182,7 @@ export async function updateBankAccount(id: string, input: CreateBankAccountInpu
       currency: input.currency || "OMR",
       entityId: input.entityId || undefined,
       notes: input.notes?.trim() || undefined,
+      includeInCashPosition,
     },
   });
 
@@ -164,8 +191,15 @@ export async function updateBankAccount(id: string, input: CreateBankAccountInpu
     action: "UPDATE",
     resource: "BankAccount",
     resourceId: id,
-    metadata: { accountName: updated.accountName },
+    metadata: {
+      accountName: updated.accountName,
+      includeInCashPosition: updated.includeInCashPosition,
+    },
   });
+
+  if (includeInCashPosition || usageChanged || account.includeInCashPosition) {
+    await syncCashIfNeeded(ctx);
+  }
 
   revalidatePath("/assets/bank-details");
   revalidatePath("/assets/bank-details/" + id);

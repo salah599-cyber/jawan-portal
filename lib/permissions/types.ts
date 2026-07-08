@@ -2,16 +2,25 @@ export type ModuleName =
   | "DASHBOARD"
   | "ASSETS"
   | "LANDS"
+  | "REAL_ESTATE"
   | "CARS"
   | "COMPANIES"
   | "LOANS"
   | "CHEQUES"
   | "PROPOSALS"
   | "DOCUMENTS"
+  | "INSURANCE"
   | "EXPENSES"
   | "REPORTS"
+  | "PRIVATE_EQUITY"
+  | "FUND_LP"
+  | "CASH_MANAGEMENT"
+  | "CALENDAR"
   | "USERS"
-  | "AUDIT";
+  | "AUDIT"
+  | "FAMILY_MEMBERS"
+  | "SUCCESSION"
+  | "CONTACTS";
 
 export type PermissionLevel = "FULL" | "READ" | "FILTERED" | "NONE" | "SHARED_ONLY";
 

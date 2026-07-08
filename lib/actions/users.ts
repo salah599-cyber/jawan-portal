@@ -4,9 +4,11 @@ import { clerkClient } from "@clerk/nextjs/server";
 import { revalidatePath } from "next/cache";
 import { db } from "@/lib/db";
 import { applyUserAccess, type InviteConfig } from "@/lib/auth/apply-invite";
+import { createClerkInvitation } from "@/lib/auth/clerk-invite";
 import { logAudit } from "@/lib/audit/log";
+import { ensureUsersSchema } from "@/lib/db/ensure-users-schema";
 import { requireSuperAdmin } from "@/lib/permissions/access";
-import type { ModuleName, PermissionLevel, UserRole } from "@/lib/generated/prisma/client";
+import type { ModuleName, PermissionLevel } from "@/lib/generated/prisma/client";
 import type { UserAccessInput } from "@/lib/admin/user-options";
 
 export type { UserAccessInput } from "@/lib/admin/user-options";
@@ -25,79 +27,63 @@ function toInviteConfig(input: UserAccessInput): InviteConfig {
   };
 }
 
-export async function listUsers() {
-  await requireSuperAdmin();
-  return db.user.findMany({
-    include: {
-      entityAccess: { include: { entity: true } },
-      permissionOverrides: true,
-      documentScopes: { include: { category: true } },
-    },
-    orderBy: [{ isSuperAdmin: "desc" }, { email: "asc" }],
-  });
-}
-
-export async function listPendingInvites() {
-  await requireSuperAdmin();
-  return db.pendingUserInvite.findMany({
-    where: { acceptedAt: null },
-    orderBy: { createdAt: "desc" },
-  });
-}
-
 export async function inviteUser(input: UserAccessInput) {
   const ctx = await requireSuperAdmin();
-  const email = normalizeEmail(input.email ?? "");
-  if (!email) throw new Error("Email is required.");
 
-  const existingUser = await db.user.findUnique({ where: { email } });
-  if (existingUser) throw new Error("A user with this email already exists.");
+  try {
+    await ensureUsersSchema();
+    const email = normalizeEmail(input.email ?? "");
+    if (!email) throw new Error("Email is required.");
 
-  const config = toInviteConfig(input);
+    const existingUser = await db.user.findUnique({ where: { email } });
+    if (existingUser) throw new Error("A user with this email already exists.");
 
-  const invite = await db.pendingUserInvite.upsert({
-    where: { email },
-    create: {
-      email,
-      role: config.role,
-      isSuperAdmin: config.isSuperAdmin,
-      entityIds: config.entityIds,
-      moduleOverrides: config.moduleOverrides,
-      documentCategories: config.documentCategories,
-      invitedById: ctx.id,
-    },
-    update: {
-      role: config.role,
-      isSuperAdmin: config.isSuperAdmin,
-      entityIds: config.entityIds,
-      moduleOverrides: config.moduleOverrides,
-      documentCategories: config.documentCategories,
-      invitedById: ctx.id,
-      acceptedAt: null,
-    },
-  });
+    const config = toInviteConfig(input);
 
-  const clerk = await clerkClient();
-  const invitation = await clerk.invitations.createInvitation({
-    emailAddress: email,
-    publicMetadata: { pendingInviteId: invite.id },
-  });
+    const invite = await db.pendingUserInvite.upsert({
+      where: { email },
+      create: {
+        email,
+        role: config.role,
+        isSuperAdmin: config.isSuperAdmin,
+        entityIds: config.entityIds,
+        moduleOverrides: config.moduleOverrides,
+        documentCategories: config.documentCategories,
+        invitedById: ctx.id,
+      },
+      update: {
+        role: config.role,
+        isSuperAdmin: config.isSuperAdmin,
+        entityIds: config.entityIds,
+        moduleOverrides: config.moduleOverrides,
+        documentCategories: config.documentCategories,
+        invitedById: ctx.id,
+        acceptedAt: null,
+      },
+    });
 
-  await db.pendingUserInvite.update({
-    where: { id: invite.id },
-    data: { clerkInvitationId: invitation.id },
-  });
+    const invitation = await createClerkInvitation(email, invite.id);
 
-  await logAudit({
-    userId: ctx.id,
-    action: "INVITE",
-    resource: "User",
-    resourceId: invite.id,
-    metadata: { email, role: config.role, isSuperAdmin: config.isSuperAdmin },
-  });
+    await db.pendingUserInvite.update({
+      where: { id: invite.id },
+      data: { clerkInvitationId: invitation.id },
+    });
 
-  revalidatePath("/admin/users");
-  return invite;
+    await logAudit({
+      userId: ctx.id,
+      action: "INVITE",
+      resource: "User",
+      resourceId: invite.id,
+      metadata: { email, role: config.role, isSuperAdmin: config.isSuperAdmin },
+    }).catch(() => {
+      // Audit logging should not block a successful invitation.
+    });
+
+    revalidatePath("/admin/users");
+  } catch (error) {
+    if (error instanceof Error) throw error;
+    throw new Error("Failed to send invitation.");
+  }
 }
 
 export async function updateUserAccess(userId: string, input: UserAccessInput) {
@@ -212,6 +198,7 @@ export async function reactivateUser(userId: string) {
 
 export async function cancelPendingInvite(inviteId: string) {
   const ctx = await requireSuperAdmin();
+  await ensureUsersSchema();
   const invite = await db.pendingUserInvite.findUnique({ where: { id: inviteId } });
   if (!invite || invite.acceptedAt) throw new Error("Pending invite not found.");
 
@@ -232,6 +219,40 @@ export async function cancelPendingInvite(inviteId: string) {
     resource: "PendingUserInvite",
     resourceId: inviteId,
     metadata: { email: invite.email },
+  });
+
+  revalidatePath("/admin/users");
+}
+
+export async function resendPendingInvite(inviteId: string) {
+  const ctx = await requireSuperAdmin();
+  await ensureUsersSchema();
+
+  const invite = await db.pendingUserInvite.findUnique({ where: { id: inviteId } });
+  if (!invite || invite.acceptedAt) throw new Error("Pending invite not found.");
+
+  const existingUser = await db.user.findUnique({ where: { email: invite.email } });
+  if (existingUser) throw new Error("A user with this email already exists.");
+
+  const invitation = await createClerkInvitation(invite.email, invite.id);
+
+  await db.pendingUserInvite.update({
+    where: { id: invite.id },
+    data: {
+      clerkInvitationId: invitation.id,
+      invitedById: ctx.id,
+      createdAt: new Date(),
+    },
+  });
+
+  await logAudit({
+    userId: ctx.id,
+    action: "INVITE",
+    resource: "User",
+    resourceId: invite.id,
+    metadata: { email: invite.email, resend: true },
+  }).catch(() => {
+    // Audit logging should not block a successful resend.
   });
 
   revalidatePath("/admin/users");

@@ -6,18 +6,22 @@ import { EditLinkButton } from "@/components/platform/edit-link-button";
 import { AssetExitSummary } from "@/components/assets/asset-exit-summary";
 import { RecordAssetExitForm } from "@/components/assets/record-asset-exit-form";
 import { getAsset, deleteAsset } from "@/lib/actions/assets";
+import { getAssetLinkedModule } from "@/lib/assets/linked-module";
 import { canWrite, requireModuleAccess } from "@/lib/permissions/access";
-import { ASSET_CATEGORY_LABELS, ASSET_STATUS_LABELS } from "@/lib/labels";
+import { getAssetCategoryLabel } from "@/lib/assets/category-display";
+import {
+  PRECIOUS_METAL_PRICE_BASIS_LABELS,
+  PRECIOUS_METAL_UNIT_LABELS,
+} from "@/lib/assets/precious-metals/constants";
+import { ASSET_STATUS_LABELS } from "@/lib/labels";
 import { formatMoney, formatDate, formatDecimalInput } from "@/lib/format";
+import { RefreshPreciousMetalPricesButton } from "@/components/assets/refresh-precious-metal-prices-button";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 
 function linkedModule(asset: NonNullable<Awaited<ReturnType<typeof getAsset>>>) {
-  if (asset.landParcel) return { label: "Lands", href: "/lands/" + asset.landParcel.id };
-  if (asset.vehicle) return { label: "Cars", href: "/cars/" + asset.vehicle.id };
-  if (asset.registeredCompany) return { label: "Companies", href: "/companies/" + asset.registeredCompany.id };
-  return null;
+  return getAssetLinkedModule(asset);
 }
 
 function canRecordExit(
@@ -25,11 +29,8 @@ function canRecordExit(
   asset: NonNullable<Awaited<ReturnType<typeof getAsset>>>,
 ) {
   if (asset.status === "EXITED" || asset.exit) return false;
-  if (asset.landParcel) return false;
-  if (canWrite(ctx, "ASSETS")) return true;
-  if (asset.vehicle && canWrite(ctx, "CARS")) return true;
-  if (asset.registeredCompany && canWrite(ctx, "COMPANIES")) return true;
-  return false;
+  if (getAssetLinkedModule(asset)) return false;
+  return canWrite(ctx, "ASSETS");
 }
 
 export default async function AssetDetailPage({ params }: { params: Promise<{ id: string }> }) {
@@ -41,6 +42,7 @@ export default async function AssetDetailPage({ params }: { params: Promise<{ id
   const linked = linkedModule(asset);
   const showWrite = canWrite(ctx, "ASSETS") && !linked;
   const showExit = canRecordExit(ctx, asset);
+  const isPreciousMetal = asset.category === "PRECIOUS_METALS" && asset.preciousMetal;
 
   return (
     <>
@@ -58,6 +60,7 @@ export default async function AssetDetailPage({ params }: { params: Promise<{ id
           {showWrite ? (
             <>
               <EditLinkButton href={"/assets/" + asset.id + "/edit"} />
+              {isPreciousMetal ? <RefreshPreciousMetalPricesButton assetId={asset.id} /> : null}
               <DeleteEntryButton
                 itemId={asset.id}
                 itemLabel={asset.name}
@@ -73,7 +76,7 @@ export default async function AssetDetailPage({ params }: { params: Promise<{ id
           <Card className="lg:col-span-2">
             <CardHeader>
               <CardTitle>Asset Details</CardTitle>
-              <CardDescription>{ASSET_CATEGORY_LABELS[asset.category] ?? asset.category}</CardDescription>
+              <CardDescription>{getAssetCategoryLabel(asset)}</CardDescription>
             </CardHeader>
             <CardContent className="grid gap-4 sm:grid-cols-2">
               <Detail label="Entity" value={asset.entity.name} />
@@ -96,6 +99,35 @@ export default async function AssetDetailPage({ params }: { params: Promise<{ id
                 <div className="sm:col-span-2">
                   <Detail label="Description" value={asset.description} />
                 </div>
+              ) : null}
+              {isPreciousMetal ? (
+                <>
+                  <Detail
+                    label="Metal"
+                    value={getAssetCategoryLabel(asset)}
+                  />
+                  <Detail
+                    label="Quantity"
+                    value={`${formatDecimalInput(asset.preciousMetal!.quantity)} ${PRECIOUS_METAL_UNIT_LABELS[asset.preciousMetal!.unit]}`}
+                  />
+                  <Detail
+                    label="Price Basis"
+                    value={PRECIOUS_METAL_PRICE_BASIS_LABELS[asset.preciousMetal!.priceBasis]}
+                  />
+                  <Detail
+                    label="Last Unit Price"
+                    value={
+                      asset.preciousMetal!.lastUnitPrice
+                        ? `${formatMoney(asset.preciousMetal!.lastUnitPrice, asset.currency)} / ${PRECIOUS_METAL_UNIT_LABELS[asset.preciousMetal!.unit]}`
+                        : "—"
+                    }
+                  />
+                  <Detail
+                    label="Price Updated"
+                    value={formatDate(asset.preciousMetal!.priceFetchedAt)}
+                  />
+                  <Detail label="Price Source" value={asset.preciousMetal!.priceSource} />
+                </>
               ) : null}
             </CardContent>
           </Card>

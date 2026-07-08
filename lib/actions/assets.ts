@@ -3,14 +3,36 @@
 import { revalidatePath } from "next/cache";
 import { db } from "@/lib/db";
 import { logAudit } from "@/lib/audit/log";
+import { recordAssetValuation } from "@/lib/portfolio/valuations";
+import { parseAssetCategorySelection } from "@/lib/assets/category-display";
+import { refreshPreciousMetalPrices } from "@/lib/assets/refresh-precious-metal-prices";
+import { createCustomAssetType, resolveCustomAssetType } from "@/lib/data/asset-types";
+import { getAssetWithRelations, listAssetsWithRelations } from "@/lib/data/assets";
+import { ensurePreciousMetalsSchema } from "@/lib/db/ensure-precious-metals-schema";
 import { canWrite, requireModuleAccess } from "@/lib/permissions/access";
+import { getAssetLinkedModule, isModuleManagedAsset } from "@/lib/assets/linked-module";
 import { assetEntityFilter } from "@/lib/permissions/scoped-queries";
 import { assertStatusNotExited } from "@/lib/assets/status";
-import type { AssetCategory, AssetStatus } from "@/lib/generated/prisma/client";
+import type {
+  AssetCategory,
+  AssetStatus,
+  PreciousMetalPriceBasis,
+  PreciousMetalType,
+  PreciousMetalUnit,
+} from "@/lib/generated/prisma/client";
+
+export type PreciousMetalInput = {
+  metal: PreciousMetalType;
+  unit: PreciousMetalUnit;
+  quantity: string;
+  priceBasis: PreciousMetalPriceBasis;
+};
 
 export type CreateAssetInput = {
   name: string;
-  category: AssetCategory;
+  category?: AssetCategory;
+  categorySelection?: string;
+  assetTypeId?: string;
   entityId: string;
   status: AssetStatus;
   currency: string;
@@ -20,9 +42,56 @@ export type CreateAssetInput = {
   description?: string;
   managerName?: string;
   managerEmail?: string;
+  preciousMetal?: PreciousMetalInput;
 };
 
-function categoryDetailCreate(category: AssetCategory) {
+async function resolveAssetCategoryInput(input: Pick<CreateAssetInput, "category" | "categorySelection" | "assetTypeId">) {
+  if (input.categorySelection) {
+    const parsed = parseAssetCategorySelection(input.categorySelection);
+    if (parsed.kind === "custom") {
+      const type = await resolveCustomAssetType(parsed.assetTypeId);
+      return { category: "OTHER" as AssetCategory, assetTypeId: type.id };
+    }
+    return { category: parsed.category as AssetCategory, assetTypeId: undefined };
+  }
+
+  if (input.assetTypeId) {
+    const type = await resolveCustomAssetType(input.assetTypeId);
+    return { category: "OTHER" as AssetCategory, assetTypeId: type.id };
+  }
+
+  if (input.category) {
+    return { category: input.category, assetTypeId: undefined };
+  }
+
+  throw new Error("Category is required.");
+}
+
+export async function addCustomAssetType(name: string) {
+  const ctx = await requireModuleAccess("ASSETS");
+  if (!canWrite(ctx, "ASSETS")) {
+    throw new Error("You do not have permission to add asset types.");
+  }
+
+  const type = await createCustomAssetType(name);
+
+  await logAudit({
+    userId: ctx.id,
+    action: "CREATE",
+    resource: "AssetType",
+    resourceId: type.id,
+    metadata: { name: type.name },
+  });
+
+  revalidatePath("/assets");
+  revalidatePath("/assets/new");
+  return type;
+}
+
+function categoryDetailCreate(
+  category: AssetCategory,
+  preciousMetal?: PreciousMetalInput,
+) {
   switch (category) {
     case "REAL_ESTATE":
       return { realEstate: { create: {} } };
@@ -34,11 +103,64 @@ function categoryDetailCreate(category: AssetCategory) {
       return { bond: { create: {} } };
     case "CASH":
       return { cash: { create: {} } };
+    case "PRECIOUS_METALS": {
+      const detail = parsePreciousMetalInput(preciousMetal);
+      return {
+        preciousMetal: {
+          create: {
+            metal: detail.metal,
+            unit: detail.unit,
+            quantity: detail.quantity,
+            priceBasis: detail.priceBasis,
+          },
+        },
+      };
+    }
     case "PUBLIC_EQUITY":
     case "OTHER":
     default:
       return { custom: { create: {} } };
   }
+}
+
+function parsePreciousMetalInput(input?: PreciousMetalInput) {
+  if (!input) {
+    throw new Error("Gold and silver assets require metal, unit, quantity, and price basis.");
+  }
+
+  const quantity = parseFloat(input.quantity);
+  if (!Number.isFinite(quantity) || quantity <= 0) {
+    throw new Error("Quantity must be greater than zero.");
+  }
+
+  return {
+    metal: input.metal,
+    unit: input.unit,
+    quantity: quantity.toString(),
+    priceBasis: input.priceBasis,
+  };
+}
+
+async function upsertPreciousMetalDetail(assetId: string, input?: PreciousMetalInput) {
+  const detail = parsePreciousMetalInput(input);
+  await ensurePreciousMetalsSchema();
+
+  await db.preciousMetalDetail.upsert({
+    where: { assetId },
+    create: {
+      assetId,
+      metal: detail.metal,
+      unit: detail.unit,
+      quantity: detail.quantity,
+      priceBasis: detail.priceBasis,
+    },
+    update: {
+      metal: detail.metal,
+      unit: detail.unit,
+      quantity: detail.quantity,
+      priceBasis: detail.priceBasis,
+    },
+  });
 }
 
 function parseDecimal(value?: string) {
@@ -69,29 +191,49 @@ export async function createAsset(input: CreateAssetInput) {
 
   assertStatusNotExited(input.status);
 
+  const { category, assetTypeId } = await resolveAssetCategoryInput(input);
+
+  if (category === "PRECIOUS_METALS") {
+    await ensurePreciousMetalsSchema();
+  }
+
   const asset = await db.asset.create({
     data: {
       name: input.name.trim(),
-      category: input.category,
+      category,
+      assetTypeId,
       entityId: input.entityId,
       status: input.status,
       currency: input.currency || "OMR",
       acquisitionDate: parseDate(input.acquisitionDate),
       acquisitionCost: parseDecimal(input.acquisitionCost),
-      currentValue: parseDecimal(input.currentValue),
+      currentValue:
+        category === "PRECIOUS_METALS" ? undefined : parseDecimal(input.currentValue),
       description: input.description?.trim() || undefined,
       managerName: input.managerName?.trim() || undefined,
       managerEmail: input.managerEmail?.trim() || undefined,
-      ...categoryDetailCreate(input.category),
+      ...categoryDetailCreate(category, input.preciousMetal),
+    },
+    include: {
+      assetType: { select: { name: true } },
+      preciousMetal: true,
     },
   });
+
+  if (category === "PRECIOUS_METALS") {
+    await refreshPreciousMetalPrices(asset.id).catch(() => null);
+  }
 
   await logAudit({
     userId: ctx.id,
     action: "CREATE",
     resource: "Asset",
     resourceId: asset.id,
-    metadata: { name: asset.name, category: asset.category },
+    metadata: {
+      name: asset.name,
+      category: asset.category,
+      assetType: asset.assetType?.name,
+    },
   });
 
   revalidatePath("/assets");
@@ -107,16 +249,10 @@ export async function listAssets(filter: "all" | "active" | "exited" = "all") {
         ? { status: "EXITED" as const }
         : {};
 
-  return db.asset.findMany({
-    where: { ...assetEntityFilter(ctx), ...statusFilter },
-    include: {
-      entity: true,
-      exit: true,
-      landParcel: { select: { id: true } },
-      vehicle: { select: { id: true } },
-      registeredCompany: { select: { id: true } },
-    },
-    orderBy: { updatedAt: "desc" },
+  return listAssetsWithRelations({
+    ...assetEntityFilter(ctx),
+    ...statusFilter,
+    peCompany: null,
   });
 }
 
@@ -131,16 +267,19 @@ export async function deleteAsset(id: string) {
     include: {
       landParcel: { select: { id: true } },
       vehicle: { select: { id: true } },
+      registeredCompany: { select: { id: true } },
+      peCompany: { select: { id: true } },
+      reProperty: { select: { id: true } },
     },
   });
   if (!asset) throw new Error("Asset not found.");
-  if (asset.landParcel) {
+  if (isModuleManagedAsset(asset)) {
+    const linked = getAssetLinkedModule(asset);
     throw new Error(
-      "This asset is linked to a land parcel. Delete it from the Lands section instead.",
+      linked
+        ? `This asset is managed from ${linked.manageFrom}. Delete it there instead.`
+        : "This asset is managed from another module.",
     );
-  }
-  if (asset.vehicle) {
-    throw new Error("This asset is linked to a vehicle. Delete it from the Cars section instead.");
   }
 
   await db.asset.delete({ where: { id } });
@@ -158,16 +297,7 @@ export async function deleteAsset(id: string) {
 
 export async function getAsset(id: string) {
   const ctx = await requireModuleAccess("ASSETS");
-  return db.asset.findFirst({
-    where: { id, ...assetEntityFilter(ctx) },
-    include: {
-      entity: true,
-      exit: { include: { documents: { orderBy: { createdAt: "desc" } } } },
-      landParcel: { select: { id: true, sale: { select: { id: true } } } },
-      vehicle: { select: { id: true } },
-      registeredCompany: { select: { id: true } },
-    },
-  });
+  return getAssetWithRelations({ id, ...assetEntityFilter(ctx) });
 }
 
 export async function updateAsset(id: string, input: CreateAssetInput) {
@@ -181,14 +311,19 @@ export async function updateAsset(id: string, input: CreateAssetInput) {
     include: {
       landParcel: { select: { id: true } },
       vehicle: { select: { id: true } },
+      registeredCompany: { select: { id: true } },
+      peCompany: { select: { id: true } },
+      reProperty: { select: { id: true } },
     },
   });
   if (!asset) throw new Error("Asset not found.");
-  if (asset.landParcel) {
-    throw new Error("This asset is linked to a land parcel. Edit it from the Lands section instead.");
-  }
-  if (asset.vehicle) {
-    throw new Error("This asset is linked to a vehicle. Edit it from the Cars section instead.");
+  if (isModuleManagedAsset(asset)) {
+    const linked = getAssetLinkedModule(asset);
+    throw new Error(
+      linked
+        ? `This asset is linked to another record. Edit it from ${linked.manageFrom} instead.`
+        : "This asset is managed from another module.",
+    );
   }
 
   assertStatusNotExited(input.status);
@@ -199,7 +334,13 @@ export async function updateAsset(id: string, input: CreateAssetInput) {
     }
   }
 
-  const currentValue = parseDecimal(input.currentValue);
+  const isPreciousMetal = asset.category === "PRECIOUS_METALS";
+  const manualCurrentValue = isPreciousMetal ? undefined : parseDecimal(input.currentValue);
+
+  if (isPreciousMetal && input.preciousMetal) {
+    await upsertPreciousMetalDetail(id, input.preciousMetal);
+  }
+
   const updated = await db.asset.update({
     where: { id },
     data: {
@@ -209,13 +350,21 @@ export async function updateAsset(id: string, input: CreateAssetInput) {
       currency: input.currency || "OMR",
       acquisitionDate: parseDate(input.acquisitionDate),
       acquisitionCost: parseDecimal(input.acquisitionCost),
-      currentValue,
+      ...(manualCurrentValue !== undefined
+        ? {
+            currentValue: manualCurrentValue,
+            valueUpdatedAt: manualCurrentValue ? new Date() : asset.valueUpdatedAt,
+          }
+        : {}),
       description: input.description?.trim() || undefined,
       managerName: input.managerName?.trim() || undefined,
       managerEmail: input.managerEmail?.trim() || undefined,
-      valueUpdatedAt: currentValue ? new Date() : asset.valueUpdatedAt,
     },
   });
+
+  if (isPreciousMetal) {
+    await refreshPreciousMetalPrices(id).catch(() => null);
+  }
 
   await logAudit({
     userId: ctx.id,
@@ -225,7 +374,48 @@ export async function updateAsset(id: string, input: CreateAssetInput) {
     metadata: { name: updated.name },
   });
 
+  if (manualCurrentValue) {
+    const value = parseFloat(manualCurrentValue);
+    if (!Number.isNaN(value) && value > 0) {
+      await recordAssetValuation({
+        assetId: id,
+        value,
+        currency: updated.currency,
+      });
+    }
+  }
+
   revalidatePath("/assets");
+  revalidatePath("/assets/" + id);
   revalidatePath("/assets/" + id + "/edit");
   return updated;
+}
+
+export async function refreshPreciousMetalPricesAction(assetId?: string) {
+  const ctx = await requireModuleAccess("ASSETS");
+  if (!canWrite(ctx, "ASSETS")) {
+    throw new Error("You do not have permission to refresh precious metal prices.");
+  }
+
+  const result = await refreshPreciousMetalPrices(assetId);
+
+  await logAudit({
+    userId: ctx.id,
+    action: "UPDATE",
+    resource: "Asset",
+    metadata: {
+      job: "refresh-precious-metal-prices",
+      assetId: assetId ?? null,
+      ...result,
+    },
+  }).catch(() => null);
+
+  revalidatePath("/assets");
+  if (assetId) {
+    revalidatePath("/assets/" + assetId);
+    revalidatePath("/assets/" + assetId + "/edit");
+  }
+  revalidatePath("/dashboard");
+
+  return result;
 }

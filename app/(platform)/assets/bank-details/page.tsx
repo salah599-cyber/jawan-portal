@@ -5,6 +5,7 @@ import { RowActions } from "@/components/platform/row-actions";
 import { listBankAccounts, deleteBankAccount } from "@/lib/actions/bank-accounts";
 import { canWrite, requireModuleAccess } from "@/lib/permissions/access";
 import { formatDate } from "@/lib/format";
+import { BankAccountUsageBadge } from "@/components/bank/bank-account-usage-badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   Table,
@@ -46,6 +47,7 @@ export default async function BankDetailsPage() {
                     <TableHead>Account Number</TableHead>
                     <TableHead>IBAN</TableHead>
                     <TableHead>Currency</TableHead>
+                    <TableHead>Usage</TableHead>
                     <TableHead>Entity</TableHead>
                     <TableHead>Updated</TableHead>
                     {showAdd ? <TableHead className="w-[60px]">Actions</TableHead> : null}
@@ -63,6 +65,9 @@ export default async function BankDetailsPage() {
                       <TableCell>{account.accountNumber}</TableCell>
                       <TableCell>{account.iban ?? "—"}</TableCell>
                       <TableCell>{account.currency}</TableCell>
+                      <TableCell>
+                        <BankAccountUsageBadge includeInCashPosition={account.includeInCashPosition} />
+                      </TableCell>
                       <TableCell>{account.entity?.name ?? "—"}</TableCell>
                       <TableCell>{formatDate(account.updatedAt)}</TableCell>
                       {showAdd ? (

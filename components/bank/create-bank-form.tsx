@@ -16,6 +16,7 @@ import {
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { EntitySelect, type EntityOption } from "@/components/platform/entity-select";
+import { BankAccountUsageField } from "@/components/bank/bank-account-usage-field";
 
 export function CreateBankForm({ entities }: { entities: EntityOption[] }) {
   const router = useRouter();
@@ -23,6 +24,7 @@ export function CreateBankForm({ entities }: { entities: EntityOption[] }) {
   const [error, setError] = useState<string | null>(null);
   const [currency, setCurrency] = useState("OMR");
   const [entityId, setEntityId] = useState<string>("none");
+  const [includeInCashPosition, setIncludeInCashPosition] = useState(false);
 
   function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -41,6 +43,7 @@ export function CreateBankForm({ entities }: { entities: EntityOption[] }) {
           currency,
           entityId: entityId === "none" ? undefined : entityId,
           notes: String(form.get("notes") ?? ""),
+          includeInCashPosition,
         });
         router.push("/assets/bank-details/" + account.id);
         router.refresh();
@@ -112,6 +115,11 @@ export function CreateBankForm({ entities }: { entities: EntityOption[] }) {
               allowNone
             />
           </div>
+
+          <BankAccountUsageField
+            value={includeInCashPosition}
+            onChange={setIncludeInCashPosition}
+          />
 
           <div className="space-y-2 md:col-span-2">
             <Label htmlFor="notes">Notes</Label>

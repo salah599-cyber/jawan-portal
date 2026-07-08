@@ -1,6 +1,7 @@
 import { PlatformHeader } from "@/components/platform/platform-header";
 import { CreateAssetForm } from "@/components/assets/create-asset-form";
 import { listEntities } from "@/lib/data/entities";
+import { listCustomAssetTypes } from "@/lib/data/asset-types";
 import { canWrite, requireModuleAccess } from "@/lib/permissions/access";
 import { forbidden } from "next/navigation";
 
@@ -8,13 +9,13 @@ export default async function NewAssetPage() {
   const ctx = await requireModuleAccess("ASSETS");
   if (!canWrite(ctx, "ASSETS")) forbidden();
 
-  const entities = await listEntities();
+  const [entities, customTypes] = await Promise.all([listEntities(), listCustomAssetTypes()]);
 
   return (
     <>
       <PlatformHeader title="Add Asset" />
       <main className="flex flex-1 flex-col gap-4 p-4 md:p-6">
-        <CreateAssetForm entities={entities} />
+        <CreateAssetForm entities={entities} customTypes={customTypes} />
       </main>
     </>
   );

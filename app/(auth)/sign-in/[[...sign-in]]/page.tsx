@@ -1,15 +1,15 @@
-import { SignIn } from "@clerk/nextjs";
+import { SignInPanel } from "@/components/auth/sign-in-panel";
 
-export default function SignInPage() {
+export default async function SignInPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ reason?: string }>;
+}) {
+  const { reason } = await searchParams;
+
   return (
-    <div className="flex min-h-screen items-center justify-center bg-muted/30">
-      <SignIn
-        routing="path"
-        path="/sign-in"
-        signUpUrl="/sign-in"
-        fallbackRedirectUrl="/dashboard"
-        forceRedirectUrl="/dashboard"
-      />
+    <div className="flex min-h-screen items-center justify-center bg-muted/30 p-4">
+      <SignInPanel reason={reason} />
     </div>
   );
 }

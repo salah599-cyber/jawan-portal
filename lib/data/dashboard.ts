@@ -1,18 +1,45 @@
 import { db } from "@/lib/db";
+import { ensurePeSchema } from "@/lib/db/ensure-pe-schema";
 import { canAccess, getModulePermission } from "@/lib/permissions/access";
 import {
   assetEntityFilter,
   carEntityFilter,
+  cashBankAccountFilter,
   companyEntityFilter,
   documentFilter,
+  insurancePolicyEntityFilter,
+  familyMemberFilter,
+  successionPlanFilter,
+  contactEntityFilter,
   expenseEntityFilter,
   loanEntityFilter,
   chequeEntityFilter,
   proposalEntityFilter,
   landEntityFilter,
+  rePropertyEntityFilter,
 } from "@/lib/permissions/scoped-queries";
 import type { UserContext } from "@/lib/permissions/types";
-import { ASSET_CATEGORY_LABELS, EXIT_TYPE_LABELS } from "@/lib/labels";
+import { listPeCompanies } from "@/lib/data/pe-portfolio";
+import { ensureLpFundSchema } from "@/lib/db/ensure-lp-fund-schema";
+import { listLpCommitments } from "@/lib/data/lp-fund";
+import { ACTIVE_LP_COMMITMENT_STATUSES } from "@/lib/lp/constants";
+import { ensureInsuranceSchema } from "@/lib/db/ensure-insurance-schema";
+import { ensureFamilySchema } from "@/lib/db/ensure-family-schema";
+import { ensureContactsSchema } from "@/lib/db/ensure-contacts-schema";
+import { isExpiringWithinDays, resolvePolicyStatus } from "@/lib/insurance/helpers";
+import { isExpiringWithinDays as isFamilyIdExpiring } from "@/lib/family/helpers";
+import { isFollowUpDueWithinDays } from "@/lib/contacts/helpers";
+import {
+  countActivePeCompanies,
+  formatPeCarryingDetail,
+} from "@/lib/pe/portfolio-rollup";
+import { convertToOmr } from "@/lib/reports/helpers";
+import { ASSET_CATEGORY_LABELS } from "@/lib/labels";
+import { getNetWorthTrend, type NetWorthTrend } from "@/lib/portfolio/net-worth-trend";
+import { getPortfolioPerformance, type PortfolioPerformance } from "@/lib/portfolio/performance";
+import { getPortfolioRollup } from "@/lib/portfolio/rollup";
+
+export type { NetWorthTrend, PortfolioPerformance };
 
 export type CurrencyTotal = {
   currency: string;
@@ -36,7 +63,7 @@ export type ModuleSummary = {
 
 export type DashboardReminder = {
   id: string;
-  kind: "document" | "expense" | "vehicle";
+  kind: string;
   title: string;
   subtitle: string;
   date: Date | null;
@@ -68,36 +95,39 @@ export type DashboardPendingProposal = {
   submittedBy: { firstName: string | null; lastName: string | null; email: string };
 };
 
+export type AllocationSlice = {
+  category: string;
+  label: string;
+  count: number;
+  amountOmr: number;
+  percentage: number;
+};
+
+export type CurrencyAllocationSlice = {
+  currency: string;
+  amountNative: number;
+  amountOmr: number;
+  percentage: number;
+};
+
 export type DashboardSummary = {
   portfolioTotals: CurrencyTotal[];
   liabilityTotals: CurrencyTotal[];
   netWorthTotals: CurrencyTotal[];
+  portfolioTotalOmr: number;
+  netWorthTotalOmr: number;
   activeAssetCount: number;
   reminderCount: number;
   categoryBreakdown: CategoryBreakdown[];
+  allocationSlices: AllocationSlice[];
+  currencyAllocationSlices: CurrencyAllocationSlice[];
+  portfolioPerformance: PortfolioPerformance;
+  netWorthTrend: NetWorthTrend | null;
   moduleSummaries: ModuleSummary[];
   reminders: DashboardReminder[];
   recentExits: DashboardRecentExit[];
   pendingProposals: DashboardPendingProposal[];
 };
-
-const COUNTABLE_ASSET_STATUSES = ["ACTIVE", "MONITOR"] as const;
-
-function weightedValue(
-  amount: { toString(): string } | null | undefined,
-  ownershipPct: { toString(): string },
-): number {
-  if (!amount) return 0;
-  const value = parseFloat(amount.toString());
-  const pct = parseFloat(ownershipPct.toString());
-  if (Number.isNaN(value) || Number.isNaN(pct)) return 0;
-  return (value * pct) / 100;
-}
-
-function addToCurrencyMap(map: Map<string, number>, currency: string, amount: number) {
-  if (amount <= 0) return;
-  map.set(currency, (map.get(currency) ?? 0) + amount);
-}
 
 function mapToTotals(map: Map<string, number>): CurrencyTotal[] {
   return [...map.entries()]
@@ -116,11 +146,71 @@ function subtractTotals(assets: CurrencyTotal[], liabilities: CurrencyTotal[]): 
   return mapToTotals(map);
 }
 
-function liabilityEntityFilter(ctx: UserContext) {
-  const level = getModulePermission(ctx, "ASSETS");
-  if (level === "FULL" || level === "READ") return {};
-  if (level === "FILTERED") return { entityId: { in: ctx.entityIds } };
-  return { id: "__none__" };
+async function consolidateMapToOmr(map: Map<string, number>): Promise<number> {
+  let total = 0;
+  for (const [currency, amount] of map.entries()) {
+    if (amount <= 0) continue;
+    total += await convertToOmr(amount, currency);
+  }
+  return total;
+}
+
+function categoryLabel(category: string): string {
+  return category.startsWith("custom:")
+    ? category.slice("custom:".length)
+    : (ASSET_CATEGORY_LABELS[category] ?? category);
+}
+
+async function buildAllocationSlices(
+  categoryMap: Map<string, { count: number; totals: Map<string, number> }>,
+  portfolioTotalOmr: number,
+): Promise<AllocationSlice[]> {
+  const slices = await Promise.all(
+    [...categoryMap.entries()].map(async ([category, data]) => {
+      const amountOmr = await consolidateMapToOmr(data.totals);
+      return {
+        category,
+        label: categoryLabel(category),
+        count: data.count,
+        amountOmr,
+        percentage: 0,
+      };
+    }),
+  );
+
+  return slices
+    .filter((slice) => slice.amountOmr > 0)
+    .map((slice) => ({
+      ...slice,
+      percentage: portfolioTotalOmr > 0 ? (slice.amountOmr / portfolioTotalOmr) * 100 : 0,
+    }))
+    .sort((a, b) => b.amountOmr - a.amountOmr);
+}
+
+async function buildCurrencyAllocationSlices(
+  portfolioMap: Map<string, number>,
+  portfolioTotalOmr: number,
+): Promise<CurrencyAllocationSlice[]> {
+  const slices = await Promise.all(
+    [...portfolioMap.entries()].map(async ([currency, amountNative]) => {
+      if (amountNative <= 0) return null;
+      const amountOmr = await convertToOmr(amountNative, currency);
+      return {
+        currency,
+        amountNative,
+        amountOmr,
+        percentage: 0,
+      };
+    }),
+  );
+
+  return slices
+    .filter((slice): slice is CurrencyAllocationSlice => slice != null && slice.amountOmr > 0)
+    .map((slice) => ({
+      ...slice,
+      percentage: portfolioTotalOmr > 0 ? (slice.amountOmr / portfolioTotalOmr) * 100 : 0,
+    }))
+    .sort((a, b) => b.amountOmr - a.amountOmr);
 }
 
 function bankAccountFilter(ctx: UserContext) {
@@ -144,47 +234,26 @@ export async function getDashboardSummary(ctx: UserContext): Promise<DashboardSu
   const categoryMap = new Map<string, { count: number; totals: Map<string, number> }>();
   const moduleSummaries: ModuleSummary[] = [];
   const reminders: DashboardReminder[] = [];
+  const useCalendarReminders = canAccess(ctx, "CALENDAR");
+
+  function pushReminder(reminder: DashboardReminder) {
+    if (!useCalendarReminders) reminders.push(reminder);
+  }
+
   let recentExits: DashboardRecentExit[] = [];
   let pendingProposals: DashboardPendingProposal[] = [];
 
   let activeAssetCount = 0;
+  const assetValuesById = new Map<string, number>();
 
   if (canAccess(ctx, "ASSETS")) {
-    const assets = await db.asset.findMany({
-      where: {
-        ...assetEntityFilter(ctx),
-        status: { in: [...COUNTABLE_ASSET_STATUSES] },
-      },
-      select: {
-        id: true,
-        category: true,
-        status: true,
-        currentValue: true,
-        currency: true,
-        ownershipPct: true,
-      },
-    });
-
-    activeAssetCount = assets.filter((a) => a.status === "ACTIVE").length;
-
-    for (const asset of assets) {
-      const value = weightedValue(asset.currentValue, asset.ownershipPct);
-      addToCurrencyMap(portfolioMap, asset.currency, value);
-
-      const entry = categoryMap.get(asset.category) ?? { count: 0, totals: new Map<string, number>() };
-      entry.count += 1;
-      addToCurrencyMap(entry.totals, asset.currency, value);
-      categoryMap.set(asset.category, entry);
-    }
-
     const bankAccountCount = await db.bankAccount.count({ where: bankAccountFilter(ctx) });
 
     moduleSummaries.push({
       module: "ASSETS",
       label: "Assets",
       href: "/assets",
-      count: assets.length,
-      detail: activeAssetCount + " active",
+      count: 0,
     });
 
     moduleSummaries.push({
@@ -193,16 +262,6 @@ export async function getDashboardSummary(ctx: UserContext): Promise<DashboardSu
       href: "/assets/bank-details",
       count: bankAccountCount,
     });
-
-    const liabilities = await db.liability.findMany({
-      where: { ...liabilityEntityFilter(ctx), status: "ACTIVE" },
-      select: { amount: true, outstandingBalance: true, currency: true },
-    });
-
-    for (const liability of liabilities) {
-      const balance = liability.outstandingBalance ?? liability.amount;
-      addToCurrencyMap(liabilityMap, liability.currency, parseFloat(balance.toString()));
-    }
 
     const exitHorizon = new Date();
     exitHorizon.setMonth(exitHorizon.getMonth() - 12);
@@ -257,7 +316,7 @@ export async function getDashboardSummary(ctx: UserContext): Promise<DashboardSu
       if (!loan.maturityDate) continue;
       if (loan.maturityDate > horizon) continue;
 
-      reminders.push({
+      pushReminder({
         id: loan.id + "-maturity",
         kind: "document",
         title: loan.name,
@@ -308,7 +367,7 @@ export async function getDashboardSummary(ctx: UserContext): Promise<DashboardSu
       if (!cheque.dueDate) continue;
       if (cheque.dueDate > horizon) continue;
 
-      reminders.push({
+      pushReminder({
         id: cheque.id + "-due",
         kind: "document",
         title: "Cheque #" + cheque.chequeNumber,
@@ -316,6 +375,41 @@ export async function getDashboardSummary(ctx: UserContext): Promise<DashboardSu
         date: cheque.dueDate,
         href: "/cheques/" + cheque.id,
         severity: cheque.dueDate < now ? "danger" : "warning",
+      });
+    }
+  }
+
+  if (canAccess(ctx, "CASH_MANAGEMENT")) {
+    try {
+      const { getCashSummary } = await import("@/lib/data/cash-management");
+      const cash = await getCashSummary(ctx);
+      const { formatOmr } = await import("@/lib/format");
+      moduleSummaries.push({
+        module: "CASH_MANAGEMENT",
+        label: "Cash Management",
+        href: "/cash",
+        count: cash.accountCount,
+        detail: formatOmr(cash.totalOmr),
+      });
+
+      if (cash.staleCount > 0) {
+        pushReminder({
+          id: "cash-stale",
+          kind: "document",
+          title: "Cash balances need updating",
+          subtitle: cash.staleCount + " account(s) not updated in 30+ days",
+          date: cash.lastUpdated,
+          href: "/cash",
+          severity: "warning",
+        });
+      }
+    } catch {
+      const cashCount = await db.bankAccount.count({ where: cashBankAccountFilter(ctx) });
+      moduleSummaries.push({
+        module: "CASH_MANAGEMENT",
+        label: "Cash Management",
+        href: "/cash",
+        count: cashCount,
       });
     }
   }
@@ -362,6 +456,31 @@ export async function getDashboardSummary(ctx: UserContext): Promise<DashboardSu
     });
   }
 
+  if (canAccess(ctx, "REAL_ESTATE")) {
+    try {
+      const { ensureRealEstateSchema } = await import("@/lib/db/ensure-real-estate-schema");
+      await ensureRealEstateSchema();
+      const propertyCount = await db.reProperty.count({
+        where: { ...rePropertyEntityFilter(ctx), status: { not: "SOLD" } },
+      });
+      moduleSummaries.push({
+        module: "REAL_ESTATE",
+        label: "Real Estate",
+        href: "/real-estate",
+        count: propertyCount,
+      });
+    } catch (error) {
+      console.error("Real estate dashboard summary failed:", error);
+      moduleSummaries.push({
+        module: "REAL_ESTATE",
+        label: "Real Estate",
+        href: "/real-estate",
+        count: 0,
+        detail: "Schema sync pending",
+      });
+    }
+  }
+
   if (canAccess(ctx, "CARS")) {
     const vehicles = await db.vehicle.findMany({
       where: carEntityFilter(ctx),
@@ -395,7 +514,7 @@ export async function getDashboardSummary(ctx: UserContext): Promise<DashboardSu
         if (date > horizon) continue;
 
         const plate = [vehicle.plateCode, vehicle.plateNumber].filter(Boolean).join(" ");
-        reminders.push({
+        pushReminder({
           id: vehicle.id + "-" + label,
           kind: "vehicle",
           title: vehicle.name,
@@ -434,7 +553,7 @@ export async function getDashboardSummary(ctx: UserContext): Promise<DashboardSu
       if (!company.registrationExpiryDate) continue;
       if (company.registrationExpiryDate > horizon) continue;
 
-      reminders.push({
+      pushReminder({
         id: company.id + "-registration-expiry",
         kind: "document",
         title: company.name,
@@ -442,6 +561,288 @@ export async function getDashboardSummary(ctx: UserContext): Promise<DashboardSu
         date: company.registrationExpiryDate,
         href: "/companies/" + company.id,
         severity: company.registrationExpiryDate < now ? "danger" : "warning",
+      });
+    }
+  }
+
+  if (canAccess(ctx, "PRIVATE_EQUITY")) {
+    try {
+      await ensurePeSchema();
+      const peCompanies = await listPeCompanies(ctx);
+      const activeCount = countActivePeCompanies(peCompanies);
+
+      moduleSummaries.push({
+        module: "PRIVATE_EQUITY",
+        label: "PE / VC Portfolio",
+        href: "/portfolio/pe",
+        count: activeCount,
+        detail: formatPeCarryingDetail(peCompanies) ?? (peCompanies.length > 0 ? `${peCompanies.length} companies` : undefined),
+      });
+    } catch (error) {
+      console.error("PE portfolio summary unavailable:", error);
+      moduleSummaries.push({
+        module: "PRIVATE_EQUITY",
+        label: "PE / VC Portfolio",
+        href: "/portfolio/pe",
+        count: 0,
+        detail: "Database migration pending",
+      });
+    }
+  }
+
+  if (canAccess(ctx, "FUND_LP")) {
+    try {
+      await ensureLpFundSchema();
+      const commitments = await listLpCommitments(ctx);
+      const activeCount = commitments.filter((c) =>
+        ACTIVE_LP_COMMITMENT_STATUSES.includes(
+          c.status as (typeof ACTIVE_LP_COMMITMENT_STATUSES)[number],
+        ),
+      ).length;
+
+
+      const navOmr = await Promise.all(
+        commitments.map(async (c) => {
+          if (c.latestNav == null) return 0;
+          return convertToOmr(c.latestNav, c.commitmentCurrency);
+        }),
+      ).then((values) => values.reduce((sum, v) => sum + v, 0));
+
+      const { formatOmr } = await import("@/lib/format");
+
+      moduleSummaries.push({
+        module: "FUND_LP",
+        label: "Fund LP Investments",
+        href: "/portfolio/fund-lp",
+        count: activeCount,
+        detail:
+          commitments.length > 0
+            ? `${formatOmr(navOmr)} NAV · ${commitments.length} commitment${commitments.length === 1 ? "" : "s"}`
+            : undefined,
+      });
+    } catch (error) {
+      console.error("Fund LP portfolio summary unavailable:", error);
+      moduleSummaries.push({
+        module: "FUND_LP",
+        label: "Fund LP Investments",
+        href: "/portfolio/fund-lp",
+        count: 0,
+        detail: "Database migration pending",
+      });
+    }
+  }
+
+  if (canAccess(ctx, "INSURANCE")) {
+    try {
+      await ensureInsuranceSchema();
+      const policies = await db.insurancePolicy.findMany({
+        where: insurancePolicyEntityFilter(ctx),
+        select: {
+          id: true,
+          policyNumber: true,
+          insurer: true,
+          expiryDate: true,
+          status: true,
+        },
+      });
+
+      const active = policies.filter(
+        (p) => resolvePolicyStatus(p.status, p.expiryDate) !== "EXPIRED" && p.status !== "CANCELLED",
+      );
+      const expiring = policies.filter((p) => isExpiringWithinDays(p.expiryDate, 30));
+
+      moduleSummaries.push({
+        module: "INSURANCE",
+        label: "Insurance Register",
+        href: "/documents/insurance",
+        count: active.length,
+        detail: expiring.length
+          ? `${expiring.length} expiring within 30 days`
+          : policies.length > 0
+            ? `${policies.length} policies`
+            : undefined,
+      });
+
+      for (const policy of expiring) {
+        if (!policy.expiryDate) continue;
+        const effectiveStatus = resolvePolicyStatus(policy.status, policy.expiryDate);
+        pushReminder({
+          id: `insurance-${policy.id}`,
+          kind: "document",
+          title: policy.policyNumber,
+          subtitle: `${policy.insurer} · Insurance expiry`,
+          date: policy.expiryDate,
+          href: `/documents/insurance/${policy.id}`,
+          severity: effectiveStatus === "EXPIRED" ? "danger" : "warning",
+        });
+      }
+    } catch (error) {
+      console.error("Insurance register summary unavailable:", error);
+      moduleSummaries.push({
+        module: "INSURANCE",
+        label: "Insurance Register",
+        href: "/documents/insurance",
+        count: 0,
+        detail: "Database migration pending",
+      });
+    }
+  }
+
+  if (canAccess(ctx, "FAMILY_MEMBERS")) {
+    try {
+      await ensureFamilySchema();
+      const members = await db.familyMember.findMany({
+        where: { ...familyMemberFilter(ctx), deceased: false },
+        select: {
+          id: true,
+          fullName: true,
+          idExpiryDate: true,
+          kycStatus: true,
+          isBeneficiary: true,
+        },
+      });
+
+      const kycExpiring = members.filter((m) => isFamilyIdExpiring(m.idExpiryDate, 30));
+
+      moduleSummaries.push({
+        module: "FAMILY_MEMBERS",
+        label: "Family Members",
+        href: "/family/members",
+        count: members.length,
+        detail: kycExpiring.length
+          ? `${kycExpiring.length} ID expiring within 30 days`
+          : undefined,
+      });
+
+      for (const member of kycExpiring) {
+        if (!member.idExpiryDate) continue;
+        pushReminder({
+          id: `family-kyc-${member.id}`,
+          kind: "document",
+          title: member.fullName,
+          subtitle: "Family member ID expiry",
+          date: member.idExpiryDate,
+          href: `/family/members/${member.id}`,
+          severity: member.idExpiryDate < new Date() ? "danger" : "warning",
+        });
+      }
+    } catch (error) {
+      console.error("Family members summary unavailable:", error);
+      moduleSummaries.push({
+        module: "FAMILY_MEMBERS",
+        label: "Family Members",
+        href: "/family/members",
+        count: 0,
+        detail: "Database migration pending",
+      });
+    }
+  }
+
+  if (canAccess(ctx, "SUCCESSION")) {
+    try {
+      await ensureFamilySchema();
+      const plans = await db.successionPlan.findMany({
+        where: successionPlanFilter(ctx),
+        select: {
+          id: true,
+          title: true,
+          status: true,
+          nextReviewDate: true,
+          checklistItems: { select: { isComplete: true } },
+        },
+      });
+
+      const reviewDue = plans.filter(
+        (p) => p.status !== "COMPLETE" && p.nextReviewDate && p.nextReviewDate <= new Date(),
+      );
+      const incomplete = plans.filter((p) => {
+        if (p.checklistItems.length === 0) return false;
+        return p.checklistItems.some((item) => !item.isComplete);
+      });
+
+      moduleSummaries.push({
+        module: "SUCCESSION",
+        label: "Succession & Estate",
+        href: "/family/succession",
+        count: plans.length,
+        detail: reviewDue.length
+          ? `${reviewDue.length} review${reviewDue.length === 1 ? "" : "s"} due`
+          : incomplete.length
+            ? `${incomplete.length} plan${incomplete.length === 1 ? "" : "s"} incomplete`
+            : undefined,
+      });
+
+      for (const plan of reviewDue) {
+        if (!plan.nextReviewDate) continue;
+        pushReminder({
+          id: `succession-review-${plan.id}`,
+          kind: "document",
+          title: plan.title,
+          subtitle: "Succession plan review due",
+          date: plan.nextReviewDate,
+          href: `/family/succession/${plan.id}`,
+          severity: "warning",
+        });
+      }
+    } catch (error) {
+      console.error("Succession planning summary unavailable:", error);
+      moduleSummaries.push({
+        module: "SUCCESSION",
+        label: "Succession & Estate",
+        href: "/family/succession",
+        count: 0,
+        detail: "Database migration pending",
+      });
+    }
+  }
+
+  if (canAccess(ctx, "CONTACTS")) {
+    try {
+      await ensureContactsSchema();
+      const contacts = await db.directoryContact.findMany({
+        where: { ...contactEntityFilter(ctx), isActive: true },
+        select: {
+          id: true,
+          fullName: true,
+          organization: true,
+          nextFollowUpDate: true,
+        },
+      });
+
+      const followUpsDue = contacts.filter((c) => isFollowUpDueWithinDays(c.nextFollowUpDate, 14));
+
+      moduleSummaries.push({
+        module: "CONTACTS",
+        label: "Contacts Directory",
+        href: "/contacts",
+        count: contacts.length,
+        detail: followUpsDue.length
+          ? `${followUpsDue.length} follow-up${followUpsDue.length === 1 ? "" : "s"} within 14 days`
+          : undefined,
+      });
+
+      for (const contact of followUpsDue) {
+        if (!contact.nextFollowUpDate) continue;
+        pushReminder({
+          id: `contact-follow-up-${contact.id}`,
+          kind: "document",
+          title: contact.fullName,
+          subtitle: contact.organization
+            ? `${contact.organization} · Contact follow-up`
+            : "Contact follow-up",
+          date: contact.nextFollowUpDate,
+          href: `/contacts/${contact.id}`,
+          severity: contact.nextFollowUpDate < new Date() ? "danger" : "warning",
+        });
+      }
+    } catch (error) {
+      console.error("Contacts directory summary unavailable:", error);
+      moduleSummaries.push({
+        module: "CONTACTS",
+        label: "Contacts Directory",
+        href: "/contacts",
+        count: 0,
+        detail: "Database migration pending",
       });
     }
   }
@@ -474,7 +875,7 @@ export async function getDashboardSummary(ctx: UserContext): Promise<DashboardSu
     });
 
     for (const doc of expiringDocs) {
-      reminders.push({
+      pushReminder({
         id: "doc-" + doc.id,
         kind: "document",
         title: doc.name,
@@ -483,6 +884,27 @@ export async function getDashboardSummary(ctx: UserContext): Promise<DashboardSu
         href: "/documents",
         severity: doc.status === "EXPIRED" ? "danger" : "warning",
       });
+    }
+  }
+
+  if (canAccess(ctx, "ASSETS")) {
+    try {
+      const { ensurePublicMarketsSchema } = await import("@/lib/db/ensure-public-markets-schema");
+      await ensurePublicMarketsSchema();
+
+      const publicHoldingCount = await db.publicEquityHolding.count({
+        where: { asset: assetEntityFilter(ctx) },
+      });
+
+      moduleSummaries.push({
+        module: "PUBLIC_MARKETS",
+        label: "Public Markets",
+        href: "/portfolio/public-markets",
+        count: publicHoldingCount,
+        detail: publicHoldingCount > 0 ? "Listed equities" : undefined,
+      });
+    } catch (error) {
+      console.error("Public markets summary unavailable:", error);
     }
   }
 
@@ -520,7 +942,7 @@ export async function getDashboardSummary(ctx: UserContext): Promise<DashboardSu
     });
 
     for (const expense of expenses) {
-      reminders.push({
+      pushReminder({
         id: "expense-" + expense.id,
         kind: "expense",
         title: expense.title,
@@ -532,6 +954,32 @@ export async function getDashboardSummary(ctx: UserContext): Promise<DashboardSu
     }
   }
 
+  if (useCalendarReminders) {
+    const { getDashboardCalendarReminders } = await import("@/lib/data/calendar");
+    const { KIND_LABELS } = await import("@/lib/calendar/date-ranges");
+    const calendarReminders = await getDashboardCalendarReminders(ctx);
+
+    for (const item of calendarReminders) {
+      reminders.push({
+        id: item.id,
+        kind: KIND_LABELS[item.kind as keyof typeof KIND_LABELS] ?? item.kind,
+        title: item.title,
+        subtitle: item.subtitle,
+        date: item.date,
+        href: item.href,
+        severity: item.severity,
+      });
+    }
+
+    moduleSummaries.push({
+      module: "CALENDAR",
+      label: "Calendar",
+      href: "/calendar",
+      count: calendarReminders.length,
+      detail: calendarReminders.length ? "Upcoming deadlines" : "Nothing due soon",
+    });
+  }
+
   reminders.sort((a, b) => {
     if (!a.date && !b.date) return 0;
     if (!a.date) return 1;
@@ -539,27 +987,60 @@ export async function getDashboardSummary(ctx: UserContext): Promise<DashboardSu
     return a.date.getTime() - b.date.getTime();
   });
 
+  let netWorthTrend: NetWorthTrend | null = null;
+
+  if (canAccess(ctx, "ASSETS")) {
+    const rollup = await getPortfolioRollup(ctx);
+    rollup.portfolioMap.forEach((amount, currency) => portfolioMap.set(currency, amount));
+    rollup.liabilityMap.forEach((amount, currency) => liabilityMap.set(currency, amount));
+    rollup.categoryMap.forEach((entry, category) => categoryMap.set(category, entry));
+    rollup.assetValuesById.forEach((value, id) => assetValuesById.set(id, value));
+    activeAssetCount = rollup.activeAssetCount;
+
+    const assetsSummary = moduleSummaries.find((item) => item.module === "ASSETS");
+    if (assetsSummary) {
+      assetsSummary.count = rollup.assetCount;
+      assetsSummary.detail = `${rollup.activeAssetCount} active`;
+    }
+
+    if (rollup.portfolioTotalOmr > 0 || rollup.liabilityTotalOmr > 0) {
+      netWorthTrend = await getNetWorthTrend(ctx, rollup);
+    }
+  }
+
   const portfolioTotals = mapToTotals(portfolioMap);
   const liabilityTotals = mapToTotals(liabilityMap);
+  const portfolioTotalOmr = await consolidateMapToOmr(portfolioMap);
+  const liabilityTotalOmr = await consolidateMapToOmr(liabilityMap);
+  const categoryBreakdown = [...categoryMap.entries()]
+    .map(([category, data]) => ({
+      category,
+      label: categoryLabel(category),
+      count: data.count,
+      totals: mapToTotals(data.totals),
+    }))
+    .sort((a, b) => {
+      const aTotal = a.totals.reduce((sum, t) => sum + t.amount, 0);
+      const bTotal = b.totals.reduce((sum, t) => sum + t.amount, 0);
+      return bTotal - aTotal;
+    });
+  const allocationSlices = await buildAllocationSlices(categoryMap, portfolioTotalOmr);
+  const currencyAllocationSlices = await buildCurrencyAllocationSlices(portfolioMap, portfolioTotalOmr);
+  const portfolioPerformance = await getPortfolioPerformance(ctx);
 
   return {
     portfolioTotals,
     liabilityTotals,
     netWorthTotals: subtractTotals(portfolioTotals, liabilityTotals),
+    portfolioTotalOmr,
+    netWorthTotalOmr: portfolioTotalOmr - liabilityTotalOmr,
     activeAssetCount,
     reminderCount: reminders.length,
-    categoryBreakdown: [...categoryMap.entries()]
-      .map(([category, data]) => ({
-        category,
-        label: ASSET_CATEGORY_LABELS[category] ?? category,
-        count: data.count,
-        totals: mapToTotals(data.totals),
-      }))
-      .sort((a, b) => {
-        const aTotal = a.totals.reduce((sum, t) => sum + t.amount, 0);
-        const bTotal = b.totals.reduce((sum, t) => sum + t.amount, 0);
-        return bTotal - aTotal;
-      }),
+    categoryBreakdown,
+    allocationSlices,
+    currencyAllocationSlices,
+    portfolioPerformance,
+    netWorthTrend,
     moduleSummaries,
     reminders: reminders.slice(0, 12),
     recentExits,

@@ -2,6 +2,7 @@ import { currentUser } from "@clerk/nextjs/server";
 import { db } from "@/lib/db";
 import { isBootstrapSuperAdminEmail } from "@/lib/auth/constants";
 import { applyPendingInvite } from "@/lib/auth/apply-invite";
+import { hasInviteAccess } from "@/lib/auth/invite-access";
 import type { UserRole } from "@/lib/permissions/types";
 
 function bootstrapData(email: string) {
@@ -48,6 +49,10 @@ export async function syncClerkUser() {
     return user;
   }
 
+  if (!(await hasInviteAccess(email))) {
+    return null;
+  }
+
   const user = await db.user.create({
     data: {
       clerkId: clerkUser.id,
@@ -60,6 +65,6 @@ export async function syncClerkUser() {
     },
   });
 
-  await applyPendingInvite(user.id, email);
+  await applyPendingInvite(user.id, email).catch(() => null);
   return user;
 }

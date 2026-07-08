@@ -4,13 +4,19 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { formatDate, formatMoney } from "@/lib/format";
-import { getDashboardSummary, formatCurrencyTotals } from "@/lib/data/dashboard";
-import { requireModuleAccess } from "@/lib/permissions/access";
+import { getDashboardSummary } from "@/lib/data/dashboard";
+import { canAccess, requireModuleAccess } from "@/lib/permissions/access";
+import { DashboardWealthCards } from "@/components/dashboard/dashboard-wealth-cards";
+import { DashboardAssetAllocationChart } from "@/components/dashboard/dashboard-asset-allocation-chart";
+import { DashboardCurrencyAllocationChart } from "@/components/dashboard/dashboard-currency-allocation-chart";
+import { DashboardNetWorthTrendChart } from "@/components/dashboard/dashboard-net-worth-trend-chart";
+import { DashboardPerformanceCards } from "@/components/dashboard/dashboard-performance-cards";
 import { EXIT_TYPE_LABELS } from "@/lib/labels";
 import { formatUserName } from "@/lib/proposals/users";
 import {
   ArrowRight,
   Building2,
+  CalendarDays,
   Car,
   Factory,
   HandCoins,
@@ -21,6 +27,8 @@ import {
   Receipt,
   Wallet,
   Lightbulb,
+  Briefcase,
+  Home,
 } from "lucide-react";
 
 const MODULE_ICONS: Record<string, typeof Building2> = {
@@ -28,113 +36,105 @@ const MODULE_ICONS: Record<string, typeof Building2> = {
   BANK: Landmark,
   LIABILITIES: Wallet,
   LANDS: Map,
+  REAL_ESTATE: Home,
   CARS: Car,
   COMPANIES: Factory,
+  PRIVATE_EQUITY: Briefcase,
   LOANS: HandCoins,
   CHEQUES: Banknote,
+  CASH_MANAGEMENT: Wallet,
   PROPOSALS: Lightbulb,
   DOCUMENTS: FileText,
   EXPENSES: Receipt,
+  CALENDAR: CalendarDays,
 };
 
 export default async function DashboardPage() {
   const ctx = await requireModuleAccess("DASHBOARD");
   const summary = await getDashboardSummary(ctx);
 
-  const portfolioDisplay = formatCurrencyTotals(summary.portfolioTotals);
-  const netWorthDisplay = formatCurrencyTotals(summary.netWorthTotals);
-  const hasPortfolio = summary.portfolioTotals.length > 0;
+  const hasPortfolio = summary.portfolioTotalOmr > 0;
+  const hasLiabilities = summary.liabilityTotals.length > 0;
+  const includesCashBalances = canAccess(ctx, "CASH_MANAGEMENT");
 
   return (
     <>
       <PlatformHeader title="Dashboard" />
       <main className="flex flex-1 flex-col gap-4 p-4 md:p-6">
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-          <MetricCard
-            label="Portfolio Value"
-            value={portfolioDisplay}
-            detail={
-              hasPortfolio
-                ? "Active & monitored assets (ownership-adjusted)"
-                : "Add assets to track portfolio value"
-            }
-          />
-          <MetricCard
-            label="Net Worth"
-            value={netWorthDisplay}
-            detail={
-              summary.liabilityTotals.length
-                ? "Portfolio minus active liabilities"
-                : hasPortfolio
-                  ? "No active liabilities recorded"
-                  : "Calculated from assets and liabilities"
-            }
-          />
-          <MetricCard
-            label="Active Assets"
-            value={summary.activeAssetCount.toString()}
-            detail={
-              summary.moduleSummaries.find((m) => m.module === "ASSETS")
-                ? summary.moduleSummaries.find((m) => m.module === "ASSETS")!.count + " total in portfolio"
-                : "Assets module not accessible"
-            }
-          />
-          <MetricCard
-            label="Pending Reminders"
-            value={summary.reminderCount.toString()}
-            detail={
-              summary.reminderCount
-                ? "Documents, expenses, and vehicle renewals"
-                : "No upcoming items need attention"
-            }
-            highlight={summary.reminderCount > 0}
-          />
-        </div>
+        <DashboardWealthCards
+          portfolioTotalOmr={summary.portfolioTotalOmr}
+          netWorthTotalOmr={summary.netWorthTotalOmr}
+          hasPortfolio={hasPortfolio}
+          hasLiabilities={hasLiabilities}
+          includesCashBalances={includesCashBalances}
+          activeAssetCount={summary.activeAssetCount}
+          activeAssetDetail={
+            summary.moduleSummaries.find((m) => m.module === "ASSETS")
+              ? summary.moduleSummaries.find((m) => m.module === "ASSETS")!.count + " total in portfolio"
+              : "Assets module not accessible"
+          }
+          reminderCount={summary.reminderCount}
+          reminderDetail={
+            summary.reminderCount
+              ? "Unified calendar deadlines and tasks"
+              : "No upcoming items need attention"
+          }
+        />
+
+        <DashboardPerformanceCards
+          performance={summary.portfolioPerformance}
+          hasPortfolio={hasPortfolio}
+        />
+
+
+        {summary.netWorthTrend ? (
+          <DashboardNetWorthTrendChart trend={summary.netWorthTrend} />
+        ) : null}
 
         <div className="grid gap-4 lg:grid-cols-3">
-          <Card className="lg:col-span-2">
-            <CardHeader>
-              <CardTitle>Portfolio Overview</CardTitle>
-              <CardDescription>Value breakdown by asset class</CardDescription>
-            </CardHeader>
-            <CardContent>
-              {!hasPortfolio ? (
-                <p className="text-sm text-muted-foreground">
-                  No asset values recorded yet. Register assets, lands, or cars to populate this view.
-                </p>
-              ) : (
-                <div className="space-y-4">
-                  {summary.categoryBreakdown.map((item) => {
-                    const primaryTotal = item.totals[0];
-                    const maxTotal = summary.categoryBreakdown[0]?.totals[0]?.amount ?? 1;
-                    const barWidth = primaryTotal
-                      ? Math.max(4, Math.round((primaryTotal.amount / maxTotal) * 100))
-                      : 0;
+          <div className="flex flex-col gap-4 lg:col-span-2">
+            <Card>
+              <CardHeader>
+                <CardTitle>Asset Allocation</CardTitle>
+                <CardDescription>
+                  Portfolio breakdown by asset class
+                  {includesCashBalances ? " · includes synced bank balances" : ""}
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                {!hasPortfolio ? (
+                  <p className="text-sm text-muted-foreground">
+                    No asset values recorded yet. Register assets, lands, or cars to populate this view.
+                  </p>
+                ) : (
+                  <DashboardAssetAllocationChart
+                    slices={summary.allocationSlices}
+                    totalOmr={summary.portfolioTotalOmr}
+                    includesCashBalances={includesCashBalances}
+                  />
+                )}
+              </CardContent>
+            </Card>
 
-                    return (
-                      <div key={item.category} className="space-y-2">
-                        <div className="flex items-center justify-between gap-4 text-sm">
-                          <div>
-                            <p className="font-medium">{item.label}</p>
-                            <p className="text-muted-foreground">{item.count} asset{item.count === 1 ? "" : "s"}</p>
-                          </div>
-                          <p className="font-medium">
-                            {item.totals.map((t) => formatMoney(t.amount, t.currency)).join(" · ")}
-                          </p>
-                        </div>
-                        <div className="h-2 rounded-full bg-muted">
-                          <div
-                            className="h-2 rounded-full bg-primary transition-all"
-                            style={{ width: barWidth + "%" }}
-                          />
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
-            </CardContent>
-          </Card>
+            <Card>
+              <CardHeader>
+                <CardTitle>Currency Allocation</CardTitle>
+                <CardDescription>Portfolio breakdown by currency (OMR-weighted)</CardDescription>
+              </CardHeader>
+              <CardContent>
+                {!hasPortfolio ? (
+                  <p className="text-sm text-muted-foreground">
+                    No asset values recorded yet. Register assets, lands, or cars to populate this view.
+                  </p>
+                ) : (
+                  <DashboardCurrencyAllocationChart
+                    slices={summary.currencyAllocationSlices}
+                    totalOmr={summary.portfolioTotalOmr}
+                  />
+                )}
+              </CardContent>
+            </Card>
+          </div>
 
           <Card>
             <CardHeader>
@@ -257,27 +257,13 @@ export default async function DashboardPage() {
             <div>
               <CardTitle>Reminders</CardTitle>
               <CardDescription>
-                Expiring documents, vehicle renewals, and upcoming or overdue expenses
+                Upcoming deadlines and tasks from the unified calendar
               </CardDescription>
             </div>
             {summary.reminderCount > 0 ? (
-              <div className="flex flex-wrap gap-2">
-                {summary.moduleSummaries.some((m) => m.module === "DOCUMENTS") ? (
-                  <Button variant="outline" size="sm" asChild>
-                    <Link href="/documents">Documents</Link>
-                  </Button>
-                ) : null}
-                {summary.moduleSummaries.some((m) => m.module === "CARS") ? (
-                  <Button variant="outline" size="sm" asChild>
-                    <Link href="/cars">Cars</Link>
-                  </Button>
-                ) : null}
-                {summary.moduleSummaries.some((m) => m.module === "EXPENSES") ? (
-                  <Button variant="outline" size="sm" asChild>
-                    <Link href="/expenses">Expenses</Link>
-                  </Button>
-                ) : null}
-              </div>
+              <Button variant="outline" size="sm" asChild>
+                <Link href="/calendar">View calendar</Link>
+              </Button>
             ) : null}
           </CardHeader>
           <CardContent>
@@ -291,11 +277,7 @@ export default async function DashboardPage() {
                       <div className="flex items-center gap-2">
                         <p className="text-sm font-medium">{item.title}</p>
                         <Badge variant={item.severity === "danger" ? "destructive" : "secondary"}>
-                          {item.kind === "document"
-                            ? "Document"
-                            : item.kind === "expense"
-                              ? "Expense"
-                              : "Vehicle"}
+                          {item.kind}
                         </Badge>
                       </div>
                       <p className="text-xs text-muted-foreground">{item.subtitle}</p>
@@ -314,29 +296,5 @@ export default async function DashboardPage() {
         </Card>
       </main>
     </>
-  );
-}
-
-function MetricCard({
-  label,
-  value,
-  detail,
-  highlight = false,
-}: {
-  label: string;
-  value: string;
-  detail: string;
-  highlight?: boolean;
-}) {
-  return (
-    <Card className={highlight ? "border-amber-500/50" : undefined}>
-      <CardHeader className="pb-2">
-        <CardDescription>{label}</CardDescription>
-        <CardTitle className="text-2xl">{value}</CardTitle>
-      </CardHeader>
-      <CardContent>
-        <p className="text-xs text-muted-foreground">{detail}</p>
-      </CardContent>
-    </Card>
   );
 }

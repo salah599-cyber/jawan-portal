@@ -27,16 +27,25 @@ enum ModuleName {
   DASHBOARD
   ASSETS
   LANDS
+  REAL_ESTATE
   CARS
   COMPANIES
   LOANS
   CHEQUES
   PROPOSALS
   DOCUMENTS
+  INSURANCE
   EXPENSES
   REPORTS
+  PRIVATE_EQUITY
+  FUND_LP
+  CASH_MANAGEMENT
+  CALENDAR
   USERS
   AUDIT
+  FAMILY_MEMBERS
+  SUCCESSION
+  CONTACTS
 }
 
 enum LandDocumentType {
@@ -70,13 +79,61 @@ enum CompanyDocumentType {
   OTHER
 }
 
+enum PublicMarket {
+  MSX
+  UAE
+  SAUDI_ARABIA
+  KUWAIT
+  BAHRAIN
+  QATAR
+  USA
+  HONG_KONG
+  CHINA
+  INDIA
+  UK
+  OTHER
+}
+
+enum PublicHoldingSource {
+  IMPORT
+  MANUAL
+}
+
+enum PublicInstrumentType {
+  EQUITY
+  OPTION
+  STRUCTURED_NOTE
+  CRYPTO
+}
+
+enum PublicOptionType {
+  CALL
+  PUT
+}
+
+enum TaskStatus {
+  OPEN
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+}
+
+enum TaskPriority {
+  LOW
+  MEDIUM
+  HIGH
+  URGENT
+}
+
 enum AssetCategory {
   REAL_ESTATE
   PRIVATE_EQUITY
+  FUND_LP
   PUBLIC_EQUITY
   FIXED_ASSET
   BONDS
   CASH
+  PRECIOUS_METALS
   OTHER
 }
 
@@ -92,6 +149,24 @@ enum FixedAssetType {
   JEWELRY
   ART
   OTHER
+}
+
+enum PreciousMetalType {
+  GOLD
+  SILVER
+}
+
+enum PreciousMetalUnit {
+  GRAM
+  TOLA_10
+  KG
+  OZ
+}
+
+enum PreciousMetalPriceBasis {
+  OMR_BUY
+  OMR_SELL
+  USD_SPOT_OZ
 }
 
 enum LiabilityType {
@@ -120,6 +195,11 @@ enum LoanPaymentMethod {
   CASH
   DIRECT_DEBIT
   OTHER
+}
+
+enum InterestCalculationMethod {
+  REDUCING_BALANCE
+  FIXED_RATE
 }
 
 enum ChequeDirection {
@@ -236,6 +316,11 @@ model User {
   submittedProposals  InvestmentProposal[] @relation("ProposalSubmitter")
   proposalApprovals   ProposalApprover[]   @relation("ProposalApproverUser")
   proposalComments    ProposalComment[]
+  bankBalanceEntries  BankBalanceEntry[]
+  assignedTasks       Task[]                   @relation("TaskAssignee")
+  createdTasks        Task[]                   @relation("TaskCreator")
+  completedTasks      Task[]                   @relation("TaskCompleter")
+  familyMember        FamilyMember?            @relation("FamilyMemberUser")
   createdAt           DateTime                 @default(now())
   updatedAt           DateTime                 @updatedAt
 }
@@ -295,9 +380,44 @@ model Entity {
   registeredCompanies RegisteredCompany[]
   cheques      Cheque[]
   investmentProposals InvestmentProposal[]
+  peCompanies         PeCompany[]
+  lpCommitments       LpCommitment[]
+  insurancePolicies   InsurancePolicy[]
+  reProperties        ReProperty[]
+  tasks               Task[]
+  familyOwnershipStakes FamilyOwnershipStake[]
+  familySignatoryRoles  FamilySignatoryRole[]
+  successionPlans       SuccessionPlan[]
+  successionDistributionInstructions SuccessionDistributionInstruction[]
+  directoryContacts     DirectoryContact[]
   userAccess   UserEntityAccess[]
   createdAt    DateTime           @default(now())
   updatedAt    DateTime           @updatedAt
+}
+
+model Task {
+  id              String       @id @default(cuid())
+  title           String
+  description     String?
+  dueDate         DateTime
+  status          TaskStatus   @default(OPEN)
+  priority        TaskPriority @default(MEDIUM)
+  entityId        String?
+  entity          Entity?      @relation(fields: [entityId], references: [id], onDelete: SetNull)
+  assigneeId      String?
+  assignee        User?        @relation("TaskAssignee", fields: [assigneeId], references: [id], onDelete: SetNull)
+  createdById     String
+  createdBy       User         @relation("TaskCreator", fields: [createdById], references: [id], onDelete: Cascade)
+  completedAt     DateTime?
+  completedById   String?
+  completedBy     User?        @relation("TaskCompleter", fields: [completedById], references: [id], onDelete: SetNull)
+  completionNotes String?
+  reminderDays    Int          @default(1)
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
+  @@index([dueDate, status])
+  @@index([assigneeId, status])
+  @@index([entityId])
 }
 
 model FxRate {
@@ -326,6 +446,8 @@ model Asset {
   ownershipPct    Decimal               @default(100) @db.Decimal(5, 2)
   entityId        String
   entity          Entity                @relation(fields: [entityId], references: [id])
+  assetTypeId     String?
+  assetType       AssetType?            @relation(fields: [assetTypeId], references: [id], onDelete: SetNull)
   managerName     String?
   managerEmail    String?
   managerPhone    String?
@@ -333,6 +455,7 @@ model Asset {
   realEstate      RealEstateDetail?
   privateEquity   PrivateEquityDetail?
   fixedAsset      FixedAssetDetail?
+  preciousMetal   PreciousMetalDetail?
   bond            BondDetail?
   cash            CashDetail?
   custom          CustomAssetDetail?
@@ -345,10 +468,28 @@ model Asset {
   landParcel      LandParcel?
   vehicle         Vehicle?
   registeredCompany RegisteredCompany?
+  peCompany         PeCompany?
+  lpCommitment      LpCommitment?
+  reProperty        ReProperty?
   exit            AssetExit?
+  familyOwnershipStakes FamilyOwnershipStake[]
+  familySignatoryRoles  FamilySignatoryRole[]
+  beneficiaryDesignations BeneficiaryDesignation[]
+  successionDistributionInstructions SuccessionDistributionInstruction[]
   createdAt       DateTime              @default(now())
   updatedAt       DateTime              @updatedAt
   @@index([entityId, category, status])
+  @@index([assetTypeId])
+}
+
+model AssetType {
+  id        String   @id @default(cuid())
+  name      String   @unique
+  isActive  Boolean  @default(true)
+  sortOrder Int      @default(0)
+  assets    Asset[]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
 
 model RealEstateDetail {
@@ -393,6 +534,11 @@ model LandParcel {
   documents        LandDocument[]
   registeredHolders LandRegisteredHolder[]
   sale             LandSale?
+  reProperty       ReProperty?
+  insurancePolicies InsurancePolicy[]
+  familyOwnershipStakes FamilyOwnershipStake[]
+  beneficiaryDesignations BeneficiaryDesignation[]
+  successionDistributionInstructions SuccessionDistributionInstruction[]
   createdAt        DateTime       @default(now())
   updatedAt        DateTime       @updatedAt
   @@index([entityId, country, status])
@@ -496,6 +642,11 @@ model Vehicle {
   assetId                String?           @unique
   asset                  Asset?            @relation(fields: [assetId], references: [id])
   documents              VehicleDocument[]
+  insurancePolicies      InsurancePolicy[]
+  familyOwnershipStakes FamilyOwnershipStake[]
+  familySignatoryRoles  FamilySignatoryRole[]
+  beneficiaryDesignations BeneficiaryDesignation[]
+  successionDistributionInstructions SuccessionDistributionInstruction[]
   createdAt              DateTime          @default(now())
   updatedAt              DateTime          @updatedAt
   @@index([entityId, governorate, status])
@@ -538,6 +689,11 @@ model RegisteredCompany {
   asset                  Asset?              @relation(fields: [assetId], references: [id])
   owners                 CompanyOwner[]
   documents              CompanyDocument[]
+  insurancePolicies      InsurancePolicy[]
+  familyOwnershipStakes FamilyOwnershipStake[]
+  familySignatoryRoles  FamilySignatoryRole[]
+  beneficiaryDesignations BeneficiaryDesignation[]
+  successionDistributionInstructions SuccessionDistributionInstruction[]
   createdAt              DateTime            @default(now())
   updatedAt              DateTime            @updatedAt
 
@@ -594,25 +750,75 @@ model PrivateEquityDetail {
 }
 
 model PublicEquityHolding {
-  id            String       @id @default(cuid())
+  id            String              @id @default(cuid())
   assetId       String
-  asset         Asset        @relation(fields: [assetId], references: [id], onDelete: Cascade)
+  asset         Asset               @relation(fields: [assetId], references: [id], onDelete: Cascade)
+  market        PublicMarket        @default(MSX)
   symbol        String
   name          String?
-  quantity      Decimal      @db.Decimal(18, 6)
-  costBasis     Decimal?     @db.Decimal(18, 2)
-  marketPrice   Decimal?     @db.Decimal(18, 4)
-  marketValue   Decimal?     @db.Decimal(18, 2)
-  unrealisedPnl Decimal?     @db.Decimal(18, 2)
+  quantity      Decimal             @db.Decimal(18, 6)
+  costBasis     Decimal?            @db.Decimal(18, 2)
+  marketPrice   Decimal?            @db.Decimal(18, 4)
+  marketValue   Decimal?            @db.Decimal(18, 2)
+  unrealisedPnl Decimal?            @db.Decimal(18, 2)
+  priceFetchedAt DateTime?
+  priceSource   String?
   broker        String?
   accountNumber String?
-  currency      String       @default("USD")
+  exchange      String?
+  isin          String?
+  cusip         String?
+  sedol         String?
+  country       String?
+  source        PublicHoldingSource @default(IMPORT)
+  instrumentType PublicInstrumentType @default(EQUITY)
+  currency      String              @default("USD")
   asOfDate      DateTime?
   importBatchId String?
-  importBatch   ImportBatch? @relation(fields: [importBatchId], references: [id])
-  createdAt     DateTime     @default(now())
-  updatedAt     DateTime     @updatedAt
+  importBatch   ImportBatch?        @relation(fields: [importBatchId], references: [id])
+  optionDetail  PublicOptionDetail?
+  structuredNoteDetail PublicStructuredNoteDetail?
+  cryptoDetail  PublicCryptoDetail?
+  createdAt     DateTime            @default(now())
+  updatedAt     DateTime            @updatedAt
   @@index([assetId, symbol])
+  @@index([assetId, market])
+  @@index([market])
+  @@index([instrumentType])
+}
+
+model PublicOptionDetail {
+  id                 String              @id @default(cuid())
+  holdingId          String              @unique
+  holding            PublicEquityHolding @relation(fields: [holdingId], references: [id], onDelete: Cascade)
+  underlyingSymbol   String
+  optionType         PublicOptionType
+  strikePrice        Decimal             @db.Decimal(18, 4)
+  expiryDate         DateTime
+  contractMultiplier Int                 @default(100)
+  premiumPaid        Decimal?            @db.Decimal(18, 2)
+}
+
+model PublicStructuredNoteDetail {
+  id             String              @id @default(cuid())
+  holdingId      String              @unique
+  holding        PublicEquityHolding @relation(fields: [holdingId], references: [id], onDelete: Cascade)
+  issuer         String
+  productName    String
+  notionalAmount Decimal             @db.Decimal(18, 2)
+  issueDate      DateTime?
+  maturityDate   DateTime
+  couponRate     Decimal?            @db.Decimal(8, 4)
+  barrierLevel   Decimal?            @db.Decimal(8, 4)
+  payoffNotes    String?
+}
+
+model PublicCryptoDetail {
+  id          String              @id @default(cuid())
+  holdingId   String              @unique
+  holding     PublicEquityHolding @relation(fields: [holdingId], references: [id], onDelete: Cascade)
+  coinGeckoId String
+  custodian   String?
 }
 
 model FixedAssetDetail {
@@ -622,6 +828,19 @@ model FixedAssetDetail {
   assetType   FixedAssetType @default(OTHER)
   condition   String?
   reportNotes String?
+}
+
+model PreciousMetalDetail {
+  id             String                  @id @default(cuid())
+  assetId        String                  @unique
+  asset          Asset                   @relation(fields: [assetId], references: [id], onDelete: Cascade)
+  metal          PreciousMetalType
+  unit           PreciousMetalUnit
+  quantity       Decimal                 @db.Decimal(18, 6)
+  priceBasis     PreciousMetalPriceBasis @default(OMR_BUY)
+  lastUnitPrice  Decimal?                @db.Decimal(18, 6)
+  priceFetchedAt DateTime?
+  priceSource    String?
 }
 
 model BondDetail {
@@ -654,20 +873,71 @@ model CustomAssetDetail {
 }
 
 model BankAccount {
-  id            String   @id @default(cuid())
-  entityId      String?
-  entity        Entity?  @relation(fields: [entityId], references: [id])
-  accountName   String
-  bankName      String
-  accountNumber String
-  sortCode      String?
-  swiftCode     String?
-  iban          String?
-  currency      String   @default("OMR")
+  id             String              @id @default(cuid())
+  entityId       String?
+  entity         Entity?             @relation(fields: [entityId], references: [id])
+  accountName    String
+  bankName       String
+  accountNumber  String
+  sortCode       String?
+  swiftCode      String?
+  iban           String?
+  currency       String              @default("OMR")
+  notes          String?
+  currentBalance Decimal?            @db.Decimal(18, 3)
+  balanceAsOf    DateTime?
+  isActive               Boolean             @default(true)
+  includeInCashPosition  Boolean             @default(true)
+  cheques                Cheque[]
+  balanceEntries BankBalanceEntry[]
+  statementImports CashStatementImport[]
+  createdAt      DateTime            @default(now())
+  updatedAt      DateTime            @updatedAt
+}
+
+model BankBalanceEntry {
+  id            String      @id @default(cuid())
+  bankAccountId String
+  bankAccount   BankAccount @relation(fields: [bankAccountId], references: [id], onDelete: Cascade)
+  balance       Decimal     @db.Decimal(18, 3)
+  balanceDate   DateTime
   notes         String?
-  cheques       Cheque[]
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
+  recordedById  String?
+  recordedBy    User?       @relation(fields: [recordedById], references: [id], onDelete: SetNull)
+  statementImportId String?
+  statementImport   CashStatementImport? @relation(fields: [statementImportId], references: [id], onDelete: SetNull)
+  createdAt     DateTime    @default(now())
+
+  @@index([bankAccountId, balanceDate])
+}
+
+enum CashStatementImportStatus {
+  PARSED
+  APPLIED
+  FAILED
+}
+
+model CashStatementImport {
+  id            String                    @id @default(cuid())
+  fileName      String
+  uploadedBy    String
+  bankAccountId String?
+  bankAccount   BankAccount?              @relation(fields: [bankAccountId], references: [id], onDelete: SetNull)
+  parserId      String?
+  extractedJson Json?
+  balance       Decimal?                  @db.Decimal(18, 3)
+  balanceDate   DateTime?
+  currency      String?
+  bankName      String?
+  accountNumber String?
+  iban          String?
+  warnings      Json?
+  status        CashStatementImportStatus @default(PARSED)
+  balanceEntries BankBalanceEntry[]
+  createdAt     DateTime                  @default(now())
+
+  @@index([bankAccountId, createdAt])
+  @@index([status, createdAt])
 }
 
 model Liability {
@@ -679,6 +949,7 @@ model Liability {
   outstandingBalance Decimal?           @db.Decimal(18, 2)
   currency           String             @default("OMR")
   interestRate       Decimal?           @db.Decimal(8, 4)
+  interestCalculationMethod InterestCalculationMethod? @default(REDUCING_BALANCE)
   startDate          DateTime?
   maturityDate       DateTime?
   paymentAmount      Decimal?           @db.Decimal(18, 2)
@@ -695,6 +966,7 @@ model Liability {
   asset              Asset?             @relation(fields: [assetId], references: [id])
   documents          LoanDocument[]
   payments           LoanPayment[]
+  reProperties       ReProperty[]
   lastPaymentAt      DateTime?
   createdAt          DateTime           @default(now())
   updatedAt          DateTime           @updatedAt
@@ -984,12 +1256,17 @@ model ExpenseReminderConfig {
 }
 
 model ImportBatch {
-  id         String                @id @default(cuid())
-  fileName   String
-  uploadedBy String
-  rowCount   Int
-  holdings   PublicEquityHolding[]
-  createdAt  DateTime              @default(now())
+  id            String                @id @default(cuid())
+  fileName      String
+  uploadedBy    String
+  rowCount      Int
+  market        PublicMarket?
+  broker        String?
+  accountNumber String?
+  asOfDate      DateTime?
+  parserId      String?
+  holdings      PublicEquityHolding[]
+  createdAt     DateTime              @default(now())
 }
 
 model AuditLog {
@@ -1074,4 +1351,1598 @@ model ProposalComment {
   createdAt  DateTime            @default(now())
 
   @@index([proposalId, createdAt])
+}
+
+// ─── Private Equity & Venture Capital ───────────────────────────────────────
+
+enum PeStage {
+  IDEA
+  PRE_SEED
+  SEED
+  SERIES_A
+  GROWTH
+  MATURE
+}
+
+enum PeCompanyStatus {
+  ACTIVE
+  FOLLOW_ON_PENDING
+  WATCHLIST
+  EXITED
+  WRITTEN_OFF
+}
+
+enum PeInstrument {
+  ORDINARY_SHARES
+  PREFERENCE_SHARES
+  CONVERTIBLE_NOTE
+  SAFE
+  WARRANT
+  DIRECT_LOAN
+  OTHER
+}
+
+enum PeShareholderType {
+  FOUNDER
+  FAMILY_OFFICE
+  ANGEL
+  VC_FUND
+  CORPORATE
+  ESOP_POOL
+  OTHER
+}
+
+enum PeDilutionEventType {
+  NEW_ROUND
+  ESOP_GRANT
+  WARRANT_EXERCISE
+  CONVERTIBLE_CONVERSION
+  SECONDARY_SALE
+  SPLIT
+  OTHER
+}
+
+enum PeValuationMethod {
+  LAST_ROUND
+  REVENUE_MULTIPLE
+  DCF
+  BOOK_VALUE
+  WRITE_OFF
+  OTHER
+}
+
+enum PeDistributionType {
+  DIVIDEND
+  RETURN_OF_CAPITAL
+  EXIT_PROCEEDS
+  INTEREST
+}
+
+enum PeExitType {
+  TRADE_SALE
+  IPO
+  SECONDARY
+  BUYBACK
+  WRITE_OFF
+}
+
+enum PeContactRole {
+  FOUNDER
+  CEO
+  CFO
+  BOARD_MEMBER
+  LEAD_INVESTOR
+  LEGAL_COUNSEL
+  OTHER
+}
+
+enum PeAntiDilution {
+  NONE
+  BROAD_BASED
+  FULL_RATCHET
+}
+
+enum PeReportType {
+  MONTHLY
+  QUARTERLY
+  ANNUAL
+  AD_HOC
+}
+
+enum PeDocumentType {
+  SHA
+  TERM_SHEET
+  CAP_TABLE_SNAPSHOT
+  BOARD_RESOLUTION
+  FINANCIAL_STATEMENTS
+  IC_MEMO
+  WARRANT_AGREEMENT
+  CONVERTIBLE_NOTE
+  OTHER
+}
+
+model PeCompany {
+  id              String          @id @default(cuid())
+  name            String
+  tradingName     String?
+  country         String?
+  legalEntityType String?
+  sector          String?
+  stage           PeStage         @default(SEED)
+  status          PeCompanyStatus @default(ACTIVE)
+  riskRating      Int?
+  notes           String?
+  entityId        String
+  entity          Entity          @relation(fields: [entityId], references: [id])
+  assetId         String?         @unique
+  asset           Asset?          @relation(fields: [assetId], references: [id])
+  reportingCurrency String        @default("USD")
+  investments     PeInvestment[]
+  shareholders    PeCapTableShareholder[]
+  capTableRounds  PeCapTableRound[]
+  dilutionEvents  PeCapTableDilutionEvent[]
+  valuations      PeValuation[]
+  distributions   PeDistribution[]
+  exit            PeExit?
+  contacts        PeContact[]
+  governance      PeGovernanceRights?
+  monitoringReports PeMonitoringReport[]
+  documents       PeCompanyDocument[]
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+
+  @@index([entityId, status])
+  @@index([entityId, stage])
+  @@index([sector])
+}
+
+model PeInvestment {
+  id                    String       @id @default(cuid())
+  companyId             String
+  company               PeCompany    @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  investmentDate        DateTime
+  roundName             String?
+  instrument            PeInstrument @default(ORDINARY_SHARES)
+  amountReporting       Decimal?     @db.Decimal(18, 2)
+  amountOriginal        Decimal?     @db.Decimal(18, 2)
+  currencyOriginal      String?
+  sharesAcquired        Decimal?     @db.Decimal(18, 6)
+  pricePerShare         Decimal?     @db.Decimal(18, 4)
+  preMoneyValuation     Decimal?     @db.Decimal(18, 2)
+  postMoneyValuation    Decimal?     @db.Decimal(18, 2)
+  ownershipPctAtEntry   Decimal?     @db.Decimal(5, 2)
+  reservedAmount        Decimal?     @db.Decimal(18, 2)
+  notes                 String?
+  createdAt             DateTime     @default(now())
+  updatedAt             DateTime     @updatedAt
+
+  @@index([companyId, investmentDate])
+}
+
+model PeCapTableShareholder {
+  id               String            @id @default(cuid())
+  companyId        String
+  company          PeCompany         @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  shareholderName  String
+  shareholderType  PeShareholderType @default(OTHER)
+  isOurStake       Boolean           @default(false)
+  roundEntered     String?
+  sharesHeld       Decimal?          @db.Decimal(18, 6)
+  shareClass       String?
+  ownershipPct     Decimal?          @db.Decimal(5, 2)
+  notes            String?
+  createdAt        DateTime          @default(now())
+  updatedAt        DateTime          @updatedAt
+
+  @@index([companyId, isOurStake])
+}
+
+model PeCapTableRound {
+  id                     String       @id @default(cuid())
+  companyId              String
+  company                PeCompany    @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  roundName              String
+  roundDate              DateTime?
+  instrument             PeInstrument @default(ORDINARY_SHARES)
+  preMoneyValuation      Decimal?     @db.Decimal(18, 2)
+  postMoneyValuation     Decimal?     @db.Decimal(18, 2)
+  amountRaised           Decimal?     @db.Decimal(18, 2)
+  newSharesIssued        Decimal?     @db.Decimal(18, 6)
+  pricePerShare          Decimal?     @db.Decimal(18, 4)
+  leadInvestor           String?
+  notes                  String?
+  createdAt              DateTime     @default(now())
+  updatedAt              DateTime     @updatedAt
+
+  @@index([companyId, roundDate])
+}
+
+model PeCapTableDilutionEvent {
+  id           String              @id @default(cuid())
+  companyId    String
+  company      PeCompany           @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  eventType    PeDilutionEventType @default(OTHER)
+  eventDate    DateTime?
+  sharesIssued Decimal?            @db.Decimal(18, 6)
+  description  String?
+  createdAt    DateTime            @default(now())
+  updatedAt    DateTime            @updatedAt
+
+  @@index([companyId, eventDate])
+}
+
+model PeValuation {
+  id                  String            @id @default(cuid())
+  companyId           String
+  company               PeCompany         @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  valuationDate       DateTime
+  postMoneyReporting    Decimal?          @db.Decimal(18, 2)
+  stakeFairValueReporting Decimal?        @db.Decimal(18, 2)
+  method              PeValuationMethod @default(LAST_ROUND)
+  notes               String?
+  createdAt           DateTime          @default(now())
+  updatedAt           DateTime          @updatedAt
+
+  @@index([companyId, valuationDate])
+}
+
+model PeDistribution {
+  id               String             @id @default(cuid())
+  companyId        String
+  company          PeCompany          @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  distributionDate DateTime
+  amountReporting  Decimal            @db.Decimal(18, 2)
+  distributionType PeDistributionType @default(DIVIDEND)
+  notes            String?
+  createdAt        DateTime           @default(now())
+  updatedAt        DateTime           @updatedAt
+
+  @@index([companyId, distributionDate])
+}
+
+model PeExit {
+  id                   String     @id @default(cuid())
+  companyId            String     @unique
+  company              PeCompany  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  exitDate             DateTime
+  exitType             PeExitType @default(TRADE_SALE)
+  exitProceedsReporting Decimal?  @db.Decimal(18, 2)
+  realisedGainLossReporting Decimal? @db.Decimal(18, 2)
+  notes                String?
+  createdAt            DateTime   @default(now())
+  updatedAt            DateTime   @updatedAt
+}
+
+model PeContact {
+  id          String        @id @default(cuid())
+  companyId   String
+  company     PeCompany     @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  name        String
+  role        PeContactRole @default(OTHER)
+  email       String?
+  phone       String?
+  isBoardRep  Boolean       @default(false)
+  notes       String?
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+
+  @@index([companyId])
+}
+
+model PeGovernanceRights {
+  id                  String         @id @default(cuid())
+  companyId           String         @unique
+  company             PeCompany      @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  boardSeat           Boolean        @default(false)
+  boardRepName        String?
+  observerRights      Boolean        @default(false)
+  informationRights   Boolean        @default(false)
+  reportingFrequency  String?
+  proRataRights       Boolean        @default(false)
+  dragAlong           Boolean        @default(false)
+  tagAlong            Boolean        @default(false)
+  antiDilution        PeAntiDilution @default(NONE)
+  nextRoundTrigger    String?
+  createdAt           DateTime       @default(now())
+  updatedAt           DateTime       @updatedAt
+}
+
+model PeMonitoringReport {
+  id            String    @id @default(cuid())
+  companyId     String
+  company       PeCompany @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  reportDate    DateTime
+  reportType    PeReportType @default(QUARTERLY)
+  revenueReporting Decimal? @db.Decimal(18, 2)
+  burnRateReporting Decimal? @db.Decimal(18, 2)
+  runwayMonths  Decimal?  @db.Decimal(6, 1)
+  customKpis    Json?
+  notes         String?
+  documentId    String?
+  document      PeCompanyDocument? @relation(fields: [documentId], references: [id], onDelete: SetNull)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  @@index([companyId, reportDate])
+}
+
+model PeCompanyDocument {
+  id           String         @id @default(cuid())
+  companyId    String
+  company      PeCompany      @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  documentType PeDocumentType @default(OTHER)
+  fileName     String
+  fileUrl      String
+  mimeType     String
+  fileSize     Int
+  notes        String?
+  uploadedById String?
+  monitoringReports PeMonitoringReport[]
+  createdAt    DateTime       @default(now())
+
+  @@index([companyId, documentType])
+}
+enum RePortfolioTrack {
+  INVESTMENT
+  PRIVATE
+}
+
+enum ReFinishingQuality {
+  STANDARD
+  HIGH_END
+  LUXURY
+}
+
+enum RePropertyCondition {
+  EXCELLENT
+  GOOD
+  FAIR
+  NEEDS_RENOVATION
+}
+
+enum RePrivateCostCategory {
+  ELECTRICITY
+  WATER
+  MUNICIPALITY_FEES
+  INTERNET_TELECOM
+  SECURITY
+  HOUSEKEEPING
+  GARDENING
+  POOL_MAINTENANCE
+  PEST_CONTROL
+  AC_MAINTENANCE
+  GENERAL_MAINTENANCE_RESERVE
+}
+
+enum RePrivateStaffRole {
+  DRIVER
+  HOUSEKEEPER
+  COOK
+  SECURITY_GUARD
+  GARDENER
+  OTHER
+}
+
+enum RePrivateStaffArrangement {
+  LIVE_IN
+  LIVE_OUT
+}
+
+enum RePropertyType {
+  VILLA
+  APARTMENT_BUILDING
+  COMMERCIAL_BUILDING
+  MIXED_USE
+  LAND
+  WAREHOUSE
+  OTHER
+}
+
+enum ReOwnershipStatus {
+  OWNED
+  JOINTLY_OWNED
+  MORTGAGED
+}
+
+enum ReValuationMethod {
+  MARKET_APPRAISAL
+  COST
+  INCOME
+  SELF_ASSESSED
+}
+
+enum RePropertyStatus {
+  DRAFT
+  ACTIVE
+  UNDER_RENOVATION
+  FOR_SALE
+  SOLD
+}
+
+enum ReUnitType {
+  FLAT
+  APARTMENT
+  OFFICE
+  SHOWROOM
+  SHOP
+  WAREHOUSE
+  VILLA
+  STUDIO
+  PENTHOUSE
+  PARKING
+  STORAGE
+  OTHER
+}
+
+enum ReOccupancyStatus {
+  RENTED
+  VACANT
+  OWNER_OCCUPIED
+  UNDER_RENOVATION
+  RESERVED
+}
+
+enum ReFurnishingStatus {
+  FURNISHED
+  SEMI_FURNISHED
+  UNFURNISHED
+}
+
+enum ReTenantIdType {
+  OMANI_ID
+  PASSPORT
+  RESIDENCE_CARD
+}
+
+enum ReLeaseStatus {
+  ACTIVE
+  EXPIRED
+  TERMINATED
+  PENDING
+  RENEWED
+}
+
+enum RePaymentFrequency {
+  MONTHLY
+  QUARTERLY
+  SEMI_ANNUAL
+  ANNUAL
+}
+
+enum RePaymentMethod {
+  BANK_TRANSFER
+  CHEQUE
+  CASH
+  PDC
+}
+
+enum ReRentPaymentStatus {
+  PENDING
+  PAID
+  OVERDUE
+  PARTIALLY_PAID
+  WAIVED
+}
+
+enum RePdcStatus {
+  PENDING
+  CLEARED
+  BOUNCED
+  REPLACED
+}
+
+enum ReMaintenanceReportedBy {
+  TENANT
+  OWNER
+  PROPERTY_MANAGER
+  INSPECTION
+}
+
+enum ReMaintenanceCategory {
+  PLUMBING
+  ELECTRICAL
+  AC_HVAC
+  PAINTING
+  FLOORING
+  STRUCTURE
+  PEST_CONTROL
+  CLEANING
+  APPLIANCE
+  DOOR_WINDOW
+  ELEVATOR
+  COMMON_AREA
+  OTHER
+}
+
+enum ReMaintenancePriority {
+  URGENT
+  HIGH
+  MEDIUM
+  LOW
+}
+
+enum ReMaintenanceStatus {
+  OPEN
+  IN_PROGRESS
+  PENDING_PARTS
+  COMPLETED
+  CANCELLED
+}
+
+enum ReMaintenanceChargedTo {
+  OWNER
+  TENANT
+}
+
+enum ReUtilityType {
+  ELECTRICITY
+  WATER
+}
+
+enum ReUtilityPaymentStatus {
+  PAID
+  UNPAID
+  TENANT_RESPONSIBLE
+}
+
+enum RePropertyExpenseCategory {
+  MAINTENANCE
+  INSURANCE
+  MUNICIPALITY_FEE
+  SERVICE_CHARGE
+  MANAGEMENT_FEE
+  LEGAL
+  MORTGAGE
+  RENOVATION
+  LANDSCAPING
+  SECURITY
+  CLEANING
+  UTILITY
+  OTHER
+}
+
+enum ReExpensePaymentStatus {
+  PAID
+  UNPAID
+  OVERDUE
+}
+
+enum ReRecurrenceFrequency {
+  MONTHLY
+  QUARTERLY
+  ANNUAL
+}
+
+enum RePropertyDocumentType {
+  TITLE_DEED
+  LEASE_CONTRACT
+  NOC
+  MUNICIPALITY_CERTIFICATE
+  INSURANCE_POLICY
+  MORTGAGE_DOCUMENT
+  VALUATION_REPORT
+  MAINTENANCE_INVOICE
+  UTILITY_BILL
+  TENANT_ID
+  FLOOR_PLAN
+  PHOTO
+  COMPLETION_CERTIFICATE
+  ARCHITECTURAL_DRAWING
+  RENOVATION_CONTRACT
+  UTILITY_ACCOUNT
+  STAFF_CONTRACT
+  OTHER
+}
+
+model ReProperty {
+  id                      String              @id @default(cuid())
+  name                    String
+  propertyType            RePropertyType
+  portfolioTrack            RePortfolioTrack    @default(INVESTMENT)
+  ownershipStatus         ReOwnershipStatus   @default(OWNED)
+  entityId                String
+  entity                  Entity              @relation(fields: [entityId], references: [id])
+  assetId                 String?             @unique
+  asset                   Asset?              @relation(fields: [assetId], references: [id])
+  liabilityId             String?
+  liability               Liability?          @relation(fields: [liabilityId], references: [id], onDelete: SetNull)
+  landParcelId            String?             @unique
+  landParcel              LandParcel?         @relation(fields: [landParcelId], references: [id])
+  purchaseDate            DateTime?
+  purchasePriceOmr        Decimal?            @db.Decimal(18, 3)
+  currentValuationOmr     Decimal?            @db.Decimal(18, 3)
+  lastValuationDate       DateTime?
+  valuationMethod         ReValuationMethod?
+  governorate             String?
+  wilayat                 String?
+  area                    String?
+  streetAddress           String?
+  plotNumber              String?
+  parcelNumber            String?
+  gpsLat                  Decimal?            @db.Decimal(10, 7)
+  gpsLng                  Decimal?            @db.Decimal(10, 7)
+  googleMapsUrl           String?
+  landAreaSqm             Decimal?            @db.Decimal(18, 2)
+  builtUpAreaSqm          Decimal?            @db.Decimal(18, 2)
+  numFloors               Int?
+  numUnits                Int                 @default(0)
+  yearBuilt               Int?
+  mortgageBank            String?
+  mortgageOutstandingOmr  Decimal?            @db.Decimal(18, 3)
+  mortgageMonthlyPaymentOmr Decimal?          @db.Decimal(18, 3)
+  mortgageEndDate         DateTime?
+  status                  RePropertyStatus    @default(ACTIVE)
+  notes                   String?
+  units                   ReUnit[]
+  maintenance             ReMaintenanceRequest[]
+  valuations              RePropertyValuation[]
+  expenses                RePropertyExpense[]
+  documents               RePropertyDocument[]
+  insurancePolicies       InsurancePolicy[]
+  privateDetail           RePrivatePropertyDetail?
+  privateRunningCosts     RePrivateRunningCost[]
+  privateStaff            RePrivateStaff[]
+  familyOwnershipStakes FamilyOwnershipStake[]
+  beneficiaryDesignations BeneficiaryDesignation[]
+  successionDistributionInstructions SuccessionDistributionInstruction[]
+  createdAt               DateTime            @default(now())
+  updatedAt               DateTime            @updatedAt
+
+  @@index([entityId, status])
+  @@index([entityId, governorate, wilayat])
+  @@index([entityId, portfolioTrack])
+}
+
+model RePrivatePropertyDetail {
+  id                    String               @id @default(cuid())
+  propertyId            String               @unique
+  property              ReProperty           @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  titleDeedNumber       String?
+  registeredOwner       String?
+  beneficialOwner       String?
+  numBedrooms           Int?
+  numBathrooms          Int?
+  numParkingSpaces      Int?
+  constructionType      String?
+  finishingQuality      ReFinishingQuality?
+  furnishingStatus      ReFurnishingStatus?
+  hasPool               Boolean              @default(false)
+  hasGardenLandscaping  Boolean              @default(false)
+  hasSmartHome          Boolean              @default(false)
+  condition             RePropertyCondition?
+  lastRenovationDate    DateTime?
+  lastRenovationCostOmr Decimal?             @db.Decimal(18, 3)
+  wasiyyaConditions     String?
+  createdAt             DateTime             @default(now())
+  updatedAt             DateTime             @updatedAt
+}
+
+model RePrivateRunningCost {
+  id              String                @id @default(cuid())
+  propertyId      String
+  property        ReProperty            @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  category        RePrivateCostCategory
+  provider        String?
+  meterNumber     String?
+  accountNumber   String?
+  frequency       ReRecurrenceFrequency?
+  monthlyCostOmr  Decimal?              @db.Decimal(18, 3)
+  annualCostOmr   Decimal?              @db.Decimal(18, 3)
+  paymentStatus   String?
+  notes           String?
+  createdAt       DateTime              @default(now())
+  updatedAt       DateTime              @updatedAt
+
+  @@unique([propertyId, category])
+  @@index([propertyId])
+}
+
+model RePrivateStaff {
+  id              String                    @id @default(cuid())
+  propertyId      String
+  property        ReProperty                @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  fullName        String
+  nationality     String?
+  idNumber        String?
+  role            RePrivateStaffRole        @default(OTHER)
+  arrangement     RePrivateStaffArrangement?
+  contractExpiry  DateTime?
+  visaExpiry      DateTime?
+  monthlySalaryOmr Decimal?                 @db.Decimal(18, 3)
+  notes           String?
+  createdAt       DateTime                  @default(now())
+  updatedAt       DateTime                  @updatedAt
+
+  @@index([propertyId])
+  @@index([visaExpiry])
+  @@index([contractExpiry])
+}
+
+model ReUnit {
+  id                       String              @id @default(cuid())
+  propertyId               String
+  property                 ReProperty          @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  unitNumber               String
+  unitType                 ReUnitType
+  floorNumber              Int?
+  areaSqm                  Decimal?            @db.Decimal(18, 2)
+  numBedrooms              Int?
+  numBathrooms             Int?
+  numParkingSpaces         Int?
+  electricityMeterNumber   String?
+  electricityAccountNumber String?
+  electricityProvider      String?
+  waterMeterNumber         String?
+  waterAccountNumber       String?
+  waterProvider            String?             @default("PAEW")
+  occupancyStatus          ReOccupancyStatus   @default(VACANT)
+  furnishingStatus         ReFurnishingStatus?
+  marketRentOmr            Decimal?            @db.Decimal(18, 3)
+  vacantSince              DateTime?
+  notes                    String?
+  tenants                  ReTenant[]
+  leases                   ReLease[]
+  rentSchedules            ReRentSchedule[]
+  maintenance              ReMaintenanceRequest[]
+  utilityReadings          ReUtilityReading[]
+  expenses                 RePropertyExpense[]
+  documents                RePropertyDocument[]
+  createdAt                DateTime            @default(now())
+  updatedAt                DateTime            @updatedAt
+
+  @@index([propertyId, occupancyStatus])
+  @@index([propertyId, unitType])
+}
+
+model ReTenant {
+  id                    String         @id @default(cuid())
+  unitId                String
+  unit                  ReUnit         @relation(fields: [unitId], references: [id], onDelete: Cascade)
+  fullName              String
+  nationality           String?
+  idType                ReTenantIdType?
+  idNumber              String?
+  idExpiryDate          DateTime?
+  phonePrimary          String?
+  phoneSecondary        String?
+  email                 String?
+  employerName          String?
+  emergencyContactName  String?
+  emergencyContactPhone String?
+  notes                 String?
+  leases                ReLease[]
+  createdAt             DateTime       @default(now())
+  updatedAt             DateTime       @updatedAt
+
+  @@index([unitId])
+  @@index([fullName])
+}
+
+model ReLease {
+  id                            String             @id @default(cuid())
+  unitId                        String
+  unit                          ReUnit             @relation(fields: [unitId], references: [id], onDelete: Cascade)
+  tenantId                      String
+  tenant                        ReTenant           @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  leaseStartDate                DateTime
+  leaseEndDate                  DateTime
+  leaseDurationMonths           Int?
+  noticePeriodDays              Int                @default(90)
+  autoRenew                     Boolean            @default(false)
+  rentAmountOmr                 Decimal            @db.Decimal(18, 3)
+  paymentFrequency              RePaymentFrequency @default(MONTHLY)
+  paymentMethod                 RePaymentMethod    @default(BANK_TRANSFER)
+  securityDepositOmr            Decimal?           @db.Decimal(18, 3)
+  securityDepositPaid           Boolean            @default(false)
+  securityDepositReturned       Boolean            @default(false)
+  securityDepositReturnDate     DateTime?
+  securityDepositDeductionsOmr  Decimal?           @db.Decimal(18, 3)
+  pdcBank                       String?
+  pdcChequeNumbers              Json?
+  municipalityRegistrationNumber String?
+  municipalityRegistrationDate  DateTime?
+  municipalityExpiryDate        DateTime?
+  legalReference                String?
+  status                        ReLeaseStatus      @default(ACTIVE)
+  terminationDate               DateTime?
+  terminationReason             String?
+  notes                         String?
+  rentSchedules                 ReRentSchedule[]
+  documents                     RePropertyDocument[]
+  createdAt                     DateTime           @default(now())
+  updatedAt                     DateTime           @updatedAt
+
+  @@index([unitId, status])
+  @@index([tenantId])
+  @@index([leaseEndDate])
+}
+
+model ReRentSchedule {
+  id                String              @id @default(cuid())
+  leaseId           String
+  lease             ReLease             @relation(fields: [leaseId], references: [id], onDelete: Cascade)
+  unitId            String
+  unit              ReUnit              @relation(fields: [unitId], references: [id], onDelete: Cascade)
+  dueDate           DateTime
+  amountOmr         Decimal             @db.Decimal(18, 3)
+  periodLabel       String
+  paymentStatus     ReRentPaymentStatus @default(PENDING)
+  paidDate          DateTime?
+  paidAmountOmr     Decimal?            @db.Decimal(18, 3)
+  paymentMethod     RePaymentMethod?
+  chequeNumber      String?
+  bankReference     String?
+  receiptNumber     String?
+  pdcChequeNumber   String?
+  pdcBank           String?
+  pdcClearanceDate  DateTime?
+  pdcStatus         RePdcStatus?
+  lateFeeOmr        Decimal?            @db.Decimal(18, 3)
+  notes             String?
+  createdAt         DateTime            @default(now())
+  updatedAt         DateTime            @updatedAt
+
+  @@index([leaseId, dueDate])
+  @@index([unitId, paymentStatus])
+  @@index([dueDate, paymentStatus])
+}
+
+model ReMaintenanceRequest {
+  id                 String                  @id @default(cuid())
+  propertyId         String
+  property           ReProperty              @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  unitId             String?
+  unit               ReUnit?                 @relation(fields: [unitId], references: [id], onDelete: SetNull)
+  reportedBy         ReMaintenanceReportedBy
+  reportedDate       DateTime                @default(now())
+  category           ReMaintenanceCategory
+  priority           ReMaintenancePriority   @default(MEDIUM)
+  description        String
+  assignedTo         String?
+  contractorCompany  String?
+  contractorPhone    String?
+  status             ReMaintenanceStatus     @default(OPEN)
+  scheduledDate      DateTime?
+  completedDate      DateTime?
+  resolutionNotes    String?
+  quotedCostOmr      Decimal?                @db.Decimal(18, 3)
+  actualCostOmr      Decimal?                @db.Decimal(18, 3)
+  invoiceNumber      String?
+  chargedTo          ReMaintenanceChargedTo?
+  paidByOwner        Boolean                 @default(true)
+  documents          RePropertyDocument[]
+  createdAt          DateTime                @default(now())
+  updatedAt          DateTime                @updatedAt
+
+  @@index([propertyId, status])
+  @@index([unitId, status])
+}
+
+model ReUtilityReading {
+  id              String                 @id @default(cuid())
+  unitId          String
+  unit            ReUnit                 @relation(fields: [unitId], references: [id], onDelete: Cascade)
+  utilityType     ReUtilityType
+  readingDate     DateTime
+  meterReading    Decimal                @db.Decimal(18, 3)
+  previousReading Decimal?               @db.Decimal(18, 3)
+  unitsConsumed   Decimal?               @db.Decimal(18, 3)
+  amountOmr       Decimal?               @db.Decimal(18, 3)
+  billReference   String?
+  paymentStatus   ReUtilityPaymentStatus @default(UNPAID)
+  notes           String?
+  createdAt       DateTime               @default(now())
+  updatedAt       DateTime               @updatedAt
+
+  @@index([unitId, utilityType, readingDate])
+}
+
+model RePropertyValuation {
+  id              String             @id @default(cuid())
+  propertyId      String
+  property        ReProperty         @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  valuationDate   DateTime
+  valuationOmr    Decimal            @db.Decimal(18, 3)
+  method          ReValuationMethod?
+  appraiserName   String?
+  appraiserCompany String?
+  notes           String?
+  createdAt       DateTime           @default(now())
+
+  @@index([propertyId, valuationDate])
+}
+
+model RePropertyExpense {
+  id                   String                    @id @default(cuid())
+  propertyId           String
+  property             ReProperty                @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  unitId               String?
+  unit                 ReUnit?                   @relation(fields: [unitId], references: [id], onDelete: SetNull)
+  expenseDate          DateTime
+  category             RePropertyExpenseCategory
+  description          String
+  amountOmr            Decimal                   @db.Decimal(18, 3)
+  vendorName           String?
+  invoiceNumber        String?
+  paymentStatus        ReExpensePaymentStatus    @default(UNPAID)
+  paymentDate          DateTime?
+  recurring            Boolean                   @default(false)
+  recurrenceFrequency  ReRecurrenceFrequency?
+  notes                String?
+  createdAt            DateTime                  @default(now())
+  updatedAt            DateTime                  @updatedAt
+
+  @@index([propertyId, expenseDate])
+  @@index([propertyId, category])
+}
+
+model RePropertyDocument {
+  id                    String                 @id @default(cuid())
+  propertyId            String
+  property              ReProperty             @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  unitId                String?
+  unit                  ReUnit?                @relation(fields: [unitId], references: [id], onDelete: SetNull)
+  leaseId               String?
+  lease                 ReLease?               @relation(fields: [leaseId], references: [id], onDelete: SetNull)
+  maintenanceRequestId  String?
+  maintenanceRequest    ReMaintenanceRequest?  @relation(fields: [maintenanceRequestId], references: [id], onDelete: SetNull)
+  documentType          RePropertyDocumentType
+  fileName              String
+  fileUrl               String
+  mimeType              String
+  fileSize              Int
+  expiryDate            DateTime?
+  notes                 String?
+  uploadedById          String?
+  createdAt             DateTime               @default(now())
+
+  @@index([propertyId, documentType])
+  @@index([unitId])
+  @@index([leaseId])
+}
+
+// ─── Fund LP Investments ────────────────────────────────────────────────────
+
+enum LpFundStrategy {
+  BUYOUT
+  VENTURE
+  GROWTH
+  REAL_ASSETS
+  CREDIT
+  FUND_OF_FUNDS
+  OTHER
+}
+
+enum LpFundStatus {
+  ACTIVE
+  FULLY_INVESTED
+  HARVESTING
+  LIQUIDATED
+}
+
+enum LpCommitmentStatus {
+  ACTIVE
+  FULLY_CALLED
+  HARVESTING
+  CLOSED
+  WRITTEN_OFF
+}
+
+enum LpCapitalCallStatus {
+  PENDING
+  PAID
+  OVERDUE
+  CANCELLED
+}
+
+enum LpDistributionType {
+  RETURN_OF_CAPITAL
+  INCOME
+  CARRY
+  RECALLABLE
+  OTHER
+}
+
+enum LpNavSource {
+  GP_REPORT
+  ESTIMATE
+  MANUAL
+}
+
+enum LpDocumentType {
+  CAPITAL_CALL_NOTICE
+  GP_REPORT
+  QUARTERLY_LETTER
+  SIDE_LETTER
+  SUBSCRIPTION_DOC
+  OTHER
+}
+
+model LpGpManager {
+  id        String   @id @default(cuid())
+  name      String
+  country   String?
+  website   String?
+  notes     String?
+  funds     LpFund[]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([name])
+}
+
+model LpFund {
+  id                   String         @id @default(cuid())
+  name                 String
+  gpManagerId          String?
+  gpManager            LpGpManager?   @relation(fields: [gpManagerId], references: [id], onDelete: SetNull)
+  strategy             LpFundStrategy @default(OTHER)
+  vintageYear          Int?
+  fundSize             Decimal?       @db.Decimal(18, 2)
+  currency             String         @default("USD")
+  fundTermYears        Int?
+  investmentPeriodEnd  DateTime?
+  status               LpFundStatus   @default(ACTIVE)
+  notes                String?
+  commitments          LpCommitment[]
+  documents            LpFundDocument[]
+  createdAt            DateTime       @default(now())
+  updatedAt            DateTime       @updatedAt
+
+  @@index([gpManagerId])
+  @@index([status, vintageYear])
+}
+
+model LpCommitment {
+  id                  String             @id @default(cuid())
+  fundId              String
+  fund                LpFund             @relation(fields: [fundId], references: [id], onDelete: Cascade)
+  entityId            String
+  entity              Entity             @relation(fields: [entityId], references: [id])
+  assetId             String?            @unique
+  asset               Asset?             @relation(fields: [assetId], references: [id])
+  commitmentAmount    Decimal            @db.Decimal(18, 2)
+  commitmentDate      DateTime
+  commitmentCurrency  String             @default("USD")
+  status              LpCommitmentStatus @default(ACTIVE)
+  sideLetterNotes     String?
+  ownershipPctOfFund  Decimal?           @db.Decimal(5, 2)
+  capitalCalls        LpCapitalCall[]
+  distributions       LpDistribution[]
+  navUpdates          LpNavUpdate[]
+  documents           LpFundDocument[]
+  createdAt           DateTime           @default(now())
+  updatedAt           DateTime           @updatedAt
+
+  @@unique([fundId, entityId])
+  @@index([entityId, status])
+}
+
+model LpCapitalCall {
+  id            String              @id @default(cuid())
+  commitmentId  String
+  commitment    LpCommitment        @relation(fields: [commitmentId], references: [id], onDelete: Cascade)
+  callDate      DateTime
+  dueDate       DateTime?
+  amount        Decimal             @db.Decimal(18, 2)
+  currency      String              @default("USD")
+  status        LpCapitalCallStatus @default(PENDING)
+  paidDate      DateTime?
+  reference     String?
+  notes         String?
+  createdAt     DateTime            @default(now())
+  updatedAt     DateTime            @updatedAt
+
+  @@index([commitmentId, callDate])
+  @@index([commitmentId, status])
+  @@index([dueDate])
+}
+
+model LpDistribution {
+  id               String             @id @default(cuid())
+  commitmentId     String
+  commitment       LpCommitment       @relation(fields: [commitmentId], references: [id], onDelete: Cascade)
+  distributionDate DateTime
+  amount           Decimal            @db.Decimal(18, 2)
+  currency         String             @default("USD")
+  distributionType LpDistributionType @default(RETURN_OF_CAPITAL)
+  isRecallable     Boolean            @default(false)
+  recalledAmount   Decimal?           @db.Decimal(18, 2)
+  notes            String?
+  createdAt        DateTime           @default(now())
+  updatedAt        DateTime           @updatedAt
+
+  @@index([commitmentId, distributionDate])
+}
+
+model LpNavUpdate {
+  id              String       @id @default(cuid())
+  commitmentId    String
+  commitment      LpCommitment @relation(fields: [commitmentId], references: [id], onDelete: Cascade)
+  asOfDate        DateTime
+  nav             Decimal      @db.Decimal(18, 2)
+  currency        String       @default("USD")
+  source          LpNavSource  @default(GP_REPORT)
+  gpReportedTvpi  Decimal?     @db.Decimal(8, 4)
+  gpReportedIrr   Decimal?     @db.Decimal(8, 4)
+  notes           String?
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
+
+  @@index([commitmentId, asOfDate])
+}
+
+model LpFundDocument {
+  id           String         @id @default(cuid())
+  fundId       String?
+  fund         LpFund?        @relation(fields: [fundId], references: [id], onDelete: Cascade)
+  commitmentId String?
+  commitment   LpCommitment?  @relation(fields: [commitmentId], references: [id], onDelete: Cascade)
+  documentType LpDocumentType @default(OTHER)
+  fileName     String
+  fileUrl      String
+  mimeType     String
+  fileSize     Int
+  notes        String?
+  uploadedById String?
+  createdAt    DateTime       @default(now())
+
+  @@index([fundId, documentType])
+  @@index([commitmentId, documentType])
+}
+
+enum InsurancePolicyType {
+  PROPERTY
+  VEHICLE
+  LIFE
+  HEALTH
+  BUSINESS
+  OTHER
+}
+
+enum InsurancePolicyStatus {
+  ACTIVE
+  PENDING_RENEWAL
+  EXPIRED
+  CANCELLED
+}
+
+enum InsurancePremiumFrequency {
+  ANNUAL
+  SEMI_ANNUAL
+  QUARTERLY
+  MONTHLY
+  ONE_TIME
+}
+
+enum InsuranceDocumentType {
+  POLICY_SCHEDULE
+  CERTIFICATE
+  ENDORSEMENT
+  CLAIM
+  RENEWAL_NOTICE
+  OTHER
+}
+
+model InsurancePolicy {
+  id                    String                    @id @default(cuid())
+  entityId              String
+  entity                Entity                    @relation(fields: [entityId], references: [id])
+  policyType            InsurancePolicyType
+  insurer               String
+  policyNumber          String
+  policyHolder          String?
+  description           String?
+  premium               Decimal?                  @db.Decimal(18, 2)
+  premiumFrequency      InsurancePremiumFrequency @default(ANNUAL)
+  coverageAmount        Decimal?                  @db.Decimal(18, 2)
+  currency              String                    @default("OMR")
+  startDate             DateTime?
+  expiryDate            DateTime?
+  renewalDate           DateTime?
+  status                InsurancePolicyStatus     @default(ACTIVE)
+  vehicleId             String?
+  vehicle               Vehicle?                  @relation(fields: [vehicleId], references: [id], onDelete: SetNull)
+  rePropertyId          String?
+  reProperty            ReProperty?               @relation(fields: [rePropertyId], references: [id], onDelete: SetNull)
+  landParcelId          String?
+  landParcel            LandParcel?               @relation(fields: [landParcelId], references: [id], onDelete: SetNull)
+  registeredCompanyId   String?
+  registeredCompany     RegisteredCompany?        @relation(fields: [registeredCompanyId], references: [id], onDelete: SetNull)
+  notes                 String?
+  documents             InsurancePolicyDocument[]
+  beneficiaryDesignations BeneficiaryDesignation[]
+  createdAt             DateTime                  @default(now())
+  updatedAt             DateTime                  @updatedAt
+
+  @@index([entityId, status])
+  @@index([expiryDate])
+  @@index([policyType])
+  @@index([policyNumber])
+}
+
+model InsurancePolicyDocument {
+  id           String                @id @default(cuid())
+  policyId     String
+  policy       InsurancePolicy       @relation(fields: [policyId], references: [id], onDelete: Cascade)
+  documentType InsuranceDocumentType @default(OTHER)
+  fileName     String
+  fileUrl      String
+  mimeType     String
+  fileSize     Int
+  notes        String?
+  uploadedById String?
+  createdAt    DateTime              @default(now())
+
+  @@index([policyId, documentType])
+}
+
+// --- Family Members & Beneficiaries ---
+
+enum FamilyRelationship {
+  SPOUSE
+  CHILD
+  PARENT
+  SIBLING
+  GRANDCHILD
+  OTHER
+}
+
+enum FamilyMemberIdType {
+  OMANI_ID
+  PASSPORT
+  RESIDENCE_CARD
+  OTHER
+}
+
+enum FamilyKycStatus {
+  NOT_STARTED
+  IN_PROGRESS
+  COMPLETE
+  EXPIRED
+}
+
+enum FamilyMemberDocumentType {
+  PASSPORT
+  NATIONAL_ID
+  RESIDENCE
+  PROOF_OF_ADDRESS
+  BIRTH_CERTIFICATE
+  OTHER
+}
+
+enum FamilyOwnershipStakeType {
+  ECONOMIC
+  LEGAL_TITLE
+  BENEFICIAL
+}
+
+enum FamilySignatoryRoleType {
+  BANK_SIGNATORY
+  COMPANY_DIRECTOR
+  CHEQUE_SIGNATORY
+  POA_HOLDER
+  OTHER
+}
+
+enum BeneficiaryDesignationType {
+  PRIMARY
+  CONTINGENT
+  SPECIFIC_BEQUEST
+}
+
+model FamilyMember {
+  id                    String                  @id @default(cuid())
+  fullName              String
+  preferredName         String?
+  dateOfBirth           DateTime?
+  nationality           String?
+  relationship          FamilyRelationship?
+  idType                FamilyMemberIdType?
+  idNumber              String?
+  idExpiryDate          DateTime?
+  kycStatus             FamilyKycStatus         @default(NOT_STARTED)
+  kycNotes              String?
+  email                 String?
+  phonePrimary          String?
+  phoneSecondary        String?
+  address               String?
+  emergencyContactName  String?
+  emergencyContactPhone String?
+  isBeneficiary         Boolean                 @default(false)
+  deceased              Boolean                 @default(false)
+  dateOfDeath           DateTime?
+  userId                String?                 @unique
+  user                  User?                   @relation("FamilyMemberUser", fields: [userId], references: [id], onDelete: SetNull)
+  notes                 String?
+  documents             FamilyMemberDocument[]
+  ownershipStakes       FamilyOwnershipStake[]
+  signatoryRoles        FamilySignatoryRole[]
+  beneficiaryDesignations BeneficiaryDesignation[]
+  successionAppointments SuccessionAppointment[]
+  successionDistributionsAsBeneficiary SuccessionDistributionInstruction[] @relation("SuccessionBeneficiary")
+  createdAt             DateTime                @default(now())
+  updatedAt             DateTime                @updatedAt
+
+  @@index([fullName])
+  @@index([kycStatus])
+  @@index([isBeneficiary])
+}
+
+model FamilyMemberDocument {
+  id             String                   @id @default(cuid())
+  familyMemberId String
+  familyMember   FamilyMember             @relation(fields: [familyMemberId], references: [id], onDelete: Cascade)
+  documentType   FamilyMemberDocumentType @default(OTHER)
+  fileName       String
+  fileUrl        String
+  mimeType       String
+  fileSize       Int
+  expiryDate     DateTime?
+  notes          String?
+  uploadedById   String?
+  createdAt      DateTime                 @default(now())
+
+  @@index([familyMemberId, documentType])
+}
+
+model FamilyOwnershipStake {
+  id                  String                   @id @default(cuid())
+  familyMemberId      String
+  familyMember        FamilyMember             @relation(fields: [familyMemberId], references: [id], onDelete: Cascade)
+  entityId            String?
+  entity              Entity?                  @relation(fields: [entityId], references: [id], onDelete: SetNull)
+  assetId             String?
+  asset               Asset?                   @relation(fields: [assetId], references: [id], onDelete: SetNull)
+  landParcelId        String?
+  landParcel          LandParcel?              @relation(fields: [landParcelId], references: [id], onDelete: SetNull)
+  registeredCompanyId String?
+  registeredCompany   RegisteredCompany?       @relation(fields: [registeredCompanyId], references: [id], onDelete: SetNull)
+  rePropertyId        String?
+  reProperty          ReProperty?              @relation(fields: [rePropertyId], references: [id], onDelete: SetNull)
+  vehicleId           String?
+  vehicle             Vehicle?                 @relation(fields: [vehicleId], references: [id], onDelete: SetNull)
+  stakeType           FamilyOwnershipStakeType @default(ECONOMIC)
+  ownershipPct        Decimal?                 @db.Decimal(5, 2)
+  roleLabel           String?
+  notes               String?
+  sortOrder           Int                      @default(0)
+  createdAt           DateTime                 @default(now())
+  updatedAt           DateTime                 @updatedAt
+
+  @@index([familyMemberId])
+  @@index([entityId])
+}
+
+model FamilySignatoryRole {
+  id                  String                  @id @default(cuid())
+  familyMemberId      String
+  familyMember        FamilyMember            @relation(fields: [familyMemberId], references: [id], onDelete: Cascade)
+  entityId            String
+  entity              Entity                  @relation(fields: [entityId], references: [id])
+  registeredCompanyId String?
+  registeredCompany   RegisteredCompany?      @relation(fields: [registeredCompanyId], references: [id], onDelete: SetNull)
+  assetId             String?
+  asset               Asset?                  @relation(fields: [assetId], references: [id], onDelete: SetNull)
+  vehicleId           String?
+  vehicle             Vehicle?                @relation(fields: [vehicleId], references: [id], onDelete: SetNull)
+  roleType            FamilySignatoryRoleType @default(OTHER)
+  bankName            String?
+  accountRef          String?
+  effectiveFrom       DateTime?
+  effectiveTo         DateTime?
+  isActive            Boolean                 @default(true)
+  notes               String?
+  sortOrder           Int                     @default(0)
+  createdAt           DateTime                @default(now())
+  updatedAt           DateTime                @updatedAt
+
+  @@index([familyMemberId])
+  @@index([entityId])
+}
+
+model BeneficiaryDesignation {
+  id                  String                     @id @default(cuid())
+  familyMemberId      String
+  familyMember        FamilyMember               @relation(fields: [familyMemberId], references: [id], onDelete: Cascade)
+  insurancePolicyId   String?
+  insurancePolicy     InsurancePolicy?           @relation(fields: [insurancePolicyId], references: [id], onDelete: SetNull)
+  assetId             String?
+  asset               Asset?                     @relation(fields: [assetId], references: [id], onDelete: SetNull)
+  landParcelId        String?
+  landParcel          LandParcel?                @relation(fields: [landParcelId], references: [id], onDelete: SetNull)
+  registeredCompanyId String?
+  registeredCompany   RegisteredCompany?         @relation(fields: [registeredCompanyId], references: [id], onDelete: SetNull)
+  rePropertyId        String?
+  reProperty          ReProperty?                @relation(fields: [rePropertyId], references: [id], onDelete: SetNull)
+  vehicleId           String?
+  vehicle             Vehicle?                   @relation(fields: [vehicleId], references: [id], onDelete: SetNull)
+  designationType     BeneficiaryDesignationType @default(PRIMARY)
+  allocationPct       Decimal?                   @db.Decimal(5, 2)
+  effectiveDate       DateTime?
+  notes               String?
+  sortOrder           Int                        @default(0)
+  createdAt           DateTime                   @default(now())
+  updatedAt           DateTime                   @updatedAt
+
+  @@index([familyMemberId])
+}
+
+// --- Succession & Estate Planning ---
+
+enum SuccessionPlanStatus {
+  DRAFT
+  IN_PROGRESS
+  REVIEW_DUE
+  COMPLETE
+}
+
+enum SuccessionAppointmentRole {
+  EXECUTOR
+  TRUSTEE
+  GUARDIAN
+  POA_AGENT
+  ADVISOR
+}
+
+enum SuccessionDocumentType {
+  WILL
+  TRUST_DEED
+  LETTER_OF_WISHES
+  POA
+  LIVING_WILL
+  OTHER
+}
+
+enum SuccessionDocumentStatus {
+  DRAFT
+  SIGNED
+  FILED
+  MISSING
+}
+
+model SuccessionPlan {
+  id                    String                            @id @default(cuid())
+  title                 String
+  status                SuccessionPlanStatus              @default(DRAFT)
+  entityId              String?
+  entity                Entity?                           @relation(fields: [entityId], references: [id], onDelete: SetNull)
+  generalInstructions   String?
+  incapacitationNotes   String?
+  lastReviewDate        DateTime?
+  nextReviewDate        DateTime?
+  notes                 String?
+  distributionInstructions SuccessionDistributionInstruction[]
+  appointments          SuccessionAppointment[]
+  documents             SuccessionPlanDocument[]
+  checklistItems        SuccessionChecklistItem[]
+  createdAt             DateTime                          @default(now())
+  updatedAt             DateTime                          @updatedAt
+
+  @@index([status])
+  @@index([nextReviewDate])
+}
+
+model SuccessionDistributionInstruction {
+  id                   String         @id @default(cuid())
+  successionPlanId     String
+  successionPlan       SuccessionPlan @relation(fields: [successionPlanId], references: [id], onDelete: Cascade)
+  beneficiaryMemberId  String?
+  beneficiaryMember    FamilyMember?  @relation("SuccessionBeneficiary", fields: [beneficiaryMemberId], references: [id], onDelete: SetNull)
+  entityId             String?
+  entity               Entity?        @relation(fields: [entityId], references: [id], onDelete: SetNull)
+  assetId              String?
+  asset                Asset?         @relation(fields: [assetId], references: [id], onDelete: SetNull)
+  landParcelId         String?
+  landParcel           LandParcel?    @relation(fields: [landParcelId], references: [id], onDelete: SetNull)
+  registeredCompanyId  String?
+  registeredCompany    RegisteredCompany? @relation(fields: [registeredCompanyId], references: [id], onDelete: SetNull)
+  rePropertyId         String?
+  reProperty           ReProperty?    @relation(fields: [rePropertyId], references: [id], onDelete: SetNull)
+  vehicleId            String?
+  vehicle              Vehicle?       @relation(fields: [vehicleId], references: [id], onDelete: SetNull)
+  allocationPct        Decimal?       @db.Decimal(5, 2)
+  allocationAmount     Decimal?       @db.Decimal(18, 2)
+  currency             String         @default("OMR")
+  instructions         String?
+  sortOrder            Int            @default(0)
+  createdAt            DateTime       @default(now())
+  updatedAt            DateTime       @updatedAt
+
+  @@index([successionPlanId])
+}
+
+model SuccessionAppointment {
+  id               String                    @id @default(cuid())
+  successionPlanId String
+  successionPlan   SuccessionPlan            @relation(fields: [successionPlanId], references: [id], onDelete: Cascade)
+  familyMemberId   String
+  familyMember     FamilyMember              @relation(fields: [familyMemberId], references: [id], onDelete: Cascade)
+  role             SuccessionAppointmentRole
+  isPrimary        Boolean                   @default(false)
+  notes            String?
+  sortOrder        Int                       @default(0)
+  createdAt        DateTime                  @default(now())
+  updatedAt        DateTime                  @updatedAt
+
+  @@index([successionPlanId])
+}
+
+model SuccessionPlanDocument {
+  id               String                   @id @default(cuid())
+  successionPlanId String
+  successionPlan   SuccessionPlan           @relation(fields: [successionPlanId], references: [id], onDelete: Cascade)
+  documentType     SuccessionDocumentType   @default(OTHER)
+  status           SuccessionDocumentStatus @default(MISSING)
+  fileName         String?
+  fileUrl          String?
+  mimeType         String?
+  fileSize         Int?
+  signedDate       DateTime?
+  jurisdiction     String?
+  notes            String?
+  uploadedById     String?
+  createdAt        DateTime                 @default(now())
+  updatedAt        DateTime                 @updatedAt
+
+  @@index([successionPlanId, documentType])
+}
+
+model SuccessionChecklistItem {
+  id               String         @id @default(cuid())
+  successionPlanId String
+  successionPlan   SuccessionPlan @relation(fields: [successionPlanId], references: [id], onDelete: Cascade)
+  label            String
+  category         String?
+  isComplete       Boolean        @default(false)
+  dueDate          DateTime?
+  sortOrder        Int            @default(0)
+  createdAt        DateTime       @default(now())
+  updatedAt        DateTime       @updatedAt
+
+  @@index([successionPlanId])
+}
+
+// --- Contacts Directory ---
+
+enum DirectoryContactType {
+  BANKER
+  LAWYER
+  FUND_MANAGER
+  BROKER
+  TENANT
+  CONTRACTOR
+  CO_INVESTOR
+  GOVERNMENT
+  ADVISOR
+  OTHER
+}
+
+model DirectoryContact {
+  id                String               @id @default(cuid())
+  fullName          String
+  organization      String?
+  jobTitle          String?
+  contactType       DirectoryContactType @default(OTHER)
+  email             String?
+  phonePrimary      String?
+  phoneSecondary    String?
+  address           String?
+  city              String?
+  country           String?
+  website           String?
+  entityId          String?
+  entity            Entity?              @relation(fields: [entityId], references: [id], onDelete: SetNull)
+  notes             String?
+  tags              Json                 @default("[]")
+  lastContactDate   DateTime?
+  nextFollowUpDate  DateTime?
+  isActive          Boolean              @default(true)
+  createdAt         DateTime             @default(now())
+  updatedAt         DateTime             @updatedAt
+
+  @@index([fullName])
+  @@index([contactType])
+  @@index([entityId])
+  @@index([nextFollowUpDate])
 }

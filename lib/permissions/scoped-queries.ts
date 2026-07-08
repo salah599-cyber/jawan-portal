@@ -45,6 +45,27 @@ export function chequeEntityFilter(ctx: UserContext) {
   return { id: "__none__" };
 }
 
+export function peCompanyEntityFilter(ctx: UserContext) {
+  const level = getModulePermission(ctx, "PRIVATE_EQUITY");
+  if (level === "FULL" || level === "READ") return {};
+  if (level === "FILTERED") return { entityId: { in: ctx.entityIds } };
+  return { id: "__none__" };
+}
+
+export function lpCommitmentEntityFilter(ctx: UserContext) {
+  const level = getModulePermission(ctx, "FUND_LP");
+  if (level === "FULL" || level === "READ") return {};
+  if (level === "FILTERED") return { entityId: { in: ctx.entityIds } };
+  return { id: "__none__" };
+}
+
+export function rePropertyEntityFilter(ctx: UserContext) {
+  const level = getModulePermission(ctx, "REAL_ESTATE");
+  if (level === "FULL" || level === "READ") return {};
+  if (level === "FILTERED") return { entityId: { in: ctx.entityIds } };
+  return { id: "__none__" };
+}
+
 export function proposalEntityFilter(ctx: UserContext) {
   const level = getModulePermission(ctx, "PROPOSALS");
   if (level === "FULL" || level === "READ") return {};
@@ -65,11 +86,74 @@ export function documentFilter(ctx: UserContext) {
   return { id: "__none__" };
 }
 
+export function insurancePolicyEntityFilter(ctx: UserContext) {
+  const level = getModulePermission(ctx, "INSURANCE");
+  if (level === "FULL" || level === "READ") return {};
+  if (level === "FILTERED") return { entityId: { in: ctx.entityIds } };
+  return { id: "__none__" };
+}
+
 export function expenseEntityFilter(ctx: UserContext) {
   const level = getModulePermission(ctx, "EXPENSES");
   if (level === "FULL" || level === "READ") return {};
   if (level === "FILTERED") {
     return { OR: [{ entityId: null }, { entityId: { in: ctx.entityIds } }] };
+  }
+  return { id: "__none__" };
+}
+
+export function familyMemberFilter(ctx: UserContext) {
+  const level = getModulePermission(ctx, "FAMILY_MEMBERS");
+  if (level === "FULL") return {};
+  return { id: "__none__" };
+}
+
+export function successionPlanFilter(ctx: UserContext) {
+  const level = getModulePermission(ctx, "SUCCESSION");
+  if (level === "FULL") return {};
+  return { id: "__none__" };
+}
+
+export function contactEntityFilter(ctx: UserContext) {
+  const level = getModulePermission(ctx, "CONTACTS");
+  if (level === "FULL" || level === "READ") return {};
+  if (level === "FILTERED") {
+    return { OR: [{ entityId: null }, { entityId: { in: ctx.entityIds } }] };
+  }
+  return { id: "__none__" };
+}
+
+export function reportsEntityFilter(ctx: UserContext) {
+  const level = getModulePermission(ctx, "REPORTS");
+  if (level === "FULL" || level === "READ") return {};
+  if (level === "FILTERED") return { id: { in: ctx.entityIds } };
+  return { id: "__none__" };
+}
+
+export function cashBankAccountFilter(ctx: UserContext) {
+  const level = getModulePermission(ctx, "CASH_MANAGEMENT");
+  if (level === "FULL" || level === "READ") return { isActive: true };
+  if (level === "FILTERED") {
+    return {
+      isActive: true,
+      OR: [{ entityId: null }, { entityId: { in: ctx.entityIds } }],
+    };
+  }
+  return { id: "__none__" };
+}
+
+export function taskEntityFilter(ctx: UserContext) {
+  const level = getModulePermission(ctx, "CALENDAR");
+  if (level === "FULL" || level === "READ") return {};
+  if (level === "FILTERED") {
+    return {
+      OR: [
+        { entityId: null },
+        { entityId: { in: ctx.entityIds } },
+        { assigneeId: ctx.id },
+        { createdById: ctx.id },
+      ],
+    };
   }
   return { id: "__none__" };
 }

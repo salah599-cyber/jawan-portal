@@ -1,36 +1,34 @@
 "use server";
 
+import { put } from "@vercel/blob";
 import { revalidatePath } from "next/cache";
 import { db } from "@/lib/db";
-import { deleteBlobUrl, uploadPrivateFile } from "@/lib/blob";
+import { ensureLoanSchema } from "@/lib/db/ensure-loan-schema";
+import { deleteBlobUrl } from "@/lib/blob";
 import { logAudit } from "@/lib/audit/log";
 import { canWrite, requireModuleAccess } from "@/lib/permissions/access";
 import { assetEntityFilter, loanEntityFilter } from "@/lib/permissions/scoped-queries";
-import {
-  assertEnumValue,
-  parseOrThrow,
-  zOptionalDate,
-  zOptionalDecimal,
-  zRequiredDecimal,
-  zRequiredString,
-} from "@/lib/validation/primitives";
 import type {
+  InterestCalculationMethod,
   LiabilityStatus,
   LiabilityType,
   LoanDocumentType,
   PaymentFrequency,
 } from "@/lib/generated/prisma/client";
 
-const LIABILITY_TYPE_VALUES = ["MORTGAGE", "LOAN", "CREDIT", "OTHER"] as const satisfies readonly LiabilityType[];
-const LIABILITY_STATUS_VALUES = ["ACTIVE", "PAID_OFF", "DEFAULTED"] as const satisfies readonly LiabilityStatus[];
-const PAYMENT_FREQUENCY_VALUES = [
-  "MONTHLY",
-  "QUARTERLY",
-  "SEMI_ANNUAL",
-  "ANNUAL",
-  "BULLET",
-  "OTHER",
-] as const satisfies readonly PaymentFrequency[];
+function parseDate(value?: string | null) {
+  if (!value || value.trim() === "") return undefined;
+  return new Date(value);
+}
+
+function parseDecimal(value?: string | null) {
+  if (!value || value.trim() === "") return undefined;
+  return value.trim();
+}
+
+function sanitizeFileName(name: string) {
+  return name.replace(/[^a-zA-Z0-9._-]/g, "_");
+}
 
 function getFilesFromFormData(formData: FormData, field: string): File[] {
   return formData
@@ -50,16 +48,17 @@ function assertEntityAccess(
 }
 
 function readLoanFormData(formData: FormData) {
-  const name = parseOrThrow(zRequiredString("Loan name"), formData.get("name") ?? "");
-  const type = assertEnumValue(String(formData.get("type") ?? "LOAN"), LIABILITY_TYPE_VALUES, "Type");
-  const status = assertEnumValue(String(formData.get("status") ?? "ACTIVE"), LIABILITY_STATUS_VALUES, "Status");
-  const entityId = parseOrThrow(zRequiredString("Entity"), formData.get("entityId") ?? "");
-  const amount = parseOrThrow(zRequiredDecimal("Principal amount", { min: 0 }), formData.get("amount") ?? "");
+  const name = String(formData.get("name") ?? "").trim();
+  const type = String(formData.get("type") ?? "LOAN") as LiabilityType;
+  const status = String(formData.get("status") ?? "ACTIVE") as LiabilityStatus;
+  const entityId = String(formData.get("entityId") ?? "").trim();
+  const amount = parseDecimal(String(formData.get("amount") ?? ""));
   const assetIdRaw = String(formData.get("assetId") ?? "").trim();
   const paymentFrequencyRaw = String(formData.get("paymentFrequency") ?? "").trim();
-  const paymentFrequency = paymentFrequencyRaw
-    ? assertEnumValue(paymentFrequencyRaw, PAYMENT_FREQUENCY_VALUES, "Payment frequency")
-    : undefined;
+
+  if (!name) throw new Error("Loan name is required.");
+  if (!entityId) throw new Error("Entity is required.");
+  if (!amount) throw new Error("Principal amount is required.");
 
   return {
     name,
@@ -67,16 +66,15 @@ function readLoanFormData(formData: FormData) {
     status,
     entityId,
     amount,
-    outstandingBalance: parseOrThrow(
-      zOptionalDecimal("Outstanding balance", { min: 0 }),
-      formData.get("outstandingBalance") ?? "",
-    ),
+    outstandingBalance: parseDecimal(String(formData.get("outstandingBalance") ?? "")),
     currency: String(formData.get("currency") ?? "OMR").trim() || "OMR",
-    interestRate: parseOrThrow(zOptionalDecimal("Interest rate", { min: 0 }), formData.get("interestRate") ?? ""),
-    startDate: parseOrThrow(zOptionalDate("Start date"), formData.get("startDate") ?? ""),
-    maturityDate: parseOrThrow(zOptionalDate("Maturity date"), formData.get("maturityDate") ?? ""),
-    paymentAmount: parseOrThrow(zOptionalDecimal("Payment amount", { min: 0 }), formData.get("paymentAmount") ?? ""),
-    paymentFrequency,
+    interestRate: parseDecimal(String(formData.get("interestRate") ?? "")),
+    interestCalculationMethod: (String(formData.get("interestCalculationMethod") ?? "REDUCING_BALANCE").trim() ||
+      "REDUCING_BALANCE") as InterestCalculationMethod,
+    startDate: parseDate(String(formData.get("startDate") ?? "")),
+    maturityDate: parseDate(String(formData.get("maturityDate") ?? "")),
+    paymentAmount: parseDecimal(String(formData.get("paymentAmount") ?? "")),
+    paymentFrequency: (paymentFrequencyRaw || undefined) as PaymentFrequency | undefined,
     lender: String(formData.get("lender") ?? "").trim() || undefined,
     accountReference: String(formData.get("accountReference") ?? "").trim() || undefined,
     contactName: String(formData.get("contactName") ?? "").trim() || undefined,
@@ -94,32 +92,52 @@ async function uploadLoanFiles(
   uploadedById: string,
   labelPrefix?: string,
 ) {
+  const token = process.env.BLOB_READ_WRITE_TOKEN;
+  if (!token) {
+    throw new Error(
+      "BLOB_READ_WRITE_TOKEN is not configured. Document uploads require Vercel Blob storage.",
+    );
+  }
+
   for (let i = 0; i < files.length; i++) {
     const file = files[i];
     if (!(file instanceof File) || file.size === 0) continue;
 
-    const uploaded = await uploadPrivateFile(["loans", liabilityId, documentType.toLowerCase()], file);
-    try {
-      await db.loanDocument.create({
-        data: {
-          liabilityId,
-          documentType,
-          label: labelPrefix ? labelPrefix + " " + (i + 1) : uploaded.fileName,
-          fileName: uploaded.fileName,
-          fileUrl: uploaded.fileUrl,
-          mimeType: uploaded.mimeType,
-          fileSize: uploaded.fileSize,
-          uploadedById,
-        },
-      });
-    } catch (error) {
-      await deleteBlobUrl(uploaded.fileUrl);
-      throw error;
-    }
+    const pathname =
+      "loans/" +
+      liabilityId +
+      "/" +
+      documentType.toLowerCase() +
+      "/" +
+      Date.now() +
+      "-" +
+      i +
+      "-" +
+      sanitizeFileName(file.name);
+
+    const blob = await put(pathname, file, {
+      access: "public",
+      token,
+      contentType: file.type || undefined,
+    });
+
+    await db.loanDocument.create({
+      data: {
+        liabilityId,
+        documentType,
+        label: labelPrefix ? labelPrefix + " " + (i + 1) : file.name,
+        fileName: file.name,
+        fileUrl: blob.url,
+        mimeType: file.type || "application/octet-stream",
+        fileSize: file.size,
+        uploadedById,
+      },
+    });
   }
 }
 
 export async function createLoan(formData: FormData) {
+  await ensureLoanSchema();
   const ctx = await requireModuleAccess("LOANS");
   if (!canWrite(ctx, "LOANS")) {
     throw new Error("You do not have permission to register loans.");
@@ -174,6 +192,7 @@ export async function createLoan(formData: FormData) {
 }
 
 export async function updateLoan(id: string, formData: FormData) {
+  await ensureLoanSchema();
   const ctx = await requireModuleAccess("LOANS");
   if (!canWrite(ctx, "LOANS")) {
     throw new Error("You do not have permission to update loans.");
@@ -224,6 +243,7 @@ export async function updateLoan(id: string, formData: FormData) {
 }
 
 export async function uploadLoanDocuments(formData: FormData) {
+  await ensureLoanSchema();
   const ctx = await requireModuleAccess("LOANS");
   if (!canWrite(ctx, "LOANS")) {
     throw new Error("You do not have permission to upload loan documents.");
@@ -264,7 +284,7 @@ export async function uploadLoanDocuments(formData: FormData) {
     action: "UPLOAD",
     resource: "LoanDocument",
     resourceId: liabilityId,
-    metadata: { documentType, count: files.length, fileNames: files.map((f) => f.name) },
+    metadata: { documentType, count: files.length },
   });
 
   revalidatePath("/loans/" + liabilityId);
@@ -272,6 +292,7 @@ export async function uploadLoanDocuments(formData: FormData) {
 }
 
 export async function listLoans() {
+  await ensureLoanSchema();
   const ctx = await requireModuleAccess("LOANS");
   return db.liability.findMany({
     where: loanEntityFilter(ctx),
@@ -279,12 +300,19 @@ export async function listLoans() {
       entity: true,
       asset: { select: { id: true, name: true } },
       documents: { select: { id: true, documentType: true } },
+      payments: {
+        select: {
+          principalPortion: true,
+          interestPortion: true,
+        },
+      },
     },
     orderBy: { updatedAt: "desc" },
   });
 }
 
 export async function getLoan(id: string) {
+  await ensureLoanSchema();
   const ctx = await requireModuleAccess("LOANS");
   return db.liability.findFirst({
     where: { id, ...loanEntityFilter(ctx) },
@@ -301,6 +329,7 @@ export async function getLoan(id: string) {
 }
 
 export async function listLoanAssetOptions() {
+  await ensureLoanSchema();
   const ctx = await requireModuleAccess("LOANS");
   return db.asset.findMany({
     where: assetEntityFilter(ctx),
@@ -310,6 +339,7 @@ export async function listLoanAssetOptions() {
 }
 
 export async function deleteLoanDocument(id: string) {
+  await ensureLoanSchema();
   const ctx = await requireModuleAccess("LOANS");
   if (!canWrite(ctx, "LOANS")) {
     throw new Error("You do not have permission to delete loan documents.");
@@ -328,7 +358,7 @@ export async function deleteLoanDocument(id: string) {
     action: "DELETE",
     resource: "LoanDocument",
     resourceId: id,
-    metadata: { liabilityId: document.liabilityId, fileName: document.fileName },
+    metadata: { liabilityId: document.liabilityId },
   });
 
   revalidatePath("/loans/" + document.liabilityId);
@@ -336,6 +366,7 @@ export async function deleteLoanDocument(id: string) {
 }
 
 export async function deleteLoan(id: string) {
+  await ensureLoanSchema();
   const ctx = await requireModuleAccess("LOANS");
   if (!canWrite(ctx, "LOANS")) {
     throw new Error("You do not have permission to delete loans.");

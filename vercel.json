@@ -1,5 +1,18 @@
 {
+  "buildCommand": "bash scripts/build.sh",
   "crons": [
+    {
+      "path": "/api/cron/refresh-public-prices",
+      "schedule": "0 5 * * *"
+    },
+    {
+      "path": "/api/cron/refresh-gcc-eod-prices",
+      "schedule": "30 11 * * 0-4"
+    },
+    {
+      "path": "/api/cron/refresh-fx-rates",
+      "schedule": "0 8 * * *"
+    },
     {
       "path": "/api/cron/refresh-aggregates",
       "schedule": "0 5 * * *"
@@ -9,8 +22,12 @@
       "schedule": "0 6 * * *"
     },
     {
-      "path": "/api/cron/expense-reminders",
+      "path": "/api/cron/calendar-digest",
       "schedule": "0 7 * * *"
+    },
+    {
+      "path": "/api/cron/sync-schema",
+      "schedule": "0 4 * * *"
     }
   ]
 }

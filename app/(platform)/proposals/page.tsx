@@ -1,11 +1,23 @@
+import Link from "next/link";
 import { PlatformHeader } from "@/components/platform/platform-header";
 import { AddLinkButton } from "@/components/platform/add-link-button";
-import { ProposalsFilterTabs, type ProposalsFilter } from "@/components/proposals/proposals-filter-tabs";
-import { ProposalsTable } from "@/components/proposals/proposals-table";
+import { ProposalsFilterSelect, type ProposalsFilter } from "@/components/proposals/proposals-filter-select";
+import { ProposalStatusBadge } from "@/components/proposals/proposal-status-badge";
 import { listProposals } from "@/lib/actions/proposals";
+import { formatApproverProgress } from "@/lib/proposals/approval";
+import { formatUserName } from "@/lib/proposals/users";
 import { canSubmitProposal } from "@/lib/proposals/submit-access";
 import { requireModuleAccess, requireUserContext } from "@/lib/permissions/access";
+import { formatMoney, formatDate } from "@/lib/format";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 
 function parseFilter(value?: string): ProposalsFilter {
   if (value === "mine" || value === "pending-approval" || value === "approved" || value === "rejected") {
@@ -39,12 +51,51 @@ export default async function ProposalsPage({
                   Submit investments for review and track approval outcomes.
                 </CardDescription>
               </div>
-              <ProposalsFilterTabs current={filter} />
+              <ProposalsFilterSelect current={filter} />
             </div>
             {showAdd ? <AddLinkButton href="/proposals/new" label="New Proposal" /> : null}
           </CardHeader>
           <CardContent>
-            <ProposalsTable proposals={proposals} />
+            {proposals.length === 0 ? (
+              <p className="text-sm text-muted-foreground">No proposals found.</p>
+            ) : (
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Name</TableHead>
+                    <TableHead>Amount</TableHead>
+                    <TableHead>Entity</TableHead>
+                    <TableHead>Status</TableHead>
+                    <TableHead>Submitted By</TableHead>
+                    <TableHead>Approvals</TableHead>
+                    <TableHead>Updated</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {proposals.map((proposal) => (
+                    <TableRow key={proposal.id}>
+                      <TableCell className="font-medium">
+                        <Link href={"/proposals/" + proposal.id} className="hover:underline">
+                          {proposal.name}
+                        </Link>
+                      </TableCell>
+                      <TableCell>{formatMoney(proposal.suggestedAmount, proposal.currency)}</TableCell>
+                      <TableCell>{proposal.entity?.name ?? "—"}</TableCell>
+                      <TableCell>
+                        <ProposalStatusBadge status={proposal.status} />
+                      </TableCell>
+                      <TableCell>{formatUserName(proposal.submittedBy)}</TableCell>
+                      <TableCell className="text-sm text-muted-foreground">
+                        {proposal.status === "PENDING" || proposal.status === "APPROVED" || proposal.status === "REJECTED"
+                          ? formatApproverProgress(proposal.approvers)
+                          : "—"}
+                      </TableCell>
+                      <TableCell>{formatDate(proposal.updatedAt)}</TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            )}
           </CardContent>
         </Card>
       </main>

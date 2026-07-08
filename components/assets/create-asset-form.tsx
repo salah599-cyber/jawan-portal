@@ -1,12 +1,16 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { createAsset } from "@/lib/actions/assets";
+import { encodeBuiltInAssetCategory } from "@/lib/assets/category-display";
+import { EDITABLE_ASSET_STATUS_ENTRIES } from "@/lib/labels";
+import { AssetCategorySelect, type CustomAssetTypeOption } from "@/components/assets/asset-category-select";
 import {
-  ASSET_CATEGORY_LABELS,
-  EDITABLE_ASSET_STATUS_ENTRIES,
-} from "@/lib/labels";
+  EMPTY_PRECIOUS_METAL_FORM,
+  PreciousMetalFields,
+  isPreciousMetalsSelection,
+} from "@/components/assets/precious-metal-fields";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -21,14 +25,27 @@ import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { EntitySelect } from "@/components/platform/entity-select";
 
-export function CreateAssetForm({ entities }: { entities: { id: string; name: string }[] }) {
+export function CreateAssetForm({
+  entities,
+  customTypes,
+}: {
+  entities: { id: string; name: string }[];
+  customTypes: CustomAssetTypeOption[];
+}) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
-  const [category, setCategory] = useState("REAL_ESTATE");
+  const [categorySelection, setCategorySelection] = useState(encodeBuiltInAssetCategory("REAL_ESTATE"));
+  const [customTypeOptions, setCustomTypeOptions] = useState(customTypes);
   const [status, setStatus] = useState("ACTIVE");
   const [entityId, setEntityId] = useState(entities[0]?.id ?? "");
   const [currency, setCurrency] = useState("OMR");
+  const [preciousMetal, setPreciousMetal] = useState(EMPTY_PRECIOUS_METAL_FORM);
+
+  const isPreciousMetal = useMemo(
+    () => isPreciousMetalsSelection(categorySelection),
+    [categorySelection],
+  );
 
   function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -39,16 +56,17 @@ export function CreateAssetForm({ entities }: { entities: { id: string; name: st
       try {
         await createAsset({
           name: String(form.get("name") ?? ""),
-          category: category as never,
+          categorySelection,
           entityId: entityId || String(form.get("entityId") ?? ""),
           status: status as never,
           currency,
           acquisitionDate: String(form.get("acquisitionDate") ?? ""),
           acquisitionCost: String(form.get("acquisitionCost") ?? ""),
-          currentValue: String(form.get("currentValue") ?? ""),
+          currentValue: isPreciousMetal ? undefined : String(form.get("currentValue") ?? ""),
           description: String(form.get("description") ?? ""),
           managerName: String(form.get("managerName") ?? ""),
           managerEmail: String(form.get("managerEmail") ?? ""),
+          preciousMetal: isPreciousMetal ? preciousMetal : undefined,
         });
         router.push("/assets");
         router.refresh();
@@ -72,24 +90,22 @@ export function CreateAssetForm({ entities }: { entities: { id: string; name: st
 
           <div className="space-y-2">
             <Label>Category</Label>
-            <Select value={category} onValueChange={setCategory}>
-              <SelectTrigger>
-                <SelectValue placeholder="Select category" />
-              </SelectTrigger>
-              <SelectContent>
-                {Object.entries(ASSET_CATEGORY_LABELS).map(([value, label]) => (
-                  <SelectItem key={value} value={value}>
-                    {label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <AssetCategorySelect
+              customTypes={customTypeOptions}
+              value={categorySelection}
+              onValueChange={setCategorySelection}
+              onTypeAdded={(type) => setCustomTypeOptions((current) => [...current, type])}
+            />
           </div>
 
           <div className="space-y-2">
             <Label>Entity</Label>
             <EntitySelect entities={entities} value={entityId} onValueChange={setEntityId} />
           </div>
+
+          {isPreciousMetal ? (
+            <PreciousMetalFields value={preciousMetal} onChange={setPreciousMetal} />
+          ) : null}
 
           <div className="space-y-2">
             <Label>Status</Label>
@@ -138,10 +154,19 @@ export function CreateAssetForm({ entities }: { entities: { id: string; name: st
             <Input id="acquisitionCost" name="acquisitionCost" type="number" step="0.01" min="0" />
           </div>
 
-          <div className="space-y-2">
-            <Label htmlFor="currentValue">Current Value</Label>
-            <Input id="currentValue" name="currentValue" type="number" step="0.01" min="0" />
-          </div>
+          {!isPreciousMetal ? (
+            <div className="space-y-2">
+              <Label htmlFor="currentValue">Current Value</Label>
+              <Input id="currentValue" name="currentValue" type="number" step="0.01" min="0" />
+            </div>
+          ) : (
+            <div className="space-y-2">
+              <Label>Current Value</Label>
+              <p className="text-sm text-muted-foreground">
+                Calculated automatically from live gold/silver prices after creation.
+              </p>
+            </div>
+          )}
 
           <div className="space-y-2 md:col-span-2">
             <Label htmlFor="description">Description</Label>

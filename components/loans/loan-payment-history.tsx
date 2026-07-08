@@ -68,6 +68,8 @@ export function LoanPaymentHistory({
                 <TableHead className="text-right">Amount</TableHead>
                 <TableHead>Method</TableHead>
                 <TableHead>Reference</TableHead>
+                <TableHead className="text-right">Principal</TableHead>
+                <TableHead className="text-right">Interest</TableHead>
                 <TableHead className="text-right">Balance After</TableHead>
                 <TableHead>Receipt</TableHead>
                 {showActions ? <TableHead className="w-[60px]" /> : null}
@@ -80,6 +82,12 @@ export function LoanPaymentHistory({
                   <TableCell className="text-right">{formatMoney(payment.amount, payment.currency)}</TableCell>
                   <TableCell>{LOAN_PAYMENT_METHOD_LABELS[payment.paymentMethod] ?? payment.paymentMethod}</TableCell>
                   <TableCell>{payment.reference ?? "—"}</TableCell>
+                  <TableCell className="text-right">
+                    {payment.principalPortion ? formatMoney(payment.principalPortion, payment.currency) : "—"}
+                  </TableCell>
+                  <TableCell className="text-right">
+                    {payment.interestPortion ? formatMoney(payment.interestPortion, payment.currency) : "—"}
+                  </TableCell>
                   <TableCell className="text-right">{formatMoney(payment.balanceAfter, payment.currency)}</TableCell>
                   <TableCell>
                     {payment.documents.length === 0 ? (

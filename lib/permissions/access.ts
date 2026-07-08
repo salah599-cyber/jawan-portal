@@ -75,6 +75,35 @@ export async function requireModuleAccess(module: ModuleName): Promise<UserConte
   return ctx;
 }
 
+export async function getUserContextById(userId: string): Promise<UserContext | null> {
+  const user = await db.user.findUnique({
+    where: { id: userId },
+    include: {
+      entityAccess: true,
+      documentScopes: true,
+      permissionOverrides: true,
+    },
+  });
+
+  if (!user || !user.isActive) return null;
+
+  const overrides: Partial<Record<ModuleName, PermissionLevel>> = {};
+  for (const o of user.permissionOverrides) {
+    overrides[o.module as ModuleName] = o.level as PermissionLevel;
+  }
+
+  return {
+    id: user.id,
+    clerkId: user.clerkId,
+    email: user.email,
+    role: user.role as UserContext["role"],
+    isSuperAdmin: user.isSuperAdmin,
+    entityIds: user.entityAccess.map((e) => e.entityId),
+    documentCategories: user.documentScopes.map((d) => d.categoryId),
+    overrides,
+  };
+}
+
 export async function requireSuperAdmin(): Promise<UserContext> {
   const ctx = await requireUserContext();
   if (!canManageUsers(ctx)) redirect("/dashboard");
