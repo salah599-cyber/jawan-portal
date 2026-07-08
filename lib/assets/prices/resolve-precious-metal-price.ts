@@ -1,6 +1,6 @@
 import { convertFromOmr, convertToOmr } from "@/lib/fx";
 import { buildMuscatBullionOmrBoard, type MuscatBullionOmrBoard } from "@/lib/assets/prices/muscat-bullion-omr";
-import { fetchSpotQuotes } from "@/lib/assets/prices/goldapi";
+import { fetchSpotQuotesWithSource } from "@/lib/assets/prices/goldapi";
 import { PRICE_SOURCE_MUSCAT_BULLION } from "@/lib/assets/precious-metals/constants";
 import type {
   PreciousMetalPriceBasis,
@@ -74,12 +74,23 @@ export async function resolvePreciousMetalValuation(input: {
   priceBasis: PreciousMetalPriceBasis;
   currency: string;
   board?: MuscatBullionOmrBoard;
+  priceSource?: string;
 }): Promise<ResolvedPreciousMetalPrice> {
   if (!Number.isFinite(input.quantity) || input.quantity <= 0) {
     throw new Error("Quantity must be greater than zero.");
   }
 
-  const board = input.board ?? buildMuscatBullionOmrBoard(await fetchSpotQuotes());
+  let board: MuscatBullionOmrBoard;
+  let priceSource: string;
+
+  if (input.board) {
+    board = input.board;
+    priceSource = input.priceSource ?? PRICE_SOURCE_MUSCAT_BULLION;
+  } else {
+    const fetched = await fetchMuscatBullionBoard();
+    board = fetched.board;
+    priceSource = fetched.priceSource;
+  }
 
   if (input.priceBasis === "USD_SPOT_OZ" || input.unit === "OZ") {
     if (input.unit !== "OZ") {
@@ -92,7 +103,7 @@ export async function resolvePreciousMetalValuation(input: {
     return {
       unitPrice: totalValue / input.quantity,
       totalValue,
-      priceSource: PRICE_SOURCE_MUSCAT_BULLION,
+      priceSource,
       currency: input.currency,
     };
   }
@@ -108,11 +119,15 @@ export async function resolvePreciousMetalValuation(input: {
   return {
     unitPrice: totalValue / input.quantity,
     totalValue,
-    priceSource: PRICE_SOURCE_MUSCAT_BULLION,
+    priceSource,
     currency: input.currency,
   };
 }
 
 export async function fetchMuscatBullionBoard() {
-  return buildMuscatBullionOmrBoard(await fetchSpotQuotes());
+  const { quotes, source } = await fetchSpotQuotesWithSource();
+  return {
+    board: buildMuscatBullionOmrBoard(quotes),
+    priceSource: source,
+  };
 }

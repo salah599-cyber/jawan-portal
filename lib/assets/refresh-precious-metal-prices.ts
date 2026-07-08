@@ -73,18 +73,20 @@ export async function refreshPreciousMetalPrices(
     return result;
   }
 
-  let board: Awaited<ReturnType<typeof fetchMuscatBullionBoard>>;
+  let boardBundle: Awaited<ReturnType<typeof fetchMuscatBullionBoard>>;
   try {
-    board = await fetchMuscatBullionBoard();
+    boardBundle = await fetchMuscatBullionBoard();
   } catch (error) {
     console.error("refreshPreciousMetalPrices price fetch failed:", error);
     result.failed = assets.length;
     result.error = formatError(
       error,
-      "Could not fetch live gold/silver prices. Check GOLD_API_KEY in environment settings.",
+      "Could not fetch live gold/silver prices. Try again later or add GOLD_API_KEY in Vercel.",
     );
     return result;
   }
+
+  const { board, priceSource } = boardBundle;
 
   const now = new Date();
 
@@ -104,6 +106,7 @@ export async function refreshPreciousMetalPrices(
         priceBasis: detail.priceBasis,
         currency: asset.currency,
         board,
+        priceSource,
       });
 
       if (!Number.isFinite(valuation.unitPrice) || !Number.isFinite(valuation.totalValue)) {
