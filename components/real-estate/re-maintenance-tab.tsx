@@ -18,6 +18,13 @@ import type { SerializedReProperty } from "@/lib/real-estate/serialize";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -167,6 +174,9 @@ export function ReMaintenanceTab({
   const [pending, startTransition] = useTransition();
   const [showForm, setShowForm] = useState(false);
   const [editing, setEditing] = useState<MaintenanceRow | null>(null);
+  const [completing, setCompleting] = useState<MaintenanceRow | null>(null);
+  const [completeCost, setCompleteCost] = useState("");
+  const [completeError, setCompleteError] = useState<string | null>(null);
 
   const openCount = property.maintenance.filter((r) => r.status === "OPEN" || r.status === "IN_PROGRESS").length;
   const completedCount = property.maintenance.filter((r) => r.status === "COMPLETED").length;
@@ -175,10 +185,28 @@ export function ReMaintenanceTab({
     0,
   );
 
-  function markCompleted(id: string) {
+  function openCompleteDialog(request: MaintenanceRow) {
+    setCompleting(request);
+    setCompleteCost(request.actualCostOmr ?? request.quotedCostOmr ?? "");
+    setCompleteError(null);
+  }
+
+  function markCompleted() {
+    if (!completing) return;
+    setCompleteError(null);
+    const formData = new FormData();
+    if (completeCost.trim()) {
+      formData.set("actualCostOmr", completeCost.trim());
+    }
+
     startTransition(async () => {
-      await updateMaintenanceStatus(id, "COMPLETED");
-      router.refresh();
+      try {
+        await updateMaintenanceStatus(completing.id, "COMPLETED", formData);
+        setCompleting(null);
+        router.refresh();
+      } catch (err) {
+        setCompleteError(err instanceof Error ? err.message : "Failed to complete maintenance.");
+      }
     });
   }
 
@@ -287,7 +315,7 @@ export function ReMaintenanceTab({
                               variant="outline"
                               size="sm"
                               disabled={pending}
-                              onClick={() => markCompleted(request.id)}
+                              onClick={() => openCompleteDialog(request)}
                             >
                               Complete
                             </Button>
@@ -302,6 +330,37 @@ export function ReMaintenanceTab({
           )}
         </CardContent>
       </Card>
+
+      <Dialog open={!!completing} onOpenChange={(open) => !open && setCompleting(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Complete Maintenance</DialogTitle>
+            <DialogDescription>
+              {completing
+                ? `${completing.description} · recorded cost flows to Financials and portfolio totals`
+                : ""}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-2">
+            <Label htmlFor="completeCostOmr">Actual Cost (OMR)</Label>
+            <Input
+              id="completeCostOmr"
+              value={completeCost}
+              onChange={(e) => setCompleteCost(e.target.value)}
+              placeholder={completing?.quotedCostOmr ? `Quoted: ${completing.quotedCostOmr}` : "Enter cost"}
+            />
+          </div>
+          {completeError ? <p className="text-sm text-destructive">{completeError}</p> : null}
+          <div className="flex justify-end gap-2">
+            <Button type="button" variant="outline" onClick={() => setCompleting(null)}>
+              Cancel
+            </Button>
+            <Button type="button" disabled={pending} onClick={markCompleted}>
+              {pending ? "Saving..." : "Mark Completed"}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

@@ -192,6 +192,16 @@ export function ReFinancialsTab({
           </CardHeader>
           <CardContent>
             <p className="text-2xl font-semibold">{formatOmr(metrics.totalExpensesYtdOmr)}</p>
+            <p className="text-xs text-muted-foreground">Excludes maintenance</p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium text-muted-foreground">Maintenance (YTD)</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="text-2xl font-semibold">{formatOmr(metrics.totalMaintenanceCostYtdOmr)}</p>
+            <p className="text-xs text-muted-foreground">Includes completed maintenance costs</p>
           </CardContent>
         </Card>
       </div>

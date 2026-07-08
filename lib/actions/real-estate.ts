@@ -20,6 +20,9 @@ import {
   type PdcChequeEntry,
 } from "@/lib/real-estate/rent-schedule";
 import {
+  syncMaintenanceExpenseRecord,
+} from "@/lib/real-estate/maintenance-expense-sync";
+import {
   parseDecimalInput,
   parseDateInput,
   parseIntInput,
@@ -97,6 +100,7 @@ function assertEntityAccess(
 
 function revalidateRealEstate(propertyId?: string) {
   revalidatePath(RE_PATH);
+  revalidatePath(`${RE_PATH}/rent`);
   if (propertyId) {
     revalidatePath(`${RE_PATH}/${propertyId}`);
   }
@@ -1249,7 +1253,8 @@ export async function updateMaintenanceRequest(id: string, formData: FormData) {
       contractorPhone: String(formData.get("contractorPhone") ?? "").trim() || undefined,
       scheduledDate: parseDateInput(String(formData.get("scheduledDate") ?? "")),
       quotedCostOmr: parseDecimalInput(String(formData.get("quotedCostOmr") ?? "")),
-      actualCostOmr: parseDecimalInput(String(formData.get("actualCostOmr") ?? "")),
+      actualCostOmr:
+        parseDecimalInput(String(formData.get("actualCostOmr") ?? "")) ?? existing.actualCostOmr?.toString(),
       invoiceNumber: String(formData.get("invoiceNumber") ?? "").trim() || undefined,
       chargedTo:
         (String(formData.get("chargedTo") ?? "").trim() as ReMaintenanceChargedTo) || undefined,
@@ -1257,6 +1262,8 @@ export async function updateMaintenanceRequest(id: string, formData: FormData) {
       resolutionNotes: String(formData.get("resolutionNotes") ?? "").trim() || undefined,
     },
   });
+
+  await syncMaintenanceExpenseRecord(request);
 
   await logAudit({
     userId: ctx.id,
@@ -1295,7 +1302,10 @@ export async function updateMaintenanceStatus(
       parseDateInput(String(formData?.get("completedDate") ?? "")) ?? new Date();
     data.resolutionNotes =
       String(formData?.get("resolutionNotes") ?? "").trim() || undefined;
-    data.actualCostOmr = parseDecimalInput(String(formData?.get("actualCostOmr") ?? ""));
+    data.actualCostOmr =
+      parseDecimalInput(String(formData?.get("actualCostOmr") ?? "")) ??
+      existing.actualCostOmr?.toString() ??
+      existing.quotedCostOmr?.toString();
     data.invoiceNumber = String(formData?.get("invoiceNumber") ?? "").trim() || undefined;
   }
 
@@ -1303,6 +1313,8 @@ export async function updateMaintenanceStatus(
     where: { id },
     data,
   });
+
+  await syncMaintenanceExpenseRecord(request);
 
   await logAudit({
     userId: ctx.id,

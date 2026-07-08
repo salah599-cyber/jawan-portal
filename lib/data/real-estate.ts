@@ -40,6 +40,9 @@ export type RePortfolioSummary = {
   overallOccupancyPct: number;
   totalGrossMonthlyRentOmr: number;
   totalOverdueRentOmr: number;
+  totalExpensesYtdOmr: number;
+  totalMaintenanceYtdOmr: number;
+  netOperatingIncomeYtdOmr: number;
   netYieldPct: number | null;
 };
 
@@ -228,6 +231,9 @@ const emptyPortfolioSummary = (): RePortfolioSummary => ({
   overallOccupancyPct: 0,
   totalGrossMonthlyRentOmr: 0,
   totalOverdueRentOmr: 0,
+  totalExpensesYtdOmr: 0,
+  totalMaintenanceYtdOmr: 0,
+  netOperatingIncomeYtdOmr: 0,
   netYieldPct: null,
 });
 
@@ -341,6 +347,14 @@ export async function getPortfolioSummary(
     (sum, metrics) => sum + metrics.netOperatingIncomeOmr,
     0,
   );
+  const totalExpensesYtdOmr = [...metricsById.values()].reduce(
+    (sum, metrics) => sum + metrics.totalExpensesYtdOmr,
+    0,
+  );
+  const totalMaintenanceYtdOmr = [...metricsById.values()].reduce(
+    (sum, metrics) => sum + metrics.totalMaintenanceCostYtdOmr,
+    0,
+  );
 
   return {
     totalProperties: properties.length,
@@ -348,6 +362,9 @@ export async function getPortfolioSummary(
     overallOccupancyPct: totalUnits > 0 ? (occupiedUnits / totalUnits) * 100 : 0,
     totalGrossMonthlyRentOmr,
     totalOverdueRentOmr,
+    totalExpensesYtdOmr,
+    totalMaintenanceYtdOmr,
+    netOperatingIncomeYtdOmr: totalNetOperatingIncome,
     netYieldPct:
       totalPortfolioValueOmr > 0
         ? (totalNetOperatingIncome / totalPortfolioValueOmr) * 100

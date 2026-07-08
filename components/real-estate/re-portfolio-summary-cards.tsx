@@ -70,6 +70,21 @@ export function RePortfolioSummaryCards({ summary }: { summary: RePortfolioSumma
         value={formatPct(summary.netYieldPct)}
         detail="NOI / portfolio value"
       />
+      <SummaryMetric
+        label="Operating Expenses (YTD)"
+        value={formatOmr(summary.totalExpensesYtdOmr)}
+        detail="Excludes maintenance and mortgage"
+      />
+      <SummaryMetric
+        label="Maintenance (YTD)"
+        value={formatOmr(summary.totalMaintenanceYtdOmr)}
+        detail="Completed work and maintenance expenses"
+      />
+      <SummaryMetric
+        label="Net Operating Income (YTD)"
+        value={formatOmr(summary.netOperatingIncomeYtdOmr)}
+        detail="Rent collected minus operating costs"
+      />
     </div>
   );
 }
