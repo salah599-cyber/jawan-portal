@@ -1,5 +1,8 @@
 import type { RePropertyStatus } from "@/lib/generated/prisma/client";
 import { db } from "@/lib/db";
+import {
+  MAINTENANCE_EXPENSE_NOTE_PREFIX,
+} from "@/lib/real-estate/maintenance-expense-sync";
 import { toNumber, sumDecimals } from "@/lib/real-estate/helpers";
 
 export type PropertyMetrics = {
@@ -24,8 +27,16 @@ function ytdStart() {
   return new Date(now.getFullYear(), 0, 1);
 }
 
+function maintenanceCostFromRequest(request: {
+  actualCostOmr: { toString(): string } | null;
+  quotedCostOmr: { toString(): string } | null;
+}) {
+  return toNumber(request.actualCostOmr ?? request.quotedCostOmr);
+}
+
 export async function getPropertyMetrics(propertyId: string): Promise<PropertyMetrics> {
-  const [property, units, activeLeases, maintenanceYtd, expensesYtd, rentPaidYtd, overdue] =
+  const ytd = ytdStart();
+  const [property, units, activeLeases, completedMaintenanceYtd, expensesYtd, rentPaidYtd, overdue] =
     await Promise.all([
       db.reProperty.findUnique({
         where: { id: propertyId },
@@ -39,26 +50,35 @@ export async function getPropertyMetrics(propertyId: string): Promise<PropertyMe
         where: { unit: { propertyId }, status: "ACTIVE" },
         select: { rentAmountOmr: true },
       }),
-      db.reMaintenanceRequest.aggregate({
+      db.reMaintenanceRequest.findMany({
         where: {
           propertyId,
-          completedDate: { gte: ytdStart() },
+          status: "COMPLETED",
+          completedDate: { gte: ytd },
         },
-        _sum: { actualCostOmr: true },
+        select: {
+          id: true,
+          actualCostOmr: true,
+          quotedCostOmr: true,
+        },
       }),
-      db.rePropertyExpense.aggregate({
+      db.rePropertyExpense.findMany({
         where: {
           propertyId,
-          expenseDate: { gte: ytdStart() },
+          expenseDate: { gte: ytd },
           category: { not: "MORTGAGE" },
         },
-        _sum: { amountOmr: true },
+        select: {
+          category: true,
+          amountOmr: true,
+          notes: true,
+        },
       }),
       db.reRentSchedule.aggregate({
         where: {
           unit: { propertyId },
           paymentStatus: "PAID",
-          paidDate: { gte: ytdStart() },
+          paidDate: { gte: ytd },
         },
         _sum: { paidAmountOmr: true },
       }),
@@ -76,10 +96,34 @@ export async function getPropertyMetrics(propertyId: string): Promise<PropertyMe
   const vacantUnits = units.filter((u) => u.occupancyStatus === "VACANT").length;
   const grossMonthlyRentOmr = sumDecimals(activeLeases.map((l) => l.rentAmountOmr));
   const grossAnnualRentOmr = grossMonthlyRentOmr * 12;
-  const totalMaintenanceCostYtdOmr = toNumber(maintenanceYtd._sum.actualCostOmr);
-  const totalExpensesYtdOmr = toNumber(expensesYtd._sum.amountOmr);
   const rentCollectedYtdOmr = toNumber(rentPaidYtd._sum.paidAmountOmr);
-  const netOperatingIncomeOmr = rentCollectedYtdOmr - totalExpensesYtdOmr - totalMaintenanceCostYtdOmr;
+
+  const syncedMaintenanceIds = new Set(
+    expensesYtd
+      .map((expense) => expense.notes)
+      .filter((note): note is string => !!note && note.startsWith(MAINTENANCE_EXPENSE_NOTE_PREFIX))
+      .map((note) => note.slice(MAINTENANCE_EXPENSE_NOTE_PREFIX.length)),
+  );
+
+  let totalMaintenanceCostYtdOmr = 0;
+  let totalExpensesYtdOmr = 0;
+
+  for (const expense of expensesYtd) {
+    const amount = toNumber(expense.amountOmr);
+    if (expense.category === "MAINTENANCE") {
+      totalMaintenanceCostYtdOmr += amount;
+      continue;
+    }
+    totalExpensesYtdOmr += amount;
+  }
+
+  for (const request of completedMaintenanceYtd) {
+    if (syncedMaintenanceIds.has(request.id)) continue;
+    totalMaintenanceCostYtdOmr += maintenanceCostFromRequest(request);
+  }
+
+  const netOperatingIncomeOmr =
+    rentCollectedYtdOmr - totalExpensesYtdOmr - totalMaintenanceCostYtdOmr;
   const valuation = toNumber(property?.currentValuationOmr);
   const grossYieldPct = valuation > 0 ? (grossAnnualRentOmr / valuation) * 100 : null;
   const netYieldPct = valuation > 0 ? (netOperatingIncomeOmr / valuation) * 100 : null;
@@ -129,9 +173,16 @@ export async function getUnitMetrics(unitId: string) {
       },
       select: { amountOmr: true, paidAmountOmr: true },
     }),
-    db.reMaintenanceRequest.aggregate({
-      where: { unitId, completedDate: { gte: ytdStart() } },
-      _sum: { actualCostOmr: true },
+    db.reMaintenanceRequest.findMany({
+      where: {
+        unitId,
+        status: "COMPLETED",
+        completedDate: { gte: ytdStart() },
+      },
+      select: {
+        actualCostOmr: true,
+        quotedCostOmr: true,
+      },
     }),
   ]);
 
@@ -148,7 +199,9 @@ export async function getUnitMetrics(unitId: string) {
     outstandingRentOmr: sumDecimals(
       outstanding.map((row) => toNumber(row.amountOmr) - toNumber(row.paidAmountOmr)),
     ),
-    maintenanceCostYtdOmr: toNumber(maintenanceYtd._sum.actualCostOmr),
+    maintenanceCostYtdOmr: sumDecimals(
+      maintenanceYtd.map((request) => maintenanceCostFromRequest(request)),
+    ),
     activeLease,
   };
 }
