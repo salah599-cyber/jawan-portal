@@ -181,6 +181,11 @@ export const LOAN_PAYMENT_METHOD_LABELS: Record<string, string> = {
   OTHER: "Other",
 };
 
+export const INTEREST_CALCULATION_METHOD_LABELS: Record<string, string> = {
+  REDUCING_BALANCE: "Reducing Balance",
+  FIXED_RATE: "Fixed Rate",
+};
+
 export const BANK_ACCOUNT_USAGE_LABELS: Record<string, string> = {
   true: "Cash position",
   false: "Info only",

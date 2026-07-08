@@ -197,6 +197,11 @@ enum LoanPaymentMethod {
   OTHER
 }
 
+enum InterestCalculationMethod {
+  REDUCING_BALANCE
+  FIXED_RATE
+}
+
 enum ChequeDirection {
   ISSUED
   RECEIVED
@@ -944,6 +949,7 @@ model Liability {
   outstandingBalance Decimal?           @db.Decimal(18, 2)
   currency           String             @default("OMR")
   interestRate       Decimal?           @db.Decimal(8, 4)
+  interestCalculationMethod InterestCalculationMethod? @default(REDUCING_BALANCE)
   startDate          DateTime?
   maturityDate       DateTime?
   paymentAmount      Decimal?           @db.Decimal(18, 2)

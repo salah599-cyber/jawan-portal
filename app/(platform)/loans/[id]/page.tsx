@@ -9,11 +9,13 @@ import { LoanPaymentHistory } from "@/components/loans/loan-payment-history";
 import { getLoan, deleteLoan, deleteLoanDocument } from "@/lib/actions/loans";
 import { canWrite, requireModuleAccess } from "@/lib/permissions/access";
 import {
+  INTEREST_CALCULATION_METHOD_LABELS,
   LIABILITY_STATUS_LABELS,
   LIABILITY_TYPE_LABELS,
   LOAN_DOCUMENT_TYPE_LABELS,
   PAYMENT_FREQUENCY_LABELS,
 } from "@/lib/labels";
+import { summarizeLoanInterest } from "@/lib/loans/interest";
 import { formatMoney, formatDate, formatDecimalInput } from "@/lib/format";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -27,6 +29,7 @@ export default async function LoanDetailPage({ params }: { params: Promise<{ id:
 
   const showUpload = canWrite(ctx, "LOANS");
   const balance = loan.outstandingBalance ?? loan.amount;
+  const interest = summarizeLoanInterest(loan);
   const docsByType = {
     LOAN_AGREEMENT: loan.documents.filter((d) => d.documentType === "LOAN_AGREEMENT"),
     PAYMENT_SCHEDULE: loan.documents.filter((d) => d.documentType === "PAYMENT_SCHEDULE"),
@@ -77,6 +80,12 @@ export default async function LoanDetailPage({ params }: { params: Promise<{ id:
               <Detail label="Principal" value={formatMoney(loan.amount, loan.currency)} />
               <Detail label="Outstanding Balance" value={formatMoney(balance, loan.currency)} />
               <Detail label="Interest Rate" value={loan.interestRate ? loan.interestRate.toString() + "%" : null} />
+              <Detail
+                label="Interest Method"
+                value={
+                  INTEREST_CALCULATION_METHOD_LABELS[interest.method] ?? interest.method
+                }
+              />
               <Detail label="Account Reference" value={loan.accountReference} />
               <Detail label="Start Date" value={formatDate(loan.startDate)} />
               <Detail label="Maturity Date" value={formatDate(loan.maturityDate)} />
@@ -91,11 +100,36 @@ export default async function LoanDetailPage({ params }: { params: Promise<{ id:
             </CardContent>
           </Card>
           {showUpload ? <UploadLoanDocumentsForm liabilityId={loan.id} /> : null}
+          <Card>
+            <CardHeader>
+              <CardTitle>Interest Summary</CardTitle>
+              <CardDescription>
+                {INTEREST_CALCULATION_METHOD_LABELS[interest.method]} on{" "}
+                {loan.paymentFrequency
+                  ? (PAYMENT_FREQUENCY_LABELS[loan.paymentFrequency] ?? loan.paymentFrequency).toLowerCase()
+                  : "monthly"}{" "}
+                basis
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="grid gap-4 sm:grid-cols-2">
+              <Detail
+                label="Estimated Period Interest"
+                value={interest.annualRate > 0 ? formatMoney(interest.periodInterest, loan.currency) : "—"}
+              />
+              <Detail label="Interest Paid" value={formatMoney(interest.totalInterestPaid, loan.currency)} />
+              <Detail label="Principal Repaid" value={formatMoney(interest.totalPrincipalPaid, loan.currency)} />
+              <Detail label="Outstanding Principal" value={formatMoney(balance, loan.currency)} />
+            </CardContent>
+          </Card>
           {showUpload && loan.status === "ACTIVE" ? (
             <RecordLoanPaymentForm
               liabilityId={loan.id}
               currency={loan.currency}
               outstandingBalance={formatDecimalInput(balance) ?? "0"}
+              principalAmount={formatDecimalInput(loan.amount) ?? "0"}
+              interestRate={loan.interestRate ? formatDecimalInput(loan.interestRate) : null}
+              interestCalculationMethod={loan.interestCalculationMethod ?? "REDUCING_BALANCE"}
+              paymentFrequency={loan.paymentFrequency}
               defaultPaymentAmount={loan.paymentAmount ? formatDecimalInput(loan.paymentAmount) : null}
             />
           ) : null}
