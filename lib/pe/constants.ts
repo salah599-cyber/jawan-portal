@@ -7,6 +7,7 @@ export const PE_COUNTRY_OPTIONS = [
   "Netherlands",
   "Singapore",
   "United Arab Emirates",
+  "Oman",
   "Saudi Arabia",
   "India",
   "China",
@@ -21,7 +22,7 @@ export const PE_COUNTRY_OPTIONS = [
   "Egypt",
 ] as const;
 
-export const PE_REPORTING_CURRENCIES = ["USD", "EUR", "GBP", "CHF", "SGD", "AED", "SAR"] as const;
+export const PE_REPORTING_CURRENCIES = ["USD", "EUR", "GBP", "CHF", "SGD", "AED", "OMR", "SAR"] as const;
 
 export const PE_SECTOR_OPTIONS = [
   "FinTech",
