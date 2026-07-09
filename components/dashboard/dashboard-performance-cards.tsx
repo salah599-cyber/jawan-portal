@@ -1,8 +1,25 @@
+"use client";
+
 import Link from "next/link";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import type { PortfolioPerformance } from "@/lib/data/dashboard";
+import {
+  PERFORMANCE_PERIOD_LABELS,
+  PERFORMANCE_PERIOD_SHORT_LABELS,
+  type PerformancePeriod,
+} from "@/lib/portfolio/performance";
 import { formatOmr } from "@/lib/format";
 import { cn } from "@/lib/utils";
+
+const PERFORMANCE_PERIODS = Object.keys(PERFORMANCE_PERIOD_LABELS) as PerformancePeriod[];
 
 type DashboardPerformanceCardsProps = {
   performance: PortfolioPerformance;
@@ -83,11 +100,46 @@ export function DashboardPerformanceCards({
   performance,
   hasPortfolio,
 }: DashboardPerformanceCardsProps) {
+  const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const period = performance.period;
+  const periodLabel = PERFORMANCE_PERIOD_LABELS[period];
+  const periodShortLabel = PERFORMANCE_PERIOD_SHORT_LABELS[period];
+
+  function setPeriod(nextPeriod: PerformancePeriod) {
+    const params = new URLSearchParams(searchParams.toString());
+    if (nextPeriod === "month") {
+      params.delete("period");
+    } else {
+      params.set("period", nextPeriod);
+    }
+
+    const query = params.toString();
+    router.push(query ? `${pathname}?${query}` : pathname);
+  }
+
   return (
     <Card>
-      <CardHeader>
-        <CardTitle>Portfolio Performance</CardTitle>
-        <CardDescription>Returns and top movers across your portfolio</CardDescription>
+      <CardHeader className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+        <div className="space-y-1">
+          <CardTitle>Portfolio Performance</CardTitle>
+          <CardDescription>Returns and top movers across your portfolio</CardDescription>
+        </div>
+        {hasPortfolio && performance.hasSufficientData ? (
+          <Select value={period} onValueChange={(value) => setPeriod(value as PerformancePeriod)}>
+            <SelectTrigger className="w-full sm:w-[180px]" aria-label="Performance period">
+              <SelectValue placeholder="Select period" />
+            </SelectTrigger>
+            <SelectContent>
+              {PERFORMANCE_PERIODS.map((option) => (
+                <SelectItem key={option} value={option}>
+                  {PERFORMANCE_PERIOD_LABELS[option]}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        ) : null}
       </CardHeader>
       <CardContent>
         {!hasPortfolio || !performance.hasSufficientData ? (
@@ -99,14 +151,14 @@ export function DashboardPerformanceCards({
         ) : (
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
             <PerformanceMetric
-              label="Return this month"
-              value={formatReturnPct(performance.monthReturnPct)}
+              label={`Return (${periodShortLabel})`}
+              value={formatReturnPct(performance.periodReturnPct)}
               detail={
-                performance.monthReturnOmr != null
-                  ? formatOmr(performance.monthReturnOmr)
+                performance.periodReturnOmr != null
+                  ? formatOmr(performance.periodReturnOmr)
                   : null
               }
-              tone={returnTone(performance.monthReturnPct)}
+              tone={returnTone(performance.periodReturnPct)}
             />
             <PerformanceMetric
               label="Return YTD"
@@ -117,12 +169,12 @@ export function DashboardPerformanceCards({
               tone={returnTone(performance.ytdReturnPct)}
             />
             <AssetPerformerMetric
-              label="Best performing asset"
+              label={`Best performer (${periodShortLabel})`}
               performer={performance.bestPerformer}
               positive
             />
             <AssetPerformerMetric
-              label="Worst performing asset"
+              label={`Worst performer (${periodShortLabel})`}
               performer={performance.worstPerformer}
               positive={false}
             />
@@ -132,8 +184,9 @@ export function DashboardPerformanceCards({
       {hasPortfolio && performance.hasSufficientData ? (
         <CardFooter>
           <p className="text-xs text-muted-foreground">
-            Month-to-date returns use recorded valuations; public-market holdings share their
-            portfolio baseline when earlier history is unavailable.
+            {periodLabel} returns use recorded valuations; public-market holdings share their
+            portfolio baseline when earlier history is unavailable. Asset links open the module
+            where each holding is managed.
           </p>
         </CardFooter>
       ) : null}

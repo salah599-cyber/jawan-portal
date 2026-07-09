@@ -1401,8 +1401,8 @@ export async function buildPortfolioPerformanceReport(
   const rows = performance.assetRows.map((asset) => ({
     asset: asset.name,
     currentValue: formatAmount(asset.currentValueOmr, "OMR"),
-    monthStartValue: formatAmount(asset.monthStartValueOmr, "OMR"),
-    monthReturn: formatReturnPct(asset.monthReturnPct),
+    monthStartValue: formatAmount(asset.periodStartValueOmr, "OMR"),
+    monthReturn: formatReturnPct(asset.periodReturnPct),
   }));
 
   return {
@@ -1416,10 +1416,10 @@ export async function buildPortfolioPerformanceReport(
       { label: "Portfolio Value", value: formatAmount(rollup.portfolioTotalOmr, "OMR") },
       {
         label: "MTD Return",
-        value: formatReturnPct(performance.monthReturnPct),
+        value: formatReturnPct(performance.periodReturnPct),
         detail:
-          performance.monthReturnOmr != null
-            ? formatAmount(performance.monthReturnOmr, "OMR")
+          performance.periodReturnOmr != null
+            ? formatAmount(performance.periodReturnOmr, "OMR")
             : undefined,
       },
       {

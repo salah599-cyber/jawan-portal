@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { formatDate, formatMoney } from "@/lib/format";
 import { getDashboardSummary } from "@/lib/data/dashboard";
+import { parsePerformancePeriod } from "@/lib/portfolio/performance";
 import { canAccess, requireModuleAccess } from "@/lib/permissions/access";
 import { DashboardWealthCards } from "@/components/dashboard/dashboard-wealth-cards";
 import { DashboardAssetAllocationChart } from "@/components/dashboard/dashboard-asset-allocation-chart";
@@ -49,9 +50,15 @@ const MODULE_ICONS: Record<string, typeof Building2> = {
   CALENDAR: CalendarDays,
 };
 
-export default async function DashboardPage() {
+export default async function DashboardPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ period?: string }>;
+}) {
   const ctx = await requireModuleAccess("DASHBOARD");
-  const summary = await getDashboardSummary(ctx);
+  const { period: periodParam } = await searchParams;
+  const performancePeriod = parsePerformancePeriod(periodParam);
+  const summary = await getDashboardSummary(ctx, { performancePeriod });
 
   const hasPortfolio = summary.portfolioTotalOmr > 0;
   const hasLiabilities = summary.liabilityTotals.length > 0;

@@ -1,5 +1,6 @@
 import { db } from "@/lib/db";
 import { startOfMonth } from "@/lib/calendar/date-ranges";
+import { getAssetLinkedModule } from "@/lib/assets/linked-module";
 import { MARKET_CONFIG } from "@/lib/public-markets/constants";
 import {
   backfillAssetValuations,
@@ -12,6 +13,49 @@ import type { PublicMarket } from "@/lib/generated/prisma/client";
 
 const COUNTABLE_ASSET_STATUSES = ["ACTIVE", "MONITOR"] as const;
 
+export type PerformancePeriod = "month" | "quarter" | "6m" | "year";
+
+export const PERFORMANCE_PERIOD_LABELS: Record<PerformancePeriod, string> = {
+  month: "This month",
+  quarter: "This quarter",
+  "6m": "Last 6 months",
+  year: "Year to date",
+};
+
+export const PERFORMANCE_PERIOD_SHORT_LABELS: Record<PerformancePeriod, string> = {
+  month: "MTD",
+  quarter: "QTD",
+  "6m": "6M",
+  year: "YTD",
+};
+
+export function parsePerformancePeriod(value?: string | null): PerformancePeriod {
+  if (value === "quarter" || value === "6m" || value === "year") return value;
+  return "month";
+}
+
+export function getPerformancePeriodStart(
+  period: PerformancePeriod,
+  now: Date = new Date(),
+): Date {
+  switch (period) {
+    case "month":
+      return startOfMonth(now);
+    case "quarter": {
+      const quarterStartMonth = Math.floor(now.getMonth() / 3) * 3;
+      return new Date(now.getFullYear(), quarterStartMonth, 1);
+    }
+    case "6m": {
+      const date = new Date(now);
+      date.setMonth(date.getMonth() - 6);
+      date.setHours(0, 0, 0, 0);
+      return date;
+    }
+    case "year":
+      return new Date(now.getFullYear(), 0, 1);
+  }
+}
+
 export type AssetPerformer = {
   name: string;
   returnPct: number;
@@ -23,13 +67,14 @@ export type AssetPerformanceRow = {
   name: string;
   href: string;
   currentValueOmr: number;
-  monthStartValueOmr: number;
-  monthReturnPct: number | null;
+  periodStartValueOmr: number;
+  periodReturnPct: number | null;
 };
 
 export type PortfolioPerformance = {
-  monthReturnOmr: number | null;
-  monthReturnPct: number | null;
+  period: PerformancePeriod;
+  periodReturnOmr: number | null;
+  periodReturnPct: number | null;
   ytdReturnOmr: number | null;
   ytdReturnPct: number | null;
   bestPerformer: AssetPerformer | null;
@@ -40,6 +85,7 @@ export type PortfolioPerformance = {
 
 export type PortfolioPerformanceOptions = {
   entityId?: string;
+  period?: PerformancePeriod;
 };
 
 type PerformanceAsset = {
@@ -51,6 +97,12 @@ type PerformanceAsset = {
   ownershipPct: { toString(): string };
   acquisitionCost: { toString(): string } | null;
   acquisitionDate: Date | null;
+  landParcel?: { id: string } | null;
+  vehicle?: { id: string } | null;
+  registeredCompany?: { id: string } | null;
+  peCompany?: { id: string } | null;
+  lpCommitment?: { id: string } | null;
+  reProperty?: { id: string } | null;
 };
 
 function weightedValue(
@@ -84,6 +136,13 @@ function publicMarketHref(market: PublicMarket): string {
   return market === "MSX" ? "/portfolio/msx" : "/portfolio/public-markets";
 }
 
+function assetPerformerHref(asset: PerformanceAsset): string {
+  const linked = getAssetLinkedModule(asset);
+  if (linked) return linked.href;
+  if (asset.category === "PUBLIC_EQUITY") return "/portfolio/public-markets";
+  return `/assets/${asset.id}`;
+}
+
 async function getWeightedBaselineOmrAtDate(
   asset: PerformanceAsset,
   periodStart: Date,
@@ -105,7 +164,7 @@ async function getWeightedBaselineOmrAtDate(
 
 async function collectPublicEquityHoldingPerformers(
   publicEquityAssets: PerformanceAsset[],
-  monthStart: Date,
+  periodStart: Date,
 ): Promise<AssetPerformer[]> {
   if (publicEquityAssets.length === 0) return [];
 
@@ -130,7 +189,7 @@ async function collectPublicEquityHoldingPerformers(
     await Promise.all(
       publicEquityAssets.map(async (asset) => [
         asset.id,
-        await getWeightedBaselineOmrAtDate(asset, monthStart),
+        await getWeightedBaselineOmrAtDate(asset, periodStart),
       ] as const),
     ),
   );
@@ -162,14 +221,14 @@ async function collectPublicEquityHoldingPerformers(
     const parentCurrent = parentCurrentTotals.get(holding.asset.id) ?? 0;
     const parentBaseline = parentBaselines.get(holding.asset.id) ?? 0;
 
-    let monthBaselineOmr = 0;
+    let periodBaselineOmr = 0;
     if (parentCurrent > 0 && parentBaseline > 0) {
-      monthBaselineOmr = (currentOmr / parentCurrent) * parentBaseline;
+      periodBaselineOmr = (currentOmr / parentCurrent) * parentBaseline;
     }
 
-    if (monthBaselineOmr <= 0) continue;
+    if (periodBaselineOmr <= 0) continue;
 
-    const monthReturnPct = ((currentOmr - monthBaselineOmr) / monthBaselineOmr) * 100;
+    const periodReturnPct = ((currentOmr - periodBaselineOmr) / periodBaselineOmr) * 100;
     const label = holding.name?.trim()
       ? `${holding.symbol} — ${holding.name}`
       : holding.symbol;
@@ -177,7 +236,7 @@ async function collectPublicEquityHoldingPerformers(
 
     performers.push({
       name: `${label} (${marketLabel})`,
-      returnPct: monthReturnPct,
+      returnPct: periodReturnPct,
       href: publicMarketHref(holding.market),
     });
   }
@@ -189,9 +248,12 @@ export async function computePortfolioPerformance(
   ctx: UserContext,
   options: PortfolioPerformanceOptions = {},
 ): Promise<PortfolioPerformance> {
+  const period = options.period ?? "month";
+
   const empty: PortfolioPerformance = {
-    monthReturnOmr: null,
-    monthReturnPct: null,
+    period,
+    periodReturnOmr: null,
+    periodReturnPct: null,
     ytdReturnOmr: null,
     ytdReturnPct: null,
     bestPerformer: null,
@@ -214,20 +276,26 @@ export async function computePortfolioPerformance(
       ownershipPct: true,
       acquisitionCost: true,
       acquisitionDate: true,
+      landParcel: { select: { id: true } },
+      vehicle: { select: { id: true } },
+      registeredCompany: { select: { id: true } },
+      peCompany: { select: { id: true } },
+      lpCommitment: { select: { id: true } },
+      reProperty: { select: { id: true } },
     },
   });
 
   if (assets.length === 0) return empty;
 
   const now = new Date();
-  const monthStart = startOfMonth(now);
+  const periodStart = getPerformancePeriodStart(period, now);
   const yearStart = startOfYear(now);
 
   let currentTotalOmr = 0;
-  let monthBaselineTotalOmr = 0;
+  let periodBaselineTotalOmr = 0;
   let ytdBaselineTotalOmr = 0;
 
-  const monthPerformers: AssetPerformer[] = [];
+  const periodPerformers: AssetPerformer[] = [];
   const assetRows: AssetPerformanceRow[] = [];
   const publicEquityAssets: PerformanceAsset[] = [];
 
@@ -236,26 +304,23 @@ export async function computePortfolioPerformance(
     if (currentWeighted <= 0) continue;
 
     const currentOmr = await convertToOmr(currentWeighted, asset.currency);
-    const monthBaselineOmr = await getWeightedBaselineOmrAtDate(asset, monthStart);
+    const periodBaselineOmr = await getWeightedBaselineOmrAtDate(asset, periodStart);
     const ytdBaselineOmr = await getWeightedBaselineOmrAtDate(asset, yearStart);
 
     currentTotalOmr += currentOmr;
-    monthBaselineTotalOmr += monthBaselineOmr;
+    periodBaselineTotalOmr += periodBaselineOmr;
     ytdBaselineTotalOmr += ytdBaselineOmr;
 
-    const monthReturnPct =
-      monthBaselineOmr > 0 ? ((currentOmr - monthBaselineOmr) / monthBaselineOmr) * 100 : null;
-
-    const rowHref =
-      asset.category === "PUBLIC_EQUITY" ? "/portfolio/public-markets" : `/assets/${asset.id}`;
+    const periodReturnPct =
+      periodBaselineOmr > 0 ? ((currentOmr - periodBaselineOmr) / periodBaselineOmr) * 100 : null;
 
     assetRows.push({
       id: asset.id,
       name: asset.name,
-      href: rowHref,
+      href: assetPerformerHref(asset),
       currentValueOmr: currentOmr,
-      monthStartValueOmr: monthBaselineOmr,
-      monthReturnPct,
+      periodStartValueOmr: periodBaselineOmr,
+      periodReturnPct,
     });
 
     if (asset.category === "PUBLIC_EQUITY") {
@@ -263,32 +328,33 @@ export async function computePortfolioPerformance(
       continue;
     }
 
-    if (monthBaselineOmr > 0 && monthReturnPct != null) {
-      monthPerformers.push({
+    if (periodBaselineOmr > 0 && periodReturnPct != null) {
+      periodPerformers.push({
         name: asset.name,
-        returnPct: monthReturnPct,
-        href: `/assets/${asset.id}`,
+        returnPct: periodReturnPct,
+        href: assetPerformerHref(asset),
       });
     }
   }
 
-  monthPerformers.push(
-    ...(await collectPublicEquityHoldingPerformers(publicEquityAssets, monthStart)),
+  periodPerformers.push(
+    ...(await collectPublicEquityHoldingPerformers(publicEquityAssets, periodStart)),
   );
 
-  const monthReturn = computePortfolioReturn(currentTotalOmr, monthBaselineTotalOmr);
+  const periodReturn = computePortfolioReturn(currentTotalOmr, periodBaselineTotalOmr);
   const ytdReturn = computePortfolioReturn(currentTotalOmr, ytdBaselineTotalOmr);
 
-  const sortedPerformers = [...monthPerformers].sort((a, b) => b.returnPct - a.returnPct);
+  const sortedPerformers = [...periodPerformers].sort((a, b) => b.returnPct - a.returnPct);
   const bestPerformer = sortedPerformers[0] ?? null;
   const worstPerformer =
     sortedPerformers.length > 1 ? sortedPerformers[sortedPerformers.length - 1] : null;
 
-  assetRows.sort((a, b) => (b.monthReturnPct ?? -Infinity) - (a.monthReturnPct ?? -Infinity));
+  assetRows.sort((a, b) => (b.periodReturnPct ?? -Infinity) - (a.periodReturnPct ?? -Infinity));
 
   return {
-    monthReturnOmr: monthReturn?.returnOmr ?? null,
-    monthReturnPct: monthReturn?.returnPct ?? null,
+    period,
+    periodReturnOmr: periodReturn?.returnOmr ?? null,
+    periodReturnPct: periodReturn?.returnPct ?? null,
     ytdReturnOmr: ytdReturn?.returnOmr ?? null,
     ytdReturnPct: ytdReturn?.returnPct ?? null,
     bestPerformer,
@@ -296,7 +362,7 @@ export async function computePortfolioPerformance(
       worstPerformer && bestPerformer && worstPerformer.href !== bestPerformer.href
         ? worstPerformer
         : null,
-    hasSufficientData: monthBaselineTotalOmr > 0 || ytdBaselineTotalOmr > 0,
+    hasSufficientData: periodBaselineTotalOmr > 0 || ytdBaselineTotalOmr > 0,
     assetRows,
   };
 }

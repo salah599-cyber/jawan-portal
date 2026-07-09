@@ -36,10 +36,14 @@ import {
 import { convertToOmr } from "@/lib/reports/helpers";
 import { ASSET_CATEGORY_LABELS } from "@/lib/labels";
 import { getNetWorthTrend, type NetWorthTrend } from "@/lib/portfolio/net-worth-trend";
-import { getPortfolioPerformance, type PortfolioPerformance } from "@/lib/portfolio/performance";
+import {
+  getPortfolioPerformance,
+  type PerformancePeriod,
+  type PortfolioPerformance,
+} from "@/lib/portfolio/performance";
 import { getPortfolioRollup } from "@/lib/portfolio/rollup";
 
-export type { NetWorthTrend, PortfolioPerformance };
+export type { NetWorthTrend, PerformancePeriod, PortfolioPerformance };
 
 export type CurrencyTotal = {
   currency: string;
@@ -228,7 +232,14 @@ function daysUntil(date: Date) {
   return Math.ceil((target.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
 }
 
-export async function getDashboardSummary(ctx: UserContext): Promise<DashboardSummary> {
+export type DashboardSummaryOptions = {
+  performancePeriod?: PerformancePeriod;
+};
+
+export async function getDashboardSummary(
+  ctx: UserContext,
+  options: DashboardSummaryOptions = {},
+): Promise<DashboardSummary> {
   const portfolioMap = new Map<string, number>();
   const liabilityMap = new Map<string, number>();
   const categoryMap = new Map<string, { count: number; totals: Map<string, number> }>();
@@ -1026,7 +1037,9 @@ export async function getDashboardSummary(ctx: UserContext): Promise<DashboardSu
     });
   const allocationSlices = await buildAllocationSlices(categoryMap, portfolioTotalOmr);
   const currencyAllocationSlices = await buildCurrencyAllocationSlices(portfolioMap, portfolioTotalOmr);
-  const portfolioPerformance = await getPortfolioPerformance(ctx);
+  const portfolioPerformance = await getPortfolioPerformance(ctx, {
+    period: options.performancePeriod,
+  });
 
   return {
     portfolioTotals,
