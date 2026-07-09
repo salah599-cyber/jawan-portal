@@ -14,12 +14,11 @@ import type { PortfolioPerformance } from "@/lib/data/dashboard";
 import {
   PERFORMANCE_PERIOD_LABELS,
   PERFORMANCE_PERIOD_SHORT_LABELS,
+  PERFORMANCE_PERIODS,
   type PerformancePeriod,
-} from "@/lib/portfolio/performance";
+} from "@/lib/portfolio/performance-period";
 import { formatOmr } from "@/lib/format";
 import { cn } from "@/lib/utils";
-
-const PERFORMANCE_PERIODS = Object.keys(PERFORMANCE_PERIOD_LABELS) as PerformancePeriod[];
 
 type DashboardPerformanceCardsProps = {
   performance: PortfolioPerformance;

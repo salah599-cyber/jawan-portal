@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { formatDate, formatMoney } from "@/lib/format";
 import { getDashboardSummary } from "@/lib/data/dashboard";
-import { parsePerformancePeriod } from "@/lib/portfolio/performance";
+import { parsePerformancePeriod } from "@/lib/portfolio/performance-period";
 import { canAccess, requireModuleAccess } from "@/lib/permissions/access";
 import { DashboardWealthCards } from "@/components/dashboard/dashboard-wealth-cards";
 import { DashboardAssetAllocationChart } from "@/components/dashboard/dashboard-asset-allocation-chart";

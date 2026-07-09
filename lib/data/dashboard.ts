@@ -38,9 +38,9 @@ import { ASSET_CATEGORY_LABELS } from "@/lib/labels";
 import { getNetWorthTrend, type NetWorthTrend } from "@/lib/portfolio/net-worth-trend";
 import {
   getPortfolioPerformance,
-  type PerformancePeriod,
   type PortfolioPerformance,
 } from "@/lib/portfolio/performance";
+import type { PerformancePeriod } from "@/lib/portfolio/performance-period";
 import { getPortfolioRollup } from "@/lib/portfolio/rollup";
 
 export type { NetWorthTrend, PerformancePeriod, PortfolioPerformance };
