@@ -8,6 +8,7 @@ import {
 } from "@/lib/actions/family-members";
 import { DeleteEntryButton } from "@/components/platform/delete-entry-button";
 import { FAMILY_MEMBER_DOCUMENT_TYPE_LABELS } from "@/lib/labels";
+import { fileHref } from "@/lib/files/href";
 import { formatDate } from "@/lib/format";
 import type { SerializedFamilyMember } from "@/lib/family/serialize";
 import { Button } from "@/components/ui/button";
@@ -115,7 +116,7 @@ export function UploadFamilyMemberDocumentsForm({
                       <TableCell>
                         <div className="flex items-center gap-1">
                           <Button variant="outline" size="sm" asChild>
-                            <a href={doc.fileUrl} target="_blank" rel="noopener noreferrer">Open</a>
+                            <a href={fileHref("family-member", doc.id)} target="_blank" rel="noopener noreferrer">Open</a>
                           </Button>
                           <DeleteEntryButton
                             itemId={doc.id}

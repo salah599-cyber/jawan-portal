@@ -1,10 +1,9 @@
 "use server";
 
-import { put } from "@vercel/blob";
 import { assertStatusNotExited } from "@/lib/assets/status";
 import { revalidatePath } from "next/cache";
 import { db } from "@/lib/db";
-import { deleteBlobUrl } from "@/lib/blob";
+import { deleteBlobUrl, uploadPrivateFile } from "@/lib/blob";
 import { logAudit } from "@/lib/audit/log";
 import { recordAssetValuation } from "@/lib/portfolio/valuations";
 import { canWrite, requireModuleAccess } from "@/lib/permissions/access";
@@ -38,47 +37,31 @@ async function uploadVehicleFiles(
   uploadedById: string,
   labelPrefix?: string,
 ) {
-  const token = process.env.BLOB_READ_WRITE_TOKEN;
-  if (!token) {
-    throw new Error(
-      "BLOB_READ_WRITE_TOKEN is not configured. Document uploads require Vercel Blob storage.",
-    );
-  }
-
   for (let i = 0; i < files.length; i++) {
     const file = files[i];
     if (!(file instanceof File) || file.size === 0) continue;
 
-    const pathname =
-      "cars/" +
-      vehicleId +
-      "/" +
-      documentType.toLowerCase() +
-      "/" +
-      Date.now() +
-      "-" +
-      i +
-      "-" +
-      sanitizeFileName(file.name);
-
-    const blob = await put(pathname, file, {
-      access: "public",
-      token,
-      contentType: file.type || undefined,
-    });
-
-    await db.vehicleDocument.create({
-      data: {
-        vehicleId,
-        documentType,
-        label: labelPrefix ? labelPrefix + " " + (i + 1) : file.name,
-        fileName: file.name,
-        fileUrl: blob.url,
-        mimeType: file.type || "application/octet-stream",
-        fileSize: file.size,
-        uploadedById,
-      },
-    });
+    const uploaded = await uploadPrivateFile(
+      ["cars", vehicleId, documentType.toLowerCase()],
+      file,
+    );
+    try {
+      await db.vehicleDocument.create({
+        data: {
+          vehicleId,
+          documentType,
+          label: labelPrefix ? labelPrefix + " " + (i + 1) : uploaded.fileName,
+          fileName: uploaded.fileName,
+          fileUrl: uploaded.fileUrl,
+          mimeType: uploaded.mimeType,
+          fileSize: uploaded.fileSize,
+          uploadedById,
+        },
+      });
+    } catch (error) {
+      await deleteBlobUrl(uploaded.fileUrl);
+      throw error;
+    }
   }
 }
 

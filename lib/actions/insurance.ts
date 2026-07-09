@@ -1,11 +1,10 @@
 "use server";
 
-import { put } from "@vercel/blob";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { db } from "@/lib/db";
 import { ensureInsuranceSchema } from "@/lib/db/ensure-insurance-schema";
-import { deleteBlobUrl } from "@/lib/blob";
+import { deleteBlobUrl, uploadPrivateFile } from "@/lib/blob";
 import { logAudit } from "@/lib/audit/log";
 import { canAccess, canWrite, requireModuleAccess } from "@/lib/permissions/access";
 import {
@@ -181,23 +180,26 @@ async function uploadPolicyFiles(
   uploadedById: string,
 ) {
   for (const file of files) {
-    const blob = await put(
-      `insurance/${policyId}/${documentType.toLowerCase()}/${Date.now()}-${sanitizeFileName(file.name)}`,
+    const uploaded = await uploadPrivateFile(
+      ["insurance", policyId, documentType.toLowerCase()],
       file,
-      { access: "public" },
     );
-
-    await db.insurancePolicyDocument.create({
-      data: {
-        policyId,
-        documentType,
-        fileName: file.name,
-        fileUrl: blob.url,
-        mimeType: file.type || "application/octet-stream",
-        fileSize: file.size,
-        uploadedById,
-      },
-    });
+    try {
+      await db.insurancePolicyDocument.create({
+        data: {
+          policyId,
+          documentType,
+          fileName: uploaded.fileName,
+          fileUrl: uploaded.fileUrl,
+          mimeType: uploaded.mimeType,
+          fileSize: uploaded.fileSize,
+          uploadedById,
+        },
+      });
+    } catch (error) {
+      await deleteBlobUrl(uploaded.fileUrl);
+      throw error;
+    }
   }
 }
 

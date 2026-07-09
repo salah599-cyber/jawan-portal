@@ -13,6 +13,7 @@ import { getPropertyAlerts } from "@/lib/real-estate/alerts";
 import { getPropertyMetrics, getUnitMetrics } from "@/lib/real-estate/metrics";
 import { refreshRentScheduleStatuses } from "@/lib/real-estate/rent-schedule";
 import { toNumber } from "@/lib/real-estate/helpers";
+import { fileHref } from "@/lib/files/href";
 
 const METRICS_BATCH_SIZE = 10;
 
@@ -30,7 +31,7 @@ export type RePropertyListRow = {
   overdueRentOmr: number;
   grossYieldPct: number | null;
   currentValuationOmr: number | null;
-  primaryPhotoUrl?: string;
+  primaryPhotoHref?: string;
   entityName: string;
 };
 
@@ -285,7 +286,7 @@ export async function listProperties(
         where: { documentType: "PHOTO", unitId: null },
         orderBy: { createdAt: "desc" },
         take: 1,
-        select: { fileUrl: true },
+        select: { id: true },
       },
     },
     orderBy: [{ status: "asc" }, { name: "asc" }],
@@ -311,7 +312,9 @@ export async function listProperties(
       overdueRentOmr: metrics?.overdueRentOmr ?? 0,
       grossYieldPct: metrics?.grossYieldPct ?? null,
       currentValuationOmr: toNumber(property.currentValuationOmr) || null,
-      primaryPhotoUrl: property.documents[0]?.fileUrl,
+      primaryPhotoHref: property.documents[0]
+        ? fileHref("re-property", property.documents[0].id)
+        : undefined,
       entityName: property.entity.name,
     };
   });

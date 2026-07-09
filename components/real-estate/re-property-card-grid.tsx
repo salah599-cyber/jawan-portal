@@ -31,11 +31,12 @@ export function RePropertyCardGrid({ properties }: { properties: RePropertyListR
         <Link key={property.id} href={`/real-estate/${property.id}`}>
           <Card className="h-full transition-colors hover:bg-muted/30">
             <div className="relative aspect-[16/10] overflow-hidden rounded-t-lg bg-muted">
-              {property.primaryPhotoUrl ? (
+              {property.primaryPhotoHref ? (
                 <Image
-                  src={property.primaryPhotoUrl}
+                  src={property.primaryPhotoHref}
                   alt={property.name}
                   fill
+                  unoptimized
                   className="object-cover"
                   sizes="(max-width: 768px) 100vw, 33vw"
                 />

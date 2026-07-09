@@ -12,6 +12,7 @@ import {
   SUCCESSION_DOCUMENT_STATUS_LABELS,
   SUCCESSION_DOCUMENT_TYPE_LABELS,
 } from "@/lib/labels";
+import { fileHref } from "@/lib/files/href";
 import { formatDate } from "@/lib/format";
 import type { SerializedSuccessionPlan } from "@/lib/succession/serialize";
 import { Button } from "@/components/ui/button";
@@ -165,7 +166,7 @@ export function UploadSuccessionDocumentsForm({
                       <div className="flex items-center gap-1">
                         {doc.fileUrl ? (
                           <Button variant="outline" size="sm" asChild>
-                            <a href={doc.fileUrl} target="_blank" rel="noopener noreferrer">Open</a>
+                            <a href={fileHref("succession", doc.id)} target="_blank" rel="noopener noreferrer">Open</a>
                           </Button>
                         ) : null}
                         {doc.fileUrl ? (

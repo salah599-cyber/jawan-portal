@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { fileHref } from "@/lib/files/href";
 import { useState, useTransition } from "react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
@@ -204,7 +205,7 @@ export function RePrivatePropertyHub({
             </div>
             <div className="flex gap-2">
               <Button variant="outline" size="sm" asChild>
-                <a href={doc.fileUrl} target="_blank" rel="noreferrer">
+                <a href={fileHref("re-property", doc.id)} target="_blank" rel="noreferrer">
                   View
                 </a>
               </Button>

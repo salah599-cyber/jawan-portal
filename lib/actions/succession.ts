@@ -1,11 +1,10 @@
 "use server";
 
-import { put } from "@vercel/blob";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { db } from "@/lib/db";
 import { ensureFamilySchema } from "@/lib/db/ensure-family-schema";
-import { deleteBlobUrl } from "@/lib/blob";
+import { deleteBlobUrl, uploadPrivateFile } from "@/lib/blob";
 import { logAudit } from "@/lib/audit/log";
 import { SUCCESSION_PATH } from "@/lib/family/constants";
 import { parseDate, parseDecimal } from "@/lib/succession/helpers";
@@ -459,29 +458,33 @@ export async function uploadSuccessionDocuments(formData: FormData) {
   if (files.length === 0) throw new Error("Select at least one file.");
 
   const file = files[0];
-  const blob = await put(
-    `succession/${planId}/${doc.documentType.toLowerCase()}/${Date.now()}-${sanitizeFileName(file.name)}`,
+  const uploaded = await uploadPrivateFile(
+    ["succession", planId, doc.documentType.toLowerCase()],
     file,
-    { access: "public" },
   );
 
   if (doc.fileUrl) await deleteBlobUrl(doc.fileUrl);
 
   const status = String(formData.get("status") ?? "SIGNED") as SuccessionDocumentStatus;
 
-  await db.successionPlanDocument.update({
-    where: { id: documentId },
-    data: {
-      fileName: file.name,
-      fileUrl: blob.url,
-      mimeType: file.type || "application/octet-stream",
-      fileSize: file.size,
-      status,
-      signedDate: parseDate(String(formData.get("signedDate") ?? "")),
-      jurisdiction: String(formData.get("jurisdiction") ?? "").trim() || null,
-      uploadedById: ctx.id,
-    },
-  });
+  try {
+    await db.successionPlanDocument.update({
+      where: { id: documentId },
+      data: {
+        fileName: uploaded.fileName,
+        fileUrl: uploaded.fileUrl,
+        mimeType: uploaded.mimeType,
+        fileSize: uploaded.fileSize,
+        status,
+        signedDate: parseDate(String(formData.get("signedDate") ?? "")),
+        jurisdiction: String(formData.get("jurisdiction") ?? "").trim() || null,
+        uploadedById: ctx.id,
+      },
+    });
+  } catch (error) {
+    await deleteBlobUrl(uploaded.fileUrl);
+    throw error;
+  }
 
   revalidateSuccession(planId);
 }

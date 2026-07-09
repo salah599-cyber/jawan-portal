@@ -1,10 +1,9 @@
 "use server";
 
-import { put } from "@vercel/blob";
 import { revalidatePath } from "next/cache";
 import { db } from "@/lib/db";
 import { ensureRealEstateSchema } from "@/lib/db/ensure-real-estate-schema";
-import { deleteBlobUrl } from "@/lib/blob";
+import { deleteBlobUrl, uploadPrivateFile } from "@/lib/blob";
 import { logAudit } from "@/lib/audit/log";
 import { canWrite, requireModuleAccess } from "@/lib/permissions/access";
 import { rePropertyEntityFilter } from "@/lib/permissions/scoped-queries";
@@ -481,53 +480,37 @@ async function uploadPropertyFiles(
     notes?: string;
   },
 ) {
-  const token = process.env.BLOB_READ_WRITE_TOKEN;
-  if (!token) {
-    throw new Error(
-      "BLOB_READ_WRITE_TOKEN is not configured. Document uploads require Vercel Blob storage.",
-    );
-  }
-
   const created = [];
   for (let i = 0; i < files.length; i++) {
     const file = files[i];
     if (!(file instanceof File) || file.size === 0) continue;
 
-    const pathname =
-      "real-estate/" +
-      propertyId +
-      "/" +
-      documentType.toLowerCase() +
-      "/" +
-      Date.now() +
-      "-" +
-      i +
-      "-" +
-      sanitizeFileName(file.name);
-
-    const blob = await put(pathname, file, {
-      access: "public",
-      token,
-      contentType: file.type || undefined,
-    });
-
-    const doc = await db.rePropertyDocument.create({
-      data: {
-        propertyId,
-        documentType,
-        fileName: file.name,
-        fileUrl: blob.url,
-        mimeType: file.type || "application/octet-stream",
-        fileSize: file.size,
-        uploadedById,
-        unitId: options?.unitId,
-        leaseId: options?.leaseId,
-        maintenanceRequestId: options?.maintenanceRequestId,
-        expiryDate: options?.expiryDate,
-        notes: options?.notes,
-      },
-    });
-    created.push(doc);
+    const uploaded = await uploadPrivateFile(
+      ["real-estate", propertyId, documentType.toLowerCase()],
+      file,
+    );
+    try {
+      const doc = await db.rePropertyDocument.create({
+        data: {
+          propertyId,
+          documentType,
+          fileName: uploaded.fileName,
+          fileUrl: uploaded.fileUrl,
+          mimeType: uploaded.mimeType,
+          fileSize: uploaded.fileSize,
+          uploadedById,
+          unitId: options?.unitId,
+          leaseId: options?.leaseId,
+          maintenanceRequestId: options?.maintenanceRequestId,
+          expiryDate: options?.expiryDate,
+          notes: options?.notes,
+        },
+      });
+      created.push(doc);
+    } catch (error) {
+      await deleteBlobUrl(uploaded.fileUrl);
+      throw error;
+    }
   }
   return created;
 }

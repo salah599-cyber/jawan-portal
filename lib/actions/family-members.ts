@@ -1,11 +1,10 @@
 "use server";
 
-import { put } from "@vercel/blob";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { db } from "@/lib/db";
 import { ensureFamilySchema } from "@/lib/db/ensure-family-schema";
-import { deleteBlobUrl } from "@/lib/blob";
+import { deleteBlobUrl, uploadPrivateFile } from "@/lib/blob";
 import { logAudit } from "@/lib/audit/log";
 import { FAMILY_MEMBERS_PATH } from "@/lib/family/constants";
 import { parseDate, parseDecimal } from "@/lib/family/helpers";
@@ -467,24 +466,27 @@ async function uploadMemberFiles(
   expiryDate: Date | null,
 ) {
   for (const file of files) {
-    const blob = await put(
-      `family/${memberId}/${documentType.toLowerCase()}/${Date.now()}-${sanitizeFileName(file.name)}`,
+    const uploaded = await uploadPrivateFile(
+      ["family", memberId, documentType.toLowerCase()],
       file,
-      { access: "public" },
     );
-
-    await db.familyMemberDocument.create({
-      data: {
-        familyMemberId: memberId,
-        documentType,
-        fileName: file.name,
-        fileUrl: blob.url,
-        mimeType: file.type || "application/octet-stream",
-        fileSize: file.size,
-        expiryDate,
-        uploadedById,
-      },
-    });
+    try {
+      await db.familyMemberDocument.create({
+        data: {
+          familyMemberId: memberId,
+          documentType,
+          fileName: uploaded.fileName,
+          fileUrl: uploaded.fileUrl,
+          mimeType: uploaded.mimeType,
+          fileSize: uploaded.fileSize,
+          expiryDate,
+          uploadedById,
+        },
+      });
+    } catch (error) {
+      await deleteBlobUrl(uploaded.fileUrl);
+      throw error;
+    }
   }
 }
 

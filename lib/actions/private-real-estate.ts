@@ -1,10 +1,9 @@
 "use server";
 
-import { put } from "@vercel/blob";
 import { revalidatePath } from "next/cache";
 import { db } from "@/lib/db";
 import { ensureRealEstateSchema } from "@/lib/db/ensure-real-estate-schema";
-import { deleteBlobUrl } from "@/lib/blob";
+import { deleteBlobUrl, uploadPrivateFile } from "@/lib/blob";
 import { logAudit } from "@/lib/audit/log";
 import { canWrite, requireModuleAccess } from "@/lib/permissions/access";
 import { loanEntityFilter, rePropertyEntityFilter } from "@/lib/permissions/scoped-queries";
@@ -377,25 +376,28 @@ export async function uploadPrivatePropertyDocuments(propertyId: string, formDat
   if (files.length === 0) throw new Error("Select at least one file.");
 
   for (const file of files) {
-    const blob = await put(
-      `real-estate/private/${propertyId}/${documentType.toLowerCase()}/${Date.now()}-${sanitizeFileName(file.name)}`,
+    const uploaded = await uploadPrivateFile(
+      ["real-estate", "private", propertyId, documentType.toLowerCase()],
       file,
-      { access: "public" },
     );
-
-    await db.rePropertyDocument.create({
-      data: {
-        propertyId,
-        documentType,
-        fileName: file.name,
-        fileUrl: blob.url,
-        mimeType: file.type || "application/octet-stream",
-        fileSize: file.size,
-        expiryDate: expiryDate ?? undefined,
-        notes,
-        uploadedById: ctx.id,
-      },
-    });
+    try {
+      await db.rePropertyDocument.create({
+        data: {
+          propertyId,
+          documentType,
+          fileName: uploaded.fileName,
+          fileUrl: uploaded.fileUrl,
+          mimeType: uploaded.mimeType,
+          fileSize: uploaded.fileSize,
+          expiryDate: expiryDate ?? undefined,
+          notes,
+          uploadedById: ctx.id,
+        },
+      });
+    } catch (error) {
+      await deleteBlobUrl(uploaded.fileUrl);
+      throw error;
+    }
   }
 
   revalidatePrivate(propertyId);

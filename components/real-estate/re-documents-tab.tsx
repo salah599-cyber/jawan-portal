@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { uploadPropertyDocuments, deletePropertyDocument } from "@/lib/actions/real-estate";
 import { DeleteEntryButton } from "@/components/platform/delete-entry-button";
 import { RE_PROPERTY_DOCUMENT_TYPE_LABELS } from "@/lib/labels";
+import { fileHref } from "@/lib/files/href";
 import { formatDate } from "@/lib/format";
 import type { SerializedReProperty } from "@/lib/real-estate/serialize";
 import { Button } from "@/components/ui/button";
@@ -142,7 +143,7 @@ export function ReDocumentsTab({
                     <TableCell>
                       <div className="flex items-center gap-1">
                         <Button variant="outline" size="sm" asChild>
-                          <a href={doc.fileUrl} target="_blank" rel="noopener noreferrer">Open</a>
+                          <a href={fileHref("re-property", doc.id)} target="_blank" rel="noopener noreferrer">Open</a>
                         </Button>
                         {canEdit ? (
                           <DeleteEntryButton
@@ -177,7 +178,7 @@ export function ReDocumentsTab({
                   <li key={doc.id} className="flex items-center justify-between gap-4 text-sm">
                     <span>{doc.fileName}</span>
                     <Button variant="outline" size="sm" asChild>
-                      <a href={doc.fileUrl} target="_blank" rel="noopener noreferrer">Open</a>
+                      <a href={fileHref("re-property", doc.id)} target="_blank" rel="noopener noreferrer">Open</a>
                     </Button>
                   </li>
                 ))}

@@ -1,11 +1,10 @@
 "use server";
 
-import { put } from "@vercel/blob";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { db } from "@/lib/db";
 import { ensureLpFundSchema } from "@/lib/db/ensure-lp-fund-schema";
-import { deleteBlobUrl } from "@/lib/blob";
+import { deleteBlobUrl, uploadPrivateFile } from "@/lib/blob";
 import { logAudit } from "@/lib/audit/log";
 import { canWrite, requireModuleAccess } from "@/lib/permissions/access";
 import { lpCommitmentEntityFilter } from "@/lib/permissions/scoped-queries";
@@ -615,25 +614,31 @@ async function uploadLpFiles(
   documentType: LpDocumentType,
   uploadedById: string,
 ) {
-  for (const file of files) {
-    const blob = await put(
-      `lp-fund/${params.commitmentId ?? params.fundId}/${Date.now()}-${sanitizeFileName(file.name)}`,
-      file,
-      { access: "public" },
-    );
+  const ownerId = params.commitmentId ?? params.fundId;
+  if (!ownerId) return;
 
-    await db.lpFundDocument.create({
-      data: {
-        commitmentId: params.commitmentId,
-        fundId: params.fundId,
-        documentType,
-        fileName: file.name,
-        fileUrl: blob.url,
-        mimeType: file.type || "application/octet-stream",
-        fileSize: file.size,
-        uploadedById,
-      },
-    });
+  for (const file of files) {
+    const uploaded = await uploadPrivateFile(
+      ["lp-fund", ownerId, documentType.toLowerCase()],
+      file,
+    );
+    try {
+      await db.lpFundDocument.create({
+        data: {
+          commitmentId: params.commitmentId,
+          fundId: params.fundId,
+          documentType,
+          fileName: uploaded.fileName,
+          fileUrl: uploaded.fileUrl,
+          mimeType: uploaded.mimeType,
+          fileSize: uploaded.fileSize,
+          uploadedById,
+        },
+      });
+    } catch (error) {
+      await deleteBlobUrl(uploaded.fileUrl);
+      throw error;
+    }
   }
 }
 

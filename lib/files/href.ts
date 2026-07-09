@@ -9,7 +9,13 @@ export type FileKind =
   | "cheque"
   | "expense"
   | "asset-exit"
-  | "proposal";
+  | "proposal"
+  | "insurance"
+  | "pe-company"
+  | "re-property"
+  | "lp-fund"
+  | "family-member"
+  | "succession";
 
 /**
  * Builds the URL for the authenticated file download proxy. All stored documents are

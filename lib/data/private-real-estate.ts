@@ -6,6 +6,7 @@ import { loanEntityFilter, rePropertyEntityFilter } from "@/lib/permissions/scop
 import type { UserContext } from "@/lib/permissions/types";
 import type { RePropertyStatus } from "@/lib/generated/prisma/client";
 import { toNumber } from "@/lib/real-estate/helpers";
+import { fileHref } from "@/lib/files/href";
 import { PRIVATE_RUNNING_COST_CATEGORIES } from "@/lib/real-estate/private-constants";
 
 export type PrivatePropertyFilters = {
@@ -26,7 +27,7 @@ export type PrivatePropertyListRow = {
   monthlyRunningCostOmr: number;
   staffCount: number;
   entityName: string;
-  primaryPhotoUrl?: string;
+  primaryPhotoHref?: string;
   ownerDiscrepancy: boolean;
 };
 
@@ -150,7 +151,7 @@ export async function listPrivateProperties(
         where: { documentType: "PHOTO", unitId: null },
         orderBy: { createdAt: "desc" },
         take: 1,
-        select: { fileUrl: true },
+        select: { id: true },
       },
     },
     orderBy: [{ status: "asc" }, { name: "asc" }],
@@ -170,7 +171,9 @@ export async function listPrivateProperties(
     ),
     staffCount: property.privateStaff.length,
     entityName: property.entity.name,
-    primaryPhotoUrl: property.documents[0]?.fileUrl,
+    primaryPhotoHref: property.documents[0]
+      ? fileHref("re-property", property.documents[0].id)
+      : undefined,
     ownerDiscrepancy: hasOwnerDiscrepancy(property.privateDetail),
   }));
 }

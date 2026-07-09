@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { uploadLpDocuments, deleteLpDocument } from "@/lib/actions/lp-fund";
 import { DeleteEntryButton } from "@/components/platform/delete-entry-button";
 import { LP_DOCUMENT_TYPE_LABELS } from "@/lib/lp/constants";
+import { fileHref } from "@/lib/files/href";
 import { formatDate } from "@/lib/format";
 import type { SerializedLpCommitment } from "@/lib/lp/serialize";
 import { Button } from "@/components/ui/button";
@@ -114,7 +115,7 @@ export function LpDocumentsTab({
                     <TableCell>
                       <div className="flex items-center gap-1">
                         <Button variant="outline" size="sm" asChild>
-                          <a href={doc.fileUrl} target="_blank" rel="noopener noreferrer">Open</a>
+                          <a href={fileHref("lp-fund", doc.id)} target="_blank" rel="noopener noreferrer">Open</a>
                         </Button>
                         {canEdit ? (
                           <DeleteEntryButton
