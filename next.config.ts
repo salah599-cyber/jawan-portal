@@ -1,6 +1,40 @@
 import type { NextConfig } from "next";
 
+const clerkOrigin =
+  process.env.NODE_ENV === "production"
+    ? "https://clerk.jawaninvest.com"
+    : "https://*.clerk.accounts.dev";
+
+const contentSecurityPolicy = [
+  "default-src 'self'",
+  `script-src 'self' 'unsafe-inline' 'unsafe-eval' ${clerkOrigin} https://challenges.cloudflare.com`,
+  "style-src 'self' 'unsafe-inline'",
+  "img-src 'self' https://img.clerk.com data: blob:",
+  "font-src 'self' data:",
+  "connect-src 'self' " + clerkOrigin + " https://*.clerk.services",
+  `frame-src ${clerkOrigin} https://challenges.cloudflare.com`,
+  "worker-src 'self' blob:",
+  "base-uri 'self'",
+  "form-action 'self'",
+].join("; ");
+
+const securityHeaders = [
+  { key: "X-Frame-Options", value: "DENY" },
+  { key: "X-Content-Type-Options", value: "nosniff" },
+  { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
+  {
+    key: "Permissions-Policy",
+    value: "camera=(), microphone=(), geolocation=(), browsing-topics=()",
+  },
+  { key: "Content-Security-Policy", value: contentSecurityPolicy },
+  { key: "X-DNS-Prefetch-Control", value: "on" },
+];
+
 const nextConfig: NextConfig = {
+  poweredByHeader: false,
+  async headers() {
+    return [{ source: "/(.*)", headers: securityHeaders }];
+  },
   serverExternalPackages: [
     "ws",
     "@neondatabase/serverless",
