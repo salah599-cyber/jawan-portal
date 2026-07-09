@@ -132,7 +132,8 @@ export function DashboardPerformanceCards({
       {hasPortfolio && performance.hasSufficientData ? (
         <CardFooter>
           <p className="text-xs text-muted-foreground">
-            Based on recorded valuations; acquisition cost used when earlier history is unavailable.
+            Month-to-date returns use recorded valuations; public-market holdings share their
+            portfolio baseline when earlier history is unavailable.
           </p>
         </CardFooter>
       ) : null}

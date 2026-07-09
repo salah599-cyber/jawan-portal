@@ -1,6 +1,7 @@
 import { db } from "@/lib/db";
 import { assetEntityFilter } from "@/lib/permissions/scoped-queries";
 import type { UserContext } from "@/lib/permissions/types";
+import { convertToOmr } from "@/lib/reports/helpers";
 
 const COUNTABLE_ASSET_STATUSES = ["ACTIVE", "MONITOR"] as const;
 
@@ -90,6 +91,88 @@ export async function getAssetValueAtDate(
   if (Number.isNaN(cost) || cost <= 0) return null;
 
   return { value: cost, currency: asset.currency };
+}
+
+type PerformanceBaselineAsset = {
+  id: string;
+  currency: string;
+  category: string;
+  acquisitionCost: { toString(): string } | null;
+  acquisitionDate: Date | null;
+};
+
+/**
+ * Baseline value for period returns (month / YTD). Unlike {@link getAssetValueAtDate},
+ * this avoids using a years-old acquisition cost as a faux month-start value when
+ * valuation history exists only from the current period.
+ */
+export async function getPerformanceBaselineAtDate(
+  asset: PerformanceBaselineAsset,
+  periodStart: Date,
+): Promise<{ value: number; currency: string } | null> {
+  const valuationBeforePeriod = await db.assetValuation.findFirst({
+    where: {
+      assetId: asset.id,
+      valuedAt: { lt: periodStart },
+    },
+    orderBy: { valuedAt: "desc" },
+  });
+
+  if (valuationBeforePeriod) {
+    const value = parseFloat(valuationBeforePeriod.value.toString());
+    if (!Number.isNaN(value) && value > 0) {
+      return { value, currency: valuationBeforePeriod.currency };
+    }
+  }
+
+  const firstValuationInPeriod = await db.assetValuation.findFirst({
+    where: {
+      assetId: asset.id,
+      valuedAt: { gte: periodStart },
+    },
+    orderBy: { valuedAt: "asc" },
+  });
+
+  if (firstValuationInPeriod) {
+    const value = parseFloat(firstValuationInPeriod.value.toString());
+    if (!Number.isNaN(value) && value > 0) {
+      return { value, currency: firstValuationInPeriod.currency };
+    }
+  }
+
+  if (asset.category === "PUBLIC_EQUITY") {
+    const holdings = await db.publicEquityHolding.findMany({
+      where: { assetId: asset.id },
+      select: { costBasis: true, currency: true },
+    });
+
+    let costTotalOmr = 0;
+    for (const holding of holdings) {
+      if (!holding.costBasis) continue;
+      const cost = parseFloat(holding.costBasis.toString());
+      if (Number.isNaN(cost) || cost <= 0) continue;
+      costTotalOmr += await convertToOmr(cost, holding.currency || asset.currency);
+    }
+
+    if (costTotalOmr > 0) {
+      return { value: costTotalOmr, currency: "OMR" };
+    }
+
+    return null;
+  }
+
+  if (
+    asset.acquisitionCost &&
+    asset.acquisitionDate &&
+    asset.acquisitionDate >= periodStart
+  ) {
+    const cost = parseFloat(asset.acquisitionCost.toString());
+    if (!Number.isNaN(cost) && cost > 0) {
+      return { value: cost, currency: asset.currency };
+    }
+  }
+
+  return null;
 }
 
 export async function backfillAssetValuations(ctx: UserContext): Promise<void> {

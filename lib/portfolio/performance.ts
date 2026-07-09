@@ -1,9 +1,14 @@
 import { db } from "@/lib/db";
 import { startOfMonth } from "@/lib/calendar/date-ranges";
-import { backfillAssetValuations, getAssetValueAtDate } from "@/lib/portfolio/valuations";
+import { MARKET_CONFIG } from "@/lib/public-markets/constants";
+import {
+  backfillAssetValuations,
+  getPerformanceBaselineAtDate,
+} from "@/lib/portfolio/valuations";
 import { assetEntityFilter } from "@/lib/permissions/scoped-queries";
 import type { UserContext } from "@/lib/permissions/types";
 import { convertToOmr, entityWhere } from "@/lib/reports/helpers";
+import type { PublicMarket } from "@/lib/generated/prisma/client";
 
 const COUNTABLE_ASSET_STATUSES = ["ACTIVE", "MONITOR"] as const;
 
@@ -37,6 +42,17 @@ export type PortfolioPerformanceOptions = {
   entityId?: string;
 };
 
+type PerformanceAsset = {
+  id: string;
+  name: string;
+  category: string;
+  currentValue: { toString(): string } | null;
+  currency: string;
+  ownershipPct: { toString(): string };
+  acquisitionCost: { toString(): string } | null;
+  acquisitionDate: Date | null;
+};
+
 function weightedValue(
   amount: { toString(): string } | null | undefined,
   ownershipPct: { toString(): string },
@@ -64,23 +80,109 @@ function computePortfolioReturn(
   };
 }
 
-async function getWeightedOmrAtDate(
-  asset: {
-    id: string;
-    currency: string;
-    ownershipPct: { toString(): string };
-  },
-  asOfDate: Date,
+function publicMarketHref(market: PublicMarket): string {
+  return market === "MSX" ? "/portfolio/msx" : "/portfolio/public-markets";
+}
+
+async function getWeightedBaselineOmrAtDate(
+  asset: PerformanceAsset,
+  periodStart: Date,
 ): Promise<number> {
-  const snapshot = await getAssetValueAtDate(asset.id, asOfDate);
+  const snapshot = await getPerformanceBaselineAtDate(asset, periodStart);
   if (!snapshot) return 0;
 
   const pct = parseFloat(asset.ownershipPct.toString());
   if (Number.isNaN(pct)) return 0;
 
+  if (snapshot.currency === "OMR") {
+    return (snapshot.value * pct) / 100;
+  }
+
   const weighted = (snapshot.value * pct) / 100;
   if (weighted <= 0) return 0;
   return convertToOmr(weighted, snapshot.currency);
+}
+
+async function collectPublicEquityHoldingPerformers(
+  publicEquityAssets: PerformanceAsset[],
+  monthStart: Date,
+): Promise<AssetPerformer[]> {
+  if (publicEquityAssets.length === 0) return [];
+
+  const holdings = await db.publicEquityHolding.findMany({
+    where: { assetId: { in: publicEquityAssets.map((asset) => asset.id) } },
+    select: {
+      symbol: true,
+      name: true,
+      market: true,
+      marketValue: true,
+      currency: true,
+      asset: {
+        select: {
+          id: true,
+          ownershipPct: true,
+        },
+      },
+    },
+  });
+
+  const parentBaselines = new Map(
+    await Promise.all(
+      publicEquityAssets.map(async (asset) => [
+        asset.id,
+        await getWeightedBaselineOmrAtDate(asset, monthStart),
+      ] as const),
+    ),
+  );
+
+  const parentCurrentTotals = new Map(
+    await Promise.all(
+      publicEquityAssets.map(async (asset) => [
+        asset.id,
+        await convertToOmr(weightedValue(asset.currentValue, asset.ownershipPct), asset.currency),
+      ] as const),
+    ),
+  );
+
+  const performers: AssetPerformer[] = [];
+
+  for (const holding of holdings) {
+    const marketValue = holding.marketValue ? parseFloat(holding.marketValue.toString()) : 0;
+    if (Number.isNaN(marketValue) || marketValue <= 0) continue;
+
+    const ownershipPct = parseFloat(holding.asset.ownershipPct.toString());
+    if (Number.isNaN(ownershipPct)) continue;
+
+    const currentOmr = await convertToOmr(
+      (marketValue * ownershipPct) / 100,
+      holding.currency,
+    );
+    if (currentOmr <= 0) continue;
+
+    const parentCurrent = parentCurrentTotals.get(holding.asset.id) ?? 0;
+    const parentBaseline = parentBaselines.get(holding.asset.id) ?? 0;
+
+    let monthBaselineOmr = 0;
+    if (parentCurrent > 0 && parentBaseline > 0) {
+      monthBaselineOmr = (currentOmr / parentCurrent) * parentBaseline;
+    }
+
+    if (monthBaselineOmr <= 0) continue;
+
+    const monthReturnPct = ((currentOmr - monthBaselineOmr) / monthBaselineOmr) * 100;
+    const label = holding.name?.trim()
+      ? `${holding.symbol} — ${holding.name}`
+      : holding.symbol;
+    const marketLabel = MARKET_CONFIG[holding.market]?.shortLabel ?? holding.market;
+
+    performers.push({
+      name: `${label} (${marketLabel})`,
+      returnPct: monthReturnPct,
+      href: publicMarketHref(holding.market),
+    });
+  }
+
+  return performers;
 }
 
 export async function computePortfolioPerformance(
@@ -106,9 +208,12 @@ export async function computePortfolioPerformance(
     select: {
       id: true,
       name: true,
+      category: true,
       currentValue: true,
       currency: true,
       ownershipPct: true,
+      acquisitionCost: true,
+      acquisitionDate: true,
     },
   });
 
@@ -124,14 +229,15 @@ export async function computePortfolioPerformance(
 
   const monthPerformers: AssetPerformer[] = [];
   const assetRows: AssetPerformanceRow[] = [];
+  const publicEquityAssets: PerformanceAsset[] = [];
 
   for (const asset of assets) {
     const currentWeighted = weightedValue(asset.currentValue, asset.ownershipPct);
     if (currentWeighted <= 0) continue;
 
     const currentOmr = await convertToOmr(currentWeighted, asset.currency);
-    const monthBaselineOmr = await getWeightedOmrAtDate(asset, monthStart);
-    const ytdBaselineOmr = await getWeightedOmrAtDate(asset, yearStart);
+    const monthBaselineOmr = await getWeightedBaselineOmrAtDate(asset, monthStart);
+    const ytdBaselineOmr = await getWeightedBaselineOmrAtDate(asset, yearStart);
 
     currentTotalOmr += currentOmr;
     monthBaselineTotalOmr += monthBaselineOmr;
@@ -140,14 +246,22 @@ export async function computePortfolioPerformance(
     const monthReturnPct =
       monthBaselineOmr > 0 ? ((currentOmr - monthBaselineOmr) / monthBaselineOmr) * 100 : null;
 
+    const rowHref =
+      asset.category === "PUBLIC_EQUITY" ? "/portfolio/public-markets" : `/assets/${asset.id}`;
+
     assetRows.push({
       id: asset.id,
       name: asset.name,
-      href: `/assets/${asset.id}`,
+      href: rowHref,
       currentValueOmr: currentOmr,
       monthStartValueOmr: monthBaselineOmr,
       monthReturnPct,
     });
+
+    if (asset.category === "PUBLIC_EQUITY") {
+      publicEquityAssets.push(asset);
+      continue;
+    }
 
     if (monthBaselineOmr > 0 && monthReturnPct != null) {
       monthPerformers.push({
@@ -157,6 +271,10 @@ export async function computePortfolioPerformance(
       });
     }
   }
+
+  monthPerformers.push(
+    ...(await collectPublicEquityHoldingPerformers(publicEquityAssets, monthStart)),
+  );
 
   const monthReturn = computePortfolioReturn(currentTotalOmr, monthBaselineTotalOmr);
   const ytdReturn = computePortfolioReturn(currentTotalOmr, ytdBaselineTotalOmr);
