@@ -1,8 +1,7 @@
 /**
  * Idempotently applies Contacts Directory tables to an existing production database.
  */
-require("dotenv").config({ path: ".env.local" });
-require("dotenv").config();
+require("./load-env.cjs");
 
 const { Client } = require("pg");
 

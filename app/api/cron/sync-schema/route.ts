@@ -23,6 +23,9 @@ export async function GET(request: Request) {
       "sync-insurance-schema.cjs",
       "sync-family-schema.cjs",
       "sync-contacts-schema.cjs",
+      "sync-users-schema.cjs",
+      "sync-precious-metals-schema.cjs",
+      "sync-loan-schema.cjs",
     ].map((name) => path.join(process.cwd(), "scripts", name));
 
     const results = await Promise.all(

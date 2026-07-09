@@ -1,5 +1,4 @@
-require("dotenv").config({ path: ".env.local" });
-require("dotenv").config();
+require("./load-env.cjs");
 
 const fs = require("fs");
 const path = require("path");

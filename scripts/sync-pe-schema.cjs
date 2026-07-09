@@ -5,8 +5,7 @@
  * Run manually:
  *   node scripts/sync-pe-schema.cjs
  */
-require("dotenv").config({ path: ".env.local" });
-require("dotenv").config();
+require("./load-env.cjs");
 
 const { Client } = require("pg");
 

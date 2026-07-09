@@ -5,9 +5,19 @@ import { isBootstrapSuperAdminEmail } from "@/lib/auth/constants";
 import { applyPendingInvite } from "@/lib/auth/apply-invite";
 import { hasInviteAccess } from "@/lib/auth/invite-access";
 
+function getWebhookSigningSecret() {
+  return (
+    process.env.CLERK_WEBHOOK_SIGNING_SECRET ?? process.env.CLERK_WEBHOOK_SECRET
+  );
+}
+
 export async function POST(req: NextRequest) {
   try {
-    const event = await verifyWebhook(req);
+    const signingSecret = getWebhookSigningSecret();
+    const event = await verifyWebhook(
+      req,
+      signingSecret ? { signingSecret } : undefined,
+    );
 
     switch (event.type) {
       case "user.created":
