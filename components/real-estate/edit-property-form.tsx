@@ -98,11 +98,18 @@ export function EditPropertyForm({
             <Select value={status} onValueChange={setStatus}>
               <SelectTrigger><SelectValue /></SelectTrigger>
               <SelectContent>
-                {Object.entries(RE_PROPERTY_STATUS_LABELS).map(([value, label]) => (
-                  <SelectItem key={value} value={value}>{label}</SelectItem>
-                ))}
+                {Object.entries(RE_PROPERTY_STATUS_LABELS)
+                  .filter(([value]) => value !== "SOLD" || property.status === "SOLD")
+                  .map(([value, label]) => (
+                    <SelectItem key={value} value={value}>{label}</SelectItem>
+                  ))}
               </SelectContent>
             </Select>
+            {status !== "SOLD" ? (
+              <p className="text-xs text-muted-foreground">
+                Use the Record Sale action on the Overview tab to mark this property as sold.
+              </p>
+            ) : null}
           </div>
           <div className="space-y-2"><Label htmlFor="governorate">Governorate</Label><Input id="governorate" name="governorate" defaultValue={property.governorate ?? ""} /></div>
           <div className="space-y-2"><Label htmlFor="wilayat">Wilayat</Label><Input id="wilayat" name="wilayat" defaultValue={property.wilayat ?? ""} /></div>

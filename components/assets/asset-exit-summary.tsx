@@ -4,6 +4,8 @@ import { deleteAssetExitDocument } from "@/lib/actions/asset-exits";
 import { fileHref } from "@/lib/files/href";
 import { ASSET_EXIT_DOCUMENT_TYPE_LABELS, EXIT_TYPE_LABELS } from "@/lib/labels";
 import { formatMoney, formatDate } from "@/lib/format";
+import { formatRoiPct, roiTone } from "@/lib/portfolio/exit-metrics";
+import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -17,6 +19,7 @@ export type AssetExitData = {
   counterparty: string | null;
   acquisitionCost: { toString(): string } | null;
   realizedGain: { toString(): string } | null;
+  realizedGainPct: { toString(): string } | null;
   recordCashInflow: boolean;
   notes: string | null;
   landSaleId: string | null;
@@ -67,6 +70,14 @@ export function AssetExitSummary({
               exit.realizedGain != null
                 ? formatMoney(exit.realizedGain, exit.currency)
                 : null
+            }
+          />
+          <Detail
+            label="ROI"
+            value={
+              <span className={cn("font-medium", roiTone(exit.realizedGainPct))}>
+                {formatRoiPct(exit.realizedGainPct)}
+              </span>
             }
           />
           <Detail label="Cash Inflow Recorded" value={exit.recordCashInflow ? "Yes" : "No"} />

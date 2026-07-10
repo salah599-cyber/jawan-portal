@@ -12,6 +12,7 @@ export type ReportId =
   | "cheques"
   | "expenses"
   | "exits"
+  | "exit-analytics"
   | "lands"
   | "vehicles"
   | "companies"

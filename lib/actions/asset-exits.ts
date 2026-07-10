@@ -4,8 +4,10 @@ import { revalidatePath } from "next/cache";
 import { db, type DbClient } from "@/lib/db";
 import { deleteBlobUrl, uploadPrivateFile } from "@/lib/blob";
 import { logAudit } from "@/lib/audit/log";
+import { ensureExitRoiSchema } from "@/lib/db/ensure-exit-roi-schema";
 import { canWrite, requireModuleAccess, requireUserContext } from "@/lib/permissions/access";
 import { assetEntityFilter } from "@/lib/permissions/scoped-queries";
+import { computeRealizedGain, computeRoiPct } from "@/lib/portfolio/exit-metrics";
 import { assertEnumValue, parseOrThrow, zOptionalDecimal, zRequiredDate } from "@/lib/validation/primitives";
 import type { AssetExitDocumentType, ExitType } from "@/lib/generated/prisma/client";
 
@@ -15,13 +17,6 @@ function getFilesFromFormData(formData: FormData, field: string): File[] {
   return formData
     .getAll(field)
     .filter((item): item is File => item instanceof File && item.size > 0);
-}
-
-function computeRealizedGain(proceeds?: string, acquisitionCost?: string | null) {
-  if (!proceeds || !acquisitionCost) return undefined;
-  const gain = parseFloat(proceeds) - parseFloat(acquisitionCost);
-  if (Number.isNaN(gain)) return undefined;
-  return gain.toFixed(2);
 }
 
 async function canRecordExitForAsset(
@@ -79,18 +74,21 @@ export async function createAssetExitRecord(input: {
   landSaleId?: string;
   recordCashInflow?: boolean;
 }) {
+  await ensureExitRoiSchema();
+
   return db.$transaction(async (tx) => {
     const asset = await tx.asset.findUnique({
       where: { id: input.assetId },
       include: { exit: true },
     });
     if (!asset) throw new Error("Asset not found.");
-    if (asset.exit || asset.status === "EXITED") {
+    if (asset.exit) {
       throw new Error("This asset has already been exited.");
     }
 
     const acquisitionCost = asset.acquisitionCost?.toString() ?? undefined;
     const realizedGain = computeRealizedGain(input.proceeds, acquisitionCost);
+    const realizedGainPct = computeRoiPct(realizedGain, acquisitionCost);
 
     const exit = await tx.assetExit.create({
       data: {
@@ -101,7 +99,8 @@ export async function createAssetExitRecord(input: {
         currency: input.currency,
         counterparty: input.counterparty,
         acquisitionCost,
-        realizedGain,
+        realizedGain: realizedGain != null ? realizedGain.toFixed(2) : undefined,
+        realizedGainPct: realizedGainPct != null ? realizedGainPct.toFixed(4) : undefined,
         recordCashInflow: input.recordCashInflow ?? false,
         notes: input.notes,
         recordedById: input.recordedById,

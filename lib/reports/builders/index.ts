@@ -63,6 +63,8 @@ import {
 } from "@/lib/reports/helpers";
 import { getPortfolioRollup } from "@/lib/portfolio/rollup";
 import { getPortfolioPerformance } from "@/lib/portfolio/performance";
+import { getUnifiedExits, summarizeExits } from "@/lib/portfolio/exit-analytics";
+import { formatRoiPct } from "@/lib/portfolio/exit-metrics";
 import type { ReportId, ReportParams, ReportResult } from "@/lib/reports/types";
 
 const COUNTABLE_ASSET_STATUSES = ["ACTIVE", "MONITOR"] as const;
@@ -710,54 +712,98 @@ export async function buildExitsReport(
   const { from, to } = parseDateRange(params);
   const defaultFrom = from ?? new Date(new Date().setMonth(new Date().getMonth() - 12));
 
-  const exits = await db.assetExit.findMany({
-    where: {
-      exitDate: { gte: defaultFrom, ...(to ? { lte: to } : {}) },
-      asset: entityWhere(params.entityId, assetEntityFilter(ctx)),
-    },
-    include: {
-      asset: {
-        select: {
-          name: true,
-          category: true,
-          entity: { select: { name: true } },
-        },
-      },
-    },
-    orderBy: { exitDate: "desc" },
-  });
+  const records = await getUnifiedExits(ctx, { entityId: params.entityId, from: defaultFrom, to });
 
-  const rows = exits.map((exit) => ({
-    entity: exit.asset.entity.name,
-    asset: exit.asset.name,
-    category: ASSET_CATEGORY_LABELS[exit.asset.category] ?? exit.asset.category,
-    exitType: EXIT_TYPE_LABELS[exit.exitType] ?? exit.exitType,
+  const rows = records.map((exit) => ({
+    entity: exit.entityName,
+    asset: exit.name,
+    category: exit.category,
+    exitType: exit.exitType,
     exitDate: formatDateValue(exit.exitDate),
-    proceeds: formatAmount(toNumber(exit.proceeds), exit.currency),
-    realizedGain: formatAmount(toNumber(exit.realizedGain), exit.currency),
-    counterparty: exit.counterparty ?? "—",
+    proceeds: formatAmount(exit.proceedsNative, exit.currency),
+    realizedGain: formatAmount(exit.realizedGainNative, exit.currency),
+    roi: formatRoiPct(exit.roiPct),
   }));
+
+  const summary = summarizeExits(records);
 
   return {
     ...baseResult(
       "exits",
       "Realized Exits",
-      "Asset exits with proceeds and realized gains.",
+      "Asset, real estate, and private equity exits with proceeds, realized gains, and ROI.",
       entityName,
     ),
-    metrics: [{ label: "Exits", value: exits.length.toString() }],
+    metrics: [
+      { label: "Exits", value: records.length.toString() },
+      { label: "Total Realized Gain", value: formatAmount(summary.totalRealizedGainOmr, "OMR") },
+      { label: "Average ROI", value: formatRoiPct(summary.averageRoiPct) },
+    ],
     columns: [
       { key: "entity", label: "Entity" },
-      { key: "asset", label: "Asset" },
+      { key: "asset", label: "Asset / Company" },
       { key: "category", label: "Category" },
       { key: "exitType", label: "Exit Type" },
       { key: "exitDate", label: "Exit Date" },
       { key: "proceeds", label: "Proceeds", align: "right" },
       { key: "realizedGain", label: "Realized Gain", align: "right" },
-      { key: "counterparty", label: "Counterparty" },
+      { key: "roi", label: "ROI", align: "right" },
     ],
     rows,
-    footnotes: ["Default period is last 12 months when no date range is selected."],
+    footnotes: [
+      "Default period is last 12 months when no date range is selected.",
+      "Covers asset exits (cars, companies, lands, real estate) and private equity exits. ROI is the simple realized gain over cost basis.",
+    ],
+  };
+}
+
+export async function buildExitAnalyticsReport(
+  ctx: UserContext,
+  params: ReportParams,
+): Promise<ReportResult> {
+  const entityName = await resolveEntityName(params.entityId);
+  const { from, to } = parseDateRange(params);
+  const defaultFrom = from ?? new Date(new Date().setMonth(new Date().getMonth() - 12));
+
+  const records = await getUnifiedExits(ctx, { entityId: params.entityId, from: defaultFrom, to });
+  const summary = summarizeExits(records);
+
+  const rows = summary.byCategory.map((entry) => ({
+    category: entry.category,
+    count: entry.count.toString(),
+    realizedGain: formatAmount(entry.gainOmr, "OMR"),
+    averageRoi: formatRoiPct(entry.avgRoiPct),
+  }));
+
+  return {
+    ...baseResult(
+      "exit-analytics",
+      "Exit Analytics",
+      "Summary metrics for realized exits: total gain, average ROI, win rate, and category breakdown.",
+      entityName,
+    ),
+    metrics: [
+      { label: "Exits Recorded", value: summary.exitCount.toString() },
+      { label: "Total Proceeds", value: formatAmount(summary.totalProceedsOmr, "OMR") },
+      { label: "Total Realized Gain", value: formatAmount(summary.totalRealizedGainOmr, "OMR") },
+      { label: "Average ROI", value: formatRoiPct(summary.averageRoiPct) },
+      {
+        label: "Win Rate",
+        value: summary.winRatePct != null ? `${summary.winRatePct.toFixed(0)}%` : "—",
+      },
+    ],
+    columns: [
+      { key: "category", label: "Category" },
+      { key: "count", label: "Exits", align: "right" },
+      { key: "realizedGain", label: "Realized Gain (OMR)", align: "right" },
+      { key: "averageRoi", label: "Average ROI", align: "right" },
+    ],
+    rows,
+    footnotes: [
+      "Default period is last 12 months when no date range is selected.",
+      "Amounts are normalized to OMR using the latest available FX rates for aggregation.",
+      "Win rate is the share of exits with a positive realized gain.",
+    ],
   };
 }
 

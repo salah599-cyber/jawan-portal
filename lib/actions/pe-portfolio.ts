@@ -4,12 +4,14 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { db } from "@/lib/db";
 import { ensurePeSchema } from "@/lib/db/ensure-pe-schema";
+import { ensureExitRoiSchema } from "@/lib/db/ensure-exit-roi-schema";
 import { deleteBlobUrl, uploadPrivateFile } from "@/lib/blob";
 import { logAudit } from "@/lib/audit/log";
 import { canWrite, requireModuleAccess } from "@/lib/permissions/access";
 import { peCompanyEntityFilter } from "@/lib/permissions/scoped-queries";
 import { PE_PATH, peStatusToAssetStatus, syncPeCompanyAsset } from "@/lib/pe/asset-sync";
 import { parseDate, parseDecimal, parseIntRating } from "@/lib/pe/helpers";
+import { computeRealizedGain, computeRoiPct } from "@/lib/portfolio/exit-metrics";
 import type {
   PeAntiDilution,
   PeCompanyStatus,
@@ -592,6 +594,7 @@ export async function deletePeDistribution(id: string) {
 export async function upsertPeExit(formData: FormData) {
   const ctx = await requireModuleAccess("PRIVATE_EQUITY");
   if (!canWrite(ctx, "PRIVATE_EQUITY")) throw new Error("You do not have permission.");
+  await ensureExitRoiSchema();
 
   const companyId = String(formData.get("companyId") ?? "").trim();
   const id = String(formData.get("id") ?? "").trim();
@@ -602,12 +605,27 @@ export async function upsertPeExit(formData: FormData) {
 
   const company = await getPeCompanyOrThrow(ctx, companyId);
 
+  const investments = await db.peInvestment.findMany({
+    where: { companyId },
+    select: { amountReporting: true },
+  });
+  const totalInvested = investments.reduce(
+    (sum, i) => sum + (i.amountReporting ? parseFloat(i.amountReporting.toString()) : 0),
+    0,
+  );
+
+  const exitProceedsReporting = parseDecimal(String(formData.get("exitProceedsReporting") ?? ""));
+  const realizedGain = computeRealizedGain(exitProceedsReporting, totalInvested);
+  const realizedGainPct = computeRoiPct(realizedGain, totalInvested);
+
   const data = {
     companyId,
     exitDate,
     exitType: String(formData.get("exitType") ?? "TRADE_SALE") as PeExitType,
-    exitProceedsReporting: parseDecimal(String(formData.get("exitProceedsReporting") ?? "")),
-    realisedGainLossReporting: parseDecimal(String(formData.get("realisedGainLossReporting") ?? "")),
+    exitProceedsReporting,
+    realisedGainLossReporting: realizedGain != null ? realizedGain.toFixed(2) : undefined,
+    totalInvestedSnapshot: totalInvested > 0 ? totalInvested.toFixed(2) : undefined,
+    realizedGainPct: realizedGainPct != null ? realizedGainPct.toFixed(4) : undefined,
     notes: String(formData.get("notes") ?? "").trim() || undefined,
   };
 

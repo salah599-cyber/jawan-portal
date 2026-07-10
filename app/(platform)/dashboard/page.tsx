@@ -12,8 +12,11 @@ import { DashboardAssetAllocationChart } from "@/components/dashboard/dashboard-
 import { DashboardCurrencyAllocationChart } from "@/components/dashboard/dashboard-currency-allocation-chart";
 import { DashboardNetWorthTrendChart } from "@/components/dashboard/dashboard-net-worth-trend-chart";
 import { DashboardPerformanceCards } from "@/components/dashboard/dashboard-performance-cards";
+import { DashboardExitAnalyticsCards } from "@/components/dashboard/dashboard-exit-analytics-cards";
 import { EXIT_TYPE_LABELS } from "@/lib/labels";
+import { formatRoiPct, roiTone } from "@/lib/portfolio/exit-metrics";
 import { formatUserName } from "@/lib/proposals/users";
+import { cn } from "@/lib/utils";
 import {
   ArrowRight,
   Building2,
@@ -92,6 +95,8 @@ export default async function DashboardPage({
           performance={summary.portfolioPerformance}
           hasPortfolio={hasPortfolio}
         />
+
+        <DashboardExitAnalyticsCards analytics={summary.exitAnalytics} />
 
 
         {summary.netWorthTrend ? (
@@ -207,12 +212,17 @@ export default async function DashboardPage({
                       </p>
                     </div>
                     <div className="flex items-center gap-3">
-                      <span className="text-sm font-medium">
-                        {formatMoney(exit.proceeds, exit.currency)}
-                      </span>
+                      <div className="text-right">
+                        <p className="text-sm font-medium">
+                          {formatMoney(exit.proceeds, exit.currency)}
+                        </p>
+                        <p className={cn("text-xs font-medium", roiTone(exit.realizedGainPct))}>
+                          {formatRoiPct(exit.realizedGainPct)}
+                        </p>
+                      </div>
                       <span className="text-sm text-muted-foreground">{formatDate(exit.exitDate)}</span>
                       <Button variant="outline" size="sm" asChild>
-                        <Link href={"/assets/" + exit.asset.id}>View</Link>
+                        <Link href={exit.href}>View</Link>
                       </Button>
                     </div>
                   </li>
