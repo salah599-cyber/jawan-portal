@@ -81,6 +81,7 @@ export function ExitsTable({
                   exit.proceedsNative != null ? (
                     <div className="pt-2">
                       <AssignExitProceedsForm
+                        key={exit.assetExitId}
                         exitId={exit.assetExitId}
                         proceeds={String(exit.proceedsNative)}
                         currency={exit.currency}

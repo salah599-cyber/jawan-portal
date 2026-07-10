@@ -33,22 +33,20 @@ export function AssignExitProceedsForm({
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
-  const [accounts, setAccounts] = useState<BankOption[]>([]);
-  const [loadingAccounts, setLoadingAccounts] = useState(true);
+  const [accounts, setAccounts] = useState<BankOption[] | null>(null);
   const [bankAccountId, setBankAccountId] = useState("");
 
   useEffect(() => {
     let active = true;
-    setLoadingAccounts(true);
     listAssignableBankAccountsForExit(exitId)
       .then((rows) => {
         if (active) setAccounts(rows);
       })
       .catch(() => {
-        if (active) setError("Could not load bank accounts.");
-      })
-      .finally(() => {
-        if (active) setLoadingAccounts(false);
+        if (active) {
+          setError("Could not load bank accounts.");
+          setAccounts([]);
+        }
       });
     return () => {
       active = false;
@@ -72,7 +70,7 @@ export function AssignExitProceedsForm({
     });
   }
 
-  if (loadingAccounts) {
+  if (accounts === null) {
     return <p className="text-sm text-muted-foreground">Loading bank accounts…</p>;
   }
 

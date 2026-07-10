@@ -104,6 +104,7 @@ export function AssetExitSummary({
           {canAssignProceeds && exit.settlementStatus === "PENDING" && exit.proceeds ? (
             <div className="sm:col-span-2">
               <AssignExitProceedsForm
+                key={exit.id}
                 exitId={exit.id}
                 proceeds={exit.proceeds.toString()}
                 currency={exit.currency}
