@@ -157,7 +157,12 @@ export default async function AssetDetailPage({ params }: { params: Promise<{ id
         ) : null}
 
         {asset.exit ? (
-          <AssetExitSummary exit={asset.exit} assetId={asset.id} showActions={showWrite || showExit} />
+          <AssetExitSummary
+            exit={asset.exit}
+            assetId={asset.id}
+            showActions={showWrite || showExit}
+            canAssignProceeds={showWrite || showExit}
+          />
         ) : null}
       </main>
     </>

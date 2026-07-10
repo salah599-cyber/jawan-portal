@@ -2,13 +2,14 @@ import Link from "next/link";
 import { DeleteEntryButton } from "@/components/platform/delete-entry-button";
 import { deleteAssetExitDocument } from "@/lib/actions/asset-exits";
 import { fileHref } from "@/lib/files/href";
-import { ASSET_EXIT_DOCUMENT_TYPE_LABELS, EXIT_TYPE_LABELS } from "@/lib/labels";
+import { EXIT_SETTLEMENT_STATUS_LABELS, ASSET_EXIT_DOCUMENT_TYPE_LABELS, EXIT_TYPE_LABELS } from "@/lib/labels";
 import { formatMoney, formatDate } from "@/lib/format";
 import { formatRoiPct, roiTone } from "@/lib/portfolio/exit-metrics";
 import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { AssignExitProceedsForm } from "@/components/exits/assign-exit-proceeds-form";
 
 export type AssetExitData = {
   id: string;
@@ -20,7 +21,8 @@ export type AssetExitData = {
   acquisitionCost: { toString(): string } | null;
   realizedGain: { toString(): string } | null;
   realizedGainPct: { toString(): string } | null;
-  recordCashInflow: boolean;
+  settlementStatus?: string;
+  settledBankAccount?: { bankName: string; accountName: string } | null;
   notes: string | null;
   landSaleId: string | null;
   documents: {
@@ -37,10 +39,12 @@ export function AssetExitSummary({
   exit,
   assetId,
   showActions = false,
+  canAssignProceeds = false,
 }: {
   exit: AssetExitData;
   assetId: string;
   showActions?: boolean;
+  canAssignProceeds?: boolean;
 }) {
   const docsByType = {
     SALE_AGREEMENT: exit.documents.filter((d) => d.documentType === "SALE_AGREEMENT"),
@@ -80,15 +84,43 @@ export function AssetExitSummary({
               </span>
             }
           />
-          <Detail label="Cash Inflow Recorded" value={exit.recordCashInflow ? "Yes" : "No"} />
+          <Detail
+            label="Proceeds settlement"
+            value={
+              exit.settlementStatus ? (
+                <div className="space-y-1">
+                  <Badge variant={exit.settlementStatus === "PENDING" ? "secondary" : "outline"}>
+                    {EXIT_SETTLEMENT_STATUS_LABELS[exit.settlementStatus] ?? exit.settlementStatus}
+                  </Badge>
+                  {exit.settledBankAccount ? (
+                    <p className="text-xs text-muted-foreground">
+                      {exit.settledBankAccount.bankName} — {exit.settledBankAccount.accountName}
+                    </p>
+                  ) : null}
+                </div>
+              ) : null
+            }
+          />
+          {canAssignProceeds && exit.settlementStatus === "PENDING" && exit.proceeds ? (
+            <div className="sm:col-span-2">
+              <AssignExitProceedsForm
+                exitId={exit.id}
+                proceeds={exit.proceeds.toString()}
+                currency={exit.currency}
+              />
+            </div>
+          ) : null}
           {exit.notes ? (
             <div className="sm:col-span-2">
               <Detail label="Notes" value={exit.notes} />
             </div>
           ) : null}
-          <div className="sm:col-span-2">
+          <div className="sm:col-span-2 flex flex-wrap gap-4">
             <Button variant="link" className="h-auto p-0" asChild>
               <Link href={"/assets/" + assetId}>View asset record</Link>
+            </Button>
+            <Button variant="link" className="h-auto p-0" asChild>
+              <Link href="/portfolio/exits">View all exits</Link>
             </Button>
           </div>
         </CardContent>

@@ -54,7 +54,12 @@ export function ReOverviewTab({
       ) : null}
 
       {property.exit ? (
-        <AssetExitSummary exit={property.exit} assetId={property.assetId!} showActions={canEdit} />
+        <AssetExitSummary
+          exit={property.exit}
+          assetId={property.assetId!}
+          showActions={canEdit}
+          canAssignProceeds={canEdit}
+        />
       ) : null}
 
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">

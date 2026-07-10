@@ -248,7 +248,12 @@ export function LandDetailContent({
       ) : null}
 
       {land.asset?.exit && land.assetId ? (
-        <AssetExitSummary exit={land.asset.exit} assetId={land.assetId} showActions={showActions} />
+        <AssetExitSummary
+          exit={land.asset.exit}
+          assetId={land.assetId}
+          showActions={showActions}
+          canAssignProceeds={showActions}
+        />
       ) : null}
 
       {showActions && !land.sale ? (

@@ -104,7 +104,12 @@ export const propertyInclude = {
   entity: true,
   asset: {
     include: {
-      exit: { include: { documents: { orderBy: { createdAt: "desc" as const } } } },
+      exit: {
+        include: {
+          documents: { orderBy: { createdAt: "desc" as const } },
+          settledBankAccount: { select: { bankName: true, accountName: true } },
+        },
+      },
     },
   },
   landParcel: true,
@@ -185,7 +190,7 @@ function buildPropertyWhere(ctx: UserContext, filters?: RePropertyFilters) {
     ...(filters?.entityId ? { entityId: filters.entityId } : {}),
     ...(filters?.governorate ? { governorate: filters.governorate } : {}),
     ...(filters?.propertyType ? { propertyType: filters.propertyType } : {}),
-    ...(filters?.status ? { status: filters.status } : {}),
+    ...(filters?.status ? { status: filters.status } : { status: { not: "SOLD" as const } }),
     ...(search
       ? {
           OR: [

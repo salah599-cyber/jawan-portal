@@ -5,6 +5,10 @@ import { db, type DbClient } from "@/lib/db";
 import { deleteBlobUrl, uploadPrivateFile } from "@/lib/blob";
 import { logAudit } from "@/lib/audit/log";
 import { ensureExitRoiSchema } from "@/lib/db/ensure-exit-roi-schema";
+import { ensureExitSettlementSchema } from "@/lib/db/ensure-exit-settlement-schema";
+import { parkExitProceedsInSuspense, transferExitProceedsFromSuspense } from "@/lib/cash/exit-proceeds-suspense";
+import { syncBankBalancesToCashAssets } from "@/lib/portfolio/cash-sync";
+import { cashBankAccountFilter } from "@/lib/permissions/scoped-queries";
 import { canWrite, requireModuleAccess, requireUserContext } from "@/lib/permissions/access";
 import { assetEntityFilter } from "@/lib/permissions/scoped-queries";
 import { computeRealizedGain, computeRoiPct } from "@/lib/portfolio/exit-metrics";
@@ -72,9 +76,9 @@ export async function createAssetExitRecord(input: {
   notes?: string;
   recordedById: string;
   landSaleId?: string;
-  recordCashInflow?: boolean;
 }) {
   await ensureExitRoiSchema();
+  await ensureExitSettlementSchema();
 
   return db.$transaction(async (tx) => {
     const asset = await tx.asset.findUnique({
@@ -89,6 +93,21 @@ export async function createAssetExitRecord(input: {
     const acquisitionCost = asset.acquisitionCost?.toString() ?? undefined;
     const realizedGain = computeRealizedGain(input.proceeds, acquisitionCost);
     const realizedGainPct = computeRoiPct(realizedGain, acquisitionCost);
+    const hasProceeds = input.proceeds != null && parseFloat(input.proceeds) > 0;
+
+    let suspenseBankAccountId: string | undefined;
+    if (hasProceeds) {
+      const suspense = await parkExitProceedsInSuspense({
+        entityId: asset.entityId,
+        currency: input.currency,
+        amount: input.proceeds!,
+        balanceDate: input.exitDate,
+        description: `Pending exit proceeds for ${asset.name}`,
+        recordedById: input.recordedById,
+        client: tx,
+      });
+      suspenseBankAccountId = suspense.id;
+    }
 
     const exit = await tx.assetExit.create({
       data: {
@@ -101,7 +120,9 @@ export async function createAssetExitRecord(input: {
         acquisitionCost,
         realizedGain: realizedGain != null ? realizedGain.toFixed(2) : undefined,
         realizedGainPct: realizedGainPct != null ? realizedGainPct.toFixed(4) : undefined,
-        recordCashInflow: input.recordCashInflow ?? false,
+        recordCashInflow: false,
+        settlementStatus: hasProceeds ? "PENDING" : "NONE",
+        suspenseBankAccountId,
         notes: input.notes,
         recordedById: input.recordedById,
         landSaleId: input.landSaleId,
@@ -119,19 +140,6 @@ export async function createAssetExitRecord(input: {
     });
 
     await syncLinkedModuleStatus(tx, input.assetId, "EXITED");
-
-    if (input.recordCashInflow && input.proceeds) {
-      await tx.assetCashFlow.create({
-        data: {
-          assetId: input.assetId,
-          type: "INFLOW",
-          amount: input.proceeds,
-          currency: input.currency,
-          occurredAt: input.exitDate,
-          description: "Exit proceeds",
-        },
-      });
-    }
 
     return exit;
   });
@@ -181,7 +189,6 @@ export async function recordAssetExit(formData: FormData) {
   const currency = String(formData.get("currency") ?? "OMR").trim() || "OMR";
   const counterparty = String(formData.get("counterparty") ?? "").trim() || undefined;
   const notes = String(formData.get("notes") ?? "").trim() || undefined;
-  const recordCashInflow = String(formData.get("recordCashInflow") ?? "") === "on";
 
   if (!assetId) throw new Error("Asset is required.");
 
@@ -219,7 +226,6 @@ export async function recordAssetExit(formData: FormData) {
     counterparty,
     notes,
     recordedById: ctx.id,
-    recordCashInflow,
   });
 
   const agreementFiles = getFilesFromFormData(formData, "agreementFiles");
@@ -251,6 +257,8 @@ export async function recordAssetExit(formData: FormData) {
   revalidatePath("/assets");
   revalidatePath("/assets/" + assetId);
   revalidatePath("/dashboard");
+  revalidatePath("/portfolio/exits");
+  revalidatePath("/cash");
   if (asset.landParcel) {
     revalidatePath("/lands");
     revalidatePath("/lands/" + asset.landParcel.id);
@@ -344,4 +352,122 @@ export async function deleteAssetExitDocument(id: string) {
   await db.assetExitDocument.delete({ where: { id } });
 
   revalidatePath("/assets/" + document.assetExit.assetId);
+}
+
+export async function listAssignableBankAccountsForExit(exitId: string) {
+  const ctx = await requireUserContext();
+  const exit = await db.assetExit.findFirst({
+    where: { id: exitId, asset: assetEntityFilter(ctx) },
+    select: { currency: true, settlementStatus: true },
+  });
+  if (!exit || exit.settlementStatus !== "PENDING") return [];
+
+  return db.bankAccount.findMany({
+    where: {
+      ...cashBankAccountFilter(ctx),
+      currency: exit.currency,
+      isActive: true,
+      isExitSuspense: false,
+      includeInCashPosition: true,
+    },
+    orderBy: [{ bankName: "asc" }, { accountName: "asc" }],
+    select: {
+      id: true,
+      bankName: true,
+      accountName: true,
+      currency: true,
+      currentBalance: true,
+    },
+  });
+}
+
+export async function assignExitProceedsToBankAccount(formData: FormData) {
+  const ctx = await requireUserContext();
+  const exitId = String(formData.get("exitId") ?? "").trim();
+  const bankAccountId = String(formData.get("bankAccountId") ?? "").trim();
+  if (!exitId) throw new Error("Exit record is required.");
+  if (!bankAccountId) throw new Error("Bank account is required.");
+
+  const exit = await db.assetExit.findFirst({
+    where: { id: exitId, asset: assetEntityFilter(ctx) },
+    include: {
+      asset: {
+        select: {
+          id: true,
+          name: true,
+          entityId: true,
+          landParcel: { select: { id: true } },
+          vehicle: { select: { id: true } },
+          registeredCompany: { select: { id: true } },
+        },
+      },
+    },
+  });
+  if (!exit) throw new Error("Exit record not found.");
+  if (exit.settlementStatus !== "PENDING") {
+    throw new Error("These proceeds have already been assigned or do not require settlement.");
+  }
+  if (!exit.proceeds || !exit.suspenseBankAccountId) {
+    throw new Error("This exit has no proceeds to assign.");
+  }
+
+  const target = await db.bankAccount.findFirst({
+    where: {
+      id: bankAccountId,
+      ...cashBankAccountFilter(ctx),
+      isExitSuspense: false,
+      isActive: true,
+      currency: exit.currency,
+    },
+  });
+  if (!target) throw new Error("Bank account not found.");
+
+  await ensureExitSettlementSchema();
+
+  await db.$transaction(async (tx) => {
+    await transferExitProceedsFromSuspense({
+      suspenseBankAccountId: exit.suspenseBankAccountId!,
+      targetBankAccountId: target.id,
+      amount: exit.proceeds!.toString(),
+      balanceDate: new Date(),
+      description: exit.asset.name,
+      recordedById: ctx.id,
+      client: tx,
+    });
+
+    await tx.assetExit.update({
+      where: { id: exitId },
+      data: {
+        settlementStatus: "SETTLED",
+        settledBankAccountId: target.id,
+        settledAt: new Date(),
+      },
+    });
+  });
+
+  await syncBankBalancesToCashAssets(ctx);
+
+  await logAudit({
+    userId: ctx.id,
+    action: "UPDATE",
+    resource: "AssetExit",
+    resourceId: exitId,
+    metadata: { bankAccountId: target.id, proceeds: exit.proceeds?.toString() },
+  });
+
+  revalidatePath("/portfolio/exits");
+  revalidatePath("/assets/" + exit.assetId);
+  revalidatePath("/dashboard");
+  revalidatePath("/cash");
+
+  const asset = exit.asset;
+  if (asset.landParcel) {
+    revalidatePath("/lands/" + asset.landParcel.id);
+  }
+  if (asset.vehicle) {
+    revalidatePath("/cars/" + asset.vehicle.id);
+  }
+  if (asset.registeredCompany) {
+    revalidatePath("/companies/" + asset.registeredCompany.id);
+  }
 }

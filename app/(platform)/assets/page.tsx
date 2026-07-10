@@ -22,8 +22,8 @@ import {
 } from "@/components/ui/table";
 
 function parseFilter(value?: string): AssetsFilter {
-  if (value === "active" || value === "exited") return value;
-  return "all";
+  if (value === "all" || value === "exited") return value;
+  return "active";
 }
 
 export default async function AssetsPage({

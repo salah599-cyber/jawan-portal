@@ -713,6 +713,8 @@ export async function recordRePropertySale(formData: FormData) {
   revalidateRealEstate(propertyId);
   revalidatePath("/assets");
   revalidatePath("/dashboard");
+  revalidatePath("/portfolio/exits");
+  revalidatePath("/cash");
   return exit;
 }
 

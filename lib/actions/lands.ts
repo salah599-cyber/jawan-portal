@@ -397,7 +397,7 @@ export async function uploadLandDocuments(formData: FormData) {
 export async function listLands() {
   const ctx = await requireModuleAccess("LANDS");
   return db.landParcel.findMany({
-    where: landEntityFilter(ctx),
+    where: { ...landEntityFilter(ctx), status: { not: "EXITED" } },
     include: {
       entity: true,
       documents: { select: { id: true, documentType: true } },
@@ -416,7 +416,7 @@ export async function getLand(id: string) {
       entity: true,
       documents: { orderBy: { createdAt: "desc" } },
       registeredHolders: { orderBy: { sortOrder: "asc" } },
-      asset: { include: { exit: { include: { documents: { orderBy: { createdAt: "desc" } } } } } },
+      asset: { include: { exit: { include: { documents: { orderBy: { createdAt: "desc" } }, settledBankAccount: { select: { bankName: true, accountName: true } } } } } },
       sale: {
         include: {
           documents: { orderBy: { createdAt: "desc" } },
@@ -715,6 +715,8 @@ export async function recordLandSale(formData: FormData) {
   revalidatePath("/assets");
   if (land.assetId) revalidatePath("/assets/" + land.assetId);
   revalidatePath("/dashboard");
+  revalidatePath("/portfolio/exits");
+  revalidatePath("/cash");
   return sale;
 }
 

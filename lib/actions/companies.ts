@@ -393,7 +393,10 @@ export async function uploadCompanyDocuments(formData: FormData) {
 export async function listCompanies() {
   const ctx = await requireModuleAccess("COMPANIES");
   return db.registeredCompany.findMany({
-    where: companyEntityFilter(ctx),
+    where: {
+      ...companyEntityFilter(ctx),
+      OR: [{ assetId: null }, { asset: { status: { not: "EXITED" } } }],
+    },
     include: {
       entity: true,
       owners: { orderBy: { sortOrder: "asc" } },
@@ -411,7 +414,7 @@ export async function getCompany(id: string) {
       entity: true,
       owners: { orderBy: { sortOrder: "asc" } },
       documents: { orderBy: { createdAt: "desc" } },
-      asset: { include: { exit: { include: { documents: { orderBy: { createdAt: "desc" } } } } } },
+      asset: { include: { exit: { include: { documents: { orderBy: { createdAt: "desc" } }, settledBankAccount: { select: { bankName: true, accountName: true } } } } } },
     },
   });
 }

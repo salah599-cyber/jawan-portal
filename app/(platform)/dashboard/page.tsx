@@ -196,7 +196,7 @@ export default async function DashboardPage({
                 <CardDescription>Asset disposals in the last 12 months</CardDescription>
               </div>
               <Button variant="outline" size="sm" asChild>
-                <Link href="/assets?filter=exited">View all exited</Link>
+                <Link href="/portfolio/exits">View all exits</Link>
               </Button>
             </CardHeader>
             <CardContent>

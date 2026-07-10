@@ -333,7 +333,10 @@ export async function uploadCarDocuments(formData: FormData) {
 export async function listCars() {
   const ctx = await requireModuleAccess("CARS");
   return db.vehicle.findMany({
-    where: carEntityFilter(ctx),
+    where: {
+      ...carEntityFilter(ctx),
+      OR: [{ assetId: null }, { asset: { status: { not: "EXITED" } } }],
+    },
     include: {
       entity: true,
       documents: { select: { id: true, documentType: true } },
@@ -349,7 +352,7 @@ export async function getCar(id: string) {
     include: {
       entity: true,
       documents: { orderBy: { createdAt: "desc" } },
-      asset: { include: { exit: { include: { documents: { orderBy: { createdAt: "desc" } } } } } },
+      asset: { include: { exit: { include: { documents: { orderBy: { createdAt: "desc" } }, settledBankAccount: { select: { bankName: true, accountName: true } } } } } },
     },
   });
 }

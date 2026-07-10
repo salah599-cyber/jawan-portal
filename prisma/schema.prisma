@@ -266,6 +266,12 @@ enum ExitType {
   OTHER
 }
 
+enum ExitProceedSettlementStatus {
+  PENDING
+  SETTLED
+  NONE
+}
+
 enum ProposalStatus {
   DRAFT
   PENDING
@@ -888,9 +894,12 @@ model BankAccount {
   balanceAsOf    DateTime?
   isActive               Boolean             @default(true)
   includeInCashPosition  Boolean             @default(true)
+  isExitSuspense         Boolean             @default(false)
   cheques                Cheque[]
   balanceEntries BankBalanceEntry[]
   statementImports CashStatementImport[]
+  exitSuspenseProceeds   AssetExit[]         @relation("AssetExitSuspense")
+  exitSettledProceeds    AssetExit[]         @relation("AssetExitSettled")
   createdAt      DateTime            @default(now())
   updatedAt      DateTime            @updatedAt
 }
@@ -1095,6 +1104,12 @@ model AssetExit {
   realizedGain    Decimal?            @db.Decimal(18, 2)
   realizedGainPct Decimal?            @db.Decimal(8, 4)
   recordCashInflow Boolean            @default(false)
+  settlementStatus ExitProceedSettlementStatus @default(NONE)
+  suspenseBankAccountId String?
+  suspenseBankAccount   BankAccount?  @relation("AssetExitSuspense", fields: [suspenseBankAccountId], references: [id], onDelete: SetNull)
+  settledBankAccountId  String?
+  settledBankAccount    BankAccount?  @relation("AssetExitSettled", fields: [settledBankAccountId], references: [id], onDelete: SetNull)
+  settledAt             DateTime?
   notes           String?
   recordedById    String?
   landSaleId      String?             @unique

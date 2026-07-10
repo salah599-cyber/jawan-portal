@@ -240,7 +240,7 @@ export async function createAsset(input: CreateAssetInput) {
   return asset;
 }
 
-export async function listAssets(filter: "all" | "active" | "exited" = "all") {
+export async function listAssets(filter: "all" | "active" | "exited" = "active") {
   const ctx = await requireModuleAccess("ASSETS");
   const statusFilter =
     filter === "active"

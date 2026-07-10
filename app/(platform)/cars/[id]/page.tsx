@@ -116,7 +116,12 @@ export default async function CarDetailPage({ params }: { params: Promise<{ id: 
         ) : null}
 
         {car.asset?.exit && car.assetId ? (
-          <AssetExitSummary exit={car.asset.exit} assetId={car.assetId} showActions={showUpload} />
+          <AssetExitSummary
+            exit={car.asset.exit}
+            assetId={car.assetId}
+            showActions={showUpload}
+            canAssignProceeds={showUpload}
+          />
         ) : null}
 
         {(["MULKIA", "INSURANCE", "OTHER"] as const).map((type) => (

@@ -1,6 +1,7 @@
 import { db } from "@/lib/db";
 import { ensurePeSchema } from "@/lib/db/ensure-pe-schema";
 import { ensureExitRoiSchema } from "@/lib/db/ensure-exit-roi-schema";
+import { ensureExitSettlementSchema } from "@/lib/db/ensure-exit-settlement-schema";
 import { getAssetLinkedModule } from "@/lib/assets/linked-module";
 import { ASSET_CATEGORY_LABELS, EXIT_TYPE_LABELS, PE_EXIT_TYPE_LABELS } from "@/lib/labels";
 import { assetEntityFilter, peCompanyEntityFilter } from "@/lib/permissions/scoped-queries";
@@ -25,6 +26,9 @@ export type UnifiedExitRecord = {
   realizedGainOmr: number | null;
   roiPct: number | null;
   href: string;
+  settlementStatus: "PENDING" | "SETTLED" | "NONE" | null;
+  settledBankLabel: string | null;
+  assetExitId: string | null;
 };
 
 export type ExitAnalyticsCategoryBreakdown = {
@@ -91,7 +95,10 @@ async function fetchAssetExits(ctx: UserContext, params: ExitAnalyticsParams) {
         ...(params.entityId ? { entityId: params.entityId } : {}),
       },
     },
-    include: assetExitInclude,
+    include: {
+      ...assetExitInclude,
+      settledBankAccount: { select: { bankName: true, accountName: true } },
+    },
     orderBy: { exitDate: "desc" },
   });
 }
@@ -120,6 +127,7 @@ export async function getUnifiedExits(
   params: ExitAnalyticsParams = {},
 ): Promise<UnifiedExitRecord[]> {
   await ensureExitRoiSchema();
+  await ensureExitSettlementSchema();
   await ensurePeSchema();
 
   const [assetExits, peExits] = await Promise.all([
@@ -157,6 +165,11 @@ export async function getUnifiedExits(
       realizedGainOmr: realizedGain != null ? realizedGain * rate : null,
       roiPct: toNum(exit.realizedGainPct),
       href: linked?.href ?? `/assets/${exit.asset.id}`,
+      settlementStatus: exit.settlementStatus,
+      settledBankLabel: exit.settledBankAccount
+        ? `${exit.settledBankAccount.bankName} — ${exit.settledBankAccount.accountName}`
+        : null,
+      assetExitId: exit.id,
     };
   });
 
@@ -182,6 +195,9 @@ export async function getUnifiedExits(
       realizedGainOmr: realizedGain != null ? realizedGain * rate : null,
       roiPct: toNum(exit.realizedGainPct),
       href: `/portfolio/pe/${exit.company.id}`,
+      settlementStatus: null,
+      settledBankLabel: null,
+      assetExitId: null,
     };
   });
 
