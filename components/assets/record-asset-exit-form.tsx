@@ -135,10 +135,12 @@ export function RecordAssetExitForm({
             <Label htmlFor="notes">Notes</Label>
             <Textarea id="notes" name="notes" rows={2} />
           </div>
-          <div className="flex items-center gap-2 md:col-span-2">
-            <input id="recordCashInflow" name="recordCashInflow" type="checkbox" className="size-4" />
-            <Label htmlFor="recordCashInflow">Record proceeds as cash inflow on this asset</Label>
-          </div>
+          {showProceeds ? (
+            <p className="text-sm text-muted-foreground md:col-span-2">
+              Proceeds will be held in a suspense account until you assign them to a bank account on
+              the Exits page.
+            </p>
+          ) : null}
           <FileSection id="agreementFiles" name="agreementFiles" label="Sale agreement" />
           <FileSection id="transferFiles" name="transferFiles" label="Transfer deed" />
           <FileSection id="closingFiles" name="closingFiles" label="Closing statement" />

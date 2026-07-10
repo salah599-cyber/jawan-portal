@@ -89,7 +89,12 @@ export default async function CompanyDetailPage({ params }: { params: Promise<{ 
         ) : null}
 
         {company.asset?.exit && company.assetId ? (
-          <AssetExitSummary exit={company.asset.exit} assetId={company.assetId} showActions={showUpload} />
+          <AssetExitSummary
+            exit={company.asset.exit}
+            assetId={company.assetId}
+            showActions={showUpload}
+            canAssignProceeds={showUpload}
+          />
         ) : null}
 
         <Card>

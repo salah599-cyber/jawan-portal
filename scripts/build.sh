@@ -18,6 +18,7 @@ if [ -n "$DB_URL" ]; then
   node scripts/sync-precious-metals-schema.cjs || echo "WARNING: Precious metals schema sync failed during build; runtime sync will retry."
   node scripts/sync-loan-schema.cjs || echo "WARNING: Loan schema sync failed during build; runtime sync will retry."
   node scripts/sync-exit-roi-schema.cjs || echo "WARNING: Exit ROI schema sync failed during build; runtime sync will retry."
+  node scripts/sync-exit-settlement-schema.cjs || echo "WARNING: Exit settlement schema sync failed during build; runtime sync will retry."
 fi
 
 exec npx next build

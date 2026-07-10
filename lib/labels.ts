@@ -29,6 +29,12 @@ export const EXIT_TYPE_LABELS: Record<string, string> = {
   OTHER: "Other",
 };
 
+export const EXIT_SETTLEMENT_STATUS_LABELS: Record<string, string> = {
+  PENDING: "Pending bank assignment",
+  SETTLED: "Settled",
+  NONE: "No proceeds",
+};
+
 export const ASSET_EXIT_DOCUMENT_TYPE_LABELS: Record<string, string> = {
   SALE_AGREEMENT: "Sale Agreement",
   TRANSFER_DEED: "Transfer Deed",

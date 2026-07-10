@@ -1,6 +1,7 @@
 import { db } from "@/lib/db";
 import { ensurePeSchema } from "@/lib/db/ensure-pe-schema";
 import { ensureDefaultEntity, listEntities } from "@/lib/data/entities";
+import type { PeCompanyStatus } from "@/lib/generated/prisma/client";
 import { peCompanyEntityFilter } from "@/lib/permissions/scoped-queries";
 import type { UserContext } from "@/lib/permissions/types";
 import { sumDecimals, toNumber } from "@/lib/pe/helpers";
@@ -91,6 +92,7 @@ export async function listPeCompanies(
   await ensurePeDataLayerReady();
   const where = {
     ...peCompanyEntityFilter(ctx),
+    status: { notIn: ["EXITED", "WRITTEN_OFF"] as PeCompanyStatus[] },
     ...(entityId ? { entityId } : {}),
   };
 

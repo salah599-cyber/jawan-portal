@@ -17,11 +17,16 @@ const assetListIncludeWithPreciousMetal = {
   preciousMetal: true,
 } satisfies Prisma.AssetInclude;
 
+const assetExitDetailInclude = {
+  documents: { orderBy: { createdAt: "desc" as const } },
+  settledBankAccount: { select: { bankName: true, accountName: true } },
+} as const;
+
 const assetDetailInclude = {
   entity: true,
   assetType: { select: { name: true } },
   preciousMetal: true,
-  exit: { include: { documents: { orderBy: { createdAt: "desc" as const } } } },
+  exit: { include: assetExitDetailInclude },
   landParcel: { select: { id: true, sale: { select: { id: true } } } },
   vehicle: { select: { id: true } },
   registeredCompany: { select: { id: true } },
@@ -32,7 +37,7 @@ const assetDetailInclude = {
 const assetDetailIncludeFallback = {
   entity: true,
   assetType: { select: { name: true } },
-  exit: { include: { documents: { orderBy: { createdAt: "desc" as const } } } },
+  exit: { include: assetExitDetailInclude },
   landParcel: { select: { id: true, sale: { select: { id: true } } } },
   vehicle: { select: { id: true } },
   registeredCompany: { select: { id: true } },
