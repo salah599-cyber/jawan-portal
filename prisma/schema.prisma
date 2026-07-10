@@ -1093,6 +1093,7 @@ model AssetExit {
   counterparty    String?
   acquisitionCost Decimal?            @db.Decimal(18, 2)
   realizedGain    Decimal?            @db.Decimal(18, 2)
+  realizedGainPct Decimal?            @db.Decimal(8, 4)
   recordCashInflow Boolean            @default(false)
   notes           String?
   recordedById    String?
@@ -1608,6 +1609,8 @@ model PeExit {
   exitType             PeExitType @default(TRADE_SALE)
   exitProceedsReporting Decimal?  @db.Decimal(18, 2)
   realisedGainLossReporting Decimal? @db.Decimal(18, 2)
+  totalInvestedSnapshot Decimal? @db.Decimal(18, 2)
+  realizedGainPct      Decimal?   @db.Decimal(8, 4)
   notes                String?
   createdAt            DateTime   @default(now())
   updatedAt            DateTime   @updatedAt
@@ -1950,6 +1953,9 @@ model ReProperty {
   landParcel              LandParcel?         @relation(fields: [landParcelId], references: [id])
   purchaseDate            DateTime?
   purchasePriceOmr        Decimal?            @db.Decimal(18, 3)
+  soldDate                DateTime?
+  soldPriceOmr            Decimal?            @db.Decimal(18, 3)
+  soldTo                  String?
   currentValuationOmr     Decimal?            @db.Decimal(18, 3)
   lastValuationDate       DateTime?
   valuationMethod         ReValuationMethod?

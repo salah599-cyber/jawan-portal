@@ -70,6 +70,7 @@ export type LandDetailData = {
       counterparty: string | null;
       acquisitionCost: { toString(): string } | null;
       realizedGain: { toString(): string } | null;
+      realizedGainPct: { toString(): string } | null;
       recordCashInflow: boolean;
       notes: string | null;
       landSaleId: string | null;

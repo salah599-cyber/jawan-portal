@@ -42,6 +42,10 @@ import {
 } from "@/lib/portfolio/performance";
 import type { PerformancePeriod } from "@/lib/portfolio/performance-period";
 import { getPortfolioRollup } from "@/lib/portfolio/rollup";
+import { getAssetLinkedModule } from "@/lib/assets/linked-module";
+import { getExitAnalyticsSummary, type ExitAnalyticsSummary } from "@/lib/portfolio/exit-analytics";
+
+export type { ExitAnalyticsSummary } from "@/lib/portfolio/exit-analytics";
 
 export type { NetWorthTrend, PerformancePeriod, PortfolioPerformance };
 
@@ -82,6 +86,9 @@ export type DashboardRecentExit = {
   proceeds: { toString(): string } | null;
   currency: string;
   counterparty: string | null;
+  realizedGain: { toString(): string } | null;
+  realizedGainPct: { toString(): string } | null;
+  href: string;
   asset: {
     id: string;
     name: string;
@@ -130,6 +137,7 @@ export type DashboardSummary = {
   moduleSummaries: ModuleSummary[];
   reminders: DashboardReminder[];
   recentExits: DashboardRecentExit[];
+  exitAnalytics: ExitAnalyticsSummary;
   pendingProposals: DashboardPendingProposal[];
 };
 
@@ -276,7 +284,7 @@ export async function getDashboardSummary(
 
     const exitHorizon = new Date();
     exitHorizon.setMonth(exitHorizon.getMonth() - 12);
-    recentExits = await db.assetExit.findMany({
+    const rawRecentExits = await db.assetExit.findMany({
       where: {
         exitDate: { gte: exitHorizon },
         asset: assetEntityFilter(ctx),
@@ -288,13 +296,41 @@ export async function getDashboardSummary(
             name: true,
             category: true,
             entity: { select: { name: true } },
+            landParcel: { select: { id: true } },
+            vehicle: { select: { id: true } },
+            registeredCompany: { select: { id: true } },
+            peCompany: { select: { id: true } },
+            lpCommitment: { select: { id: true } },
+            reProperty: { select: { id: true } },
           },
         },
       },
       orderBy: { exitDate: "desc" },
       take: 8,
     });
+
+    recentExits = rawRecentExits.map((exit) => ({
+      id: exit.id,
+      exitType: exit.exitType,
+      exitDate: exit.exitDate,
+      proceeds: exit.proceeds,
+      currency: exit.currency,
+      counterparty: exit.counterparty,
+      realizedGain: exit.realizedGain,
+      realizedGainPct: exit.realizedGainPct,
+      href: getAssetLinkedModule(exit.asset)?.href ?? `/assets/${exit.asset.id}`,
+      asset: {
+        id: exit.asset.id,
+        name: exit.asset.name,
+        category: exit.asset.category,
+        entity: { name: exit.asset.entity.name },
+      },
+    }));
   }
+
+  const exitAnalyticsHorizon = new Date();
+  exitAnalyticsHorizon.setMonth(exitAnalyticsHorizon.getMonth() - 12);
+  const exitAnalytics = await getExitAnalyticsSummary(ctx, { from: exitAnalyticsHorizon });
 
   if (canAccess(ctx, "LOANS")) {
     const loanCount = await db.liability.count({
@@ -1057,6 +1093,7 @@ export async function getDashboardSummary(
     moduleSummaries,
     reminders: reminders.slice(0, 12),
     recentExits,
+    exitAnalytics,
     pendingProposals,
   };
 }

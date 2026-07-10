@@ -46,7 +46,7 @@ export function RePropertyHub({
       </TabsList>
 
       <TabsContent value="overview" className="mt-4">
-        <ReOverviewTab property={property} />
+        <ReOverviewTab property={property} canEdit={canEdit} />
       </TabsContent>
       <TabsContent value="units" className="mt-4">
         <ReUnitsTab property={property} canEdit={canEdit} />

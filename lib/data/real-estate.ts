@@ -102,7 +102,11 @@ export type ReRentDashboard = {
 
 export const propertyInclude = {
   entity: true,
-  asset: { select: { id: true, status: true, currentValue: true, currency: true } },
+  asset: {
+    include: {
+      exit: { include: { documents: { orderBy: { createdAt: "desc" as const } } } },
+    },
+  },
   landParcel: true,
   units: {
     orderBy: { unitNumber: "asc" as const },

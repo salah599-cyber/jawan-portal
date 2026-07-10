@@ -6,6 +6,8 @@ import { upsertPeExit, deletePeExit } from "@/lib/actions/pe-portfolio";
 import { DeleteEntryButton } from "@/components/platform/delete-entry-button";
 import { PE_EXIT_TYPE_LABELS } from "@/lib/labels";
 import { formatDate, formatMoney } from "@/lib/format";
+import { formatRoiPct, roiTone } from "@/lib/portfolio/exit-metrics";
+import { cn } from "@/lib/utils";
 import type { SerializedPeCompany } from "@/lib/pe/serialize";
 import { PeDetailField } from "@/components/pe/pe-detail-field";
 import { Button } from "@/components/ui/button";
@@ -29,6 +31,7 @@ export function PeExitTab({
   const [exitType, setExitType] = useState<string>(company.exit?.exitType ?? "TRADE_SALE");
   const currency = company.reportingCurrency;
   const exit = company.exit;
+  const totalInvested = company.totals.totalInvested;
 
   function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -69,6 +72,7 @@ export function PeExitTab({
             pending={pending}
             error={error}
             onCancel={() => setEditing(false)}
+            totalInvested={totalInvested}
           />
         </CardContent>
       </Card>
@@ -99,7 +103,19 @@ export function PeExitTab({
         <CardContent className="grid gap-4 sm:grid-cols-2">
           <PeDetailField label="Exit Type" value={PE_EXIT_TYPE_LABELS[exit.exitType] ?? exit.exitType} />
           <PeDetailField label="Proceeds" value={formatMoney(exit.exitProceedsReporting, currency)} />
+          <PeDetailField
+            label="Total Invested"
+            value={formatMoney(exit.totalInvestedSnapshot, currency)}
+          />
           <PeDetailField label="Realised Gain / Loss" value={formatMoney(exit.realisedGainLossReporting, currency)} />
+          <PeDetailField
+            label="ROI"
+            value={
+              <span className={cn("font-medium", roiTone(exit.realizedGainPct))}>
+                {formatRoiPct(exit.realizedGainPct)}
+              </span>
+            }
+          />
           {exit.notes ? (
             <div className="sm:col-span-2">
               <PeDetailField label="Notes" value={exit.notes} />
@@ -126,6 +142,7 @@ export function PeExitTab({
             error={error}
             onCancel={() => setEditing(false)}
             initial={exit}
+            totalInvested={totalInvested}
           />
         </CardContent>
       </Card>
@@ -146,6 +163,7 @@ function ExitForm({
   error,
   onCancel,
   initial,
+  totalInvested,
 }: {
   currency: string;
   exitType: string;
@@ -155,7 +173,13 @@ function ExitForm({
   error: string | null;
   onCancel: () => void;
   initial?: NonNullable<SerializedPeCompany["exit"]>;
+  totalInvested: number;
 }) {
+  const [proceeds, setProceeds] = useState(initial?.exitProceedsReporting ?? "");
+  const previewGain = proceeds ? parseFloat(proceeds) - totalInvested : null;
+  const previewRoiPct =
+    previewGain != null && totalInvested > 0 ? (previewGain / totalInvested) * 100 : null;
+
   return (
     <form onSubmit={onSubmit} className="grid gap-4 md:grid-cols-2">
       <div className="space-y-2">
@@ -175,11 +199,26 @@ function ExitForm({
       </div>
       <div className="space-y-2">
         <Label htmlFor="exitProceedsReporting">Proceeds ({currency})</Label>
-        <Input id="exitProceedsReporting" name="exitProceedsReporting" defaultValue={initial?.exitProceedsReporting ?? ""} />
+        <Input
+          id="exitProceedsReporting"
+          name="exitProceedsReporting"
+          value={proceeds}
+          onChange={(e) => setProceeds(e.target.value)}
+        />
       </div>
       <div className="space-y-2">
-        <Label htmlFor="realisedGainLossReporting">Realised Gain / Loss ({currency})</Label>
-        <Input id="realisedGainLossReporting" name="realisedGainLossReporting" defaultValue={initial?.realisedGainLossReporting ?? ""} />
+        <Label>Realised Gain / Loss ({currency})</Label>
+        <p className="pt-2 text-sm text-muted-foreground">
+          {formatMoney(totalInvested, currency)} invested
+          {previewGain != null ? (
+            <>
+              {" · "}
+              <span className={cn("font-medium", roiTone(previewGain))}>
+                {formatMoney(previewGain, currency)} ({formatRoiPct(previewRoiPct)})
+              </span>
+            </>
+          ) : null}
+        </p>
       </div>
       <div className="space-y-2 md:col-span-2">
         <Label htmlFor="notes">Notes</Label>

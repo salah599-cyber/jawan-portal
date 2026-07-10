@@ -93,6 +93,8 @@ export function serializePeCompany(company: PeCompanyDetail) {
           exitType: company.exit.exitType,
           exitProceedsReporting: dec(company.exit.exitProceedsReporting),
           realisedGainLossReporting: dec(company.exit.realisedGainLossReporting),
+          totalInvestedSnapshot: dec(company.exit.totalInvestedSnapshot),
+          realizedGainPct: dec(company.exit.realizedGainPct),
           notes: company.exit.notes,
         }
       : null,

@@ -7,18 +7,54 @@ import {
 import { formatDate, formatOmr } from "@/lib/format";
 import type { SerializedReProperty } from "@/lib/real-estate/serialize";
 import { ReAlertsBanner } from "@/components/real-estate/re-alerts-banner";
+import { AssetExitSummary } from "@/components/assets/asset-exit-summary";
+import { RecordRePropertySaleForm } from "@/components/real-estate/record-re-property-sale-form";
 import { PeDetailField } from "@/components/pe/pe-detail-field";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 
-export function ReOverviewTab({ property }: { property: SerializedReProperty }) {
+export function ReOverviewTab({
+  property,
+  canEdit,
+}: {
+  property: SerializedReProperty;
+  canEdit: boolean;
+}) {
   const { metrics } = property;
+  const isSold = property.status === "SOLD";
+  const saleIncomplete = isSold && !property.exit;
 
   return (
     <div className="grid gap-4">
       {property.alerts.length > 0 ? (
         <ReAlertsBanner alerts={property.alerts} />
+      ) : null}
+
+      {saleIncomplete ? (
+        <Card className="border-amber-300 bg-amber-50 dark:border-amber-800 dark:bg-amber-950">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-base text-amber-800 dark:text-amber-200">
+              Sale details incomplete
+            </CardTitle>
+            <CardDescription className="text-amber-700 dark:text-amber-300">
+              This property is marked sold, but sale price is missing so ROI cannot be calculated.
+              Add the sale price below.
+            </CardDescription>
+          </CardHeader>
+        </Card>
+      ) : null}
+
+      {canEdit && !isSold ? (
+        <RecordRePropertySaleForm propertyId={property.id} propertyName={property.name} />
+      ) : null}
+
+      {canEdit && saleIncomplete ? (
+        <RecordRePropertySaleForm propertyId={property.id} propertyName={property.name} retroactive />
+      ) : null}
+
+      {property.exit ? (
+        <AssetExitSummary exit={property.exit} assetId={property.assetId!} showActions={canEdit} />
       ) : null}
 
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">

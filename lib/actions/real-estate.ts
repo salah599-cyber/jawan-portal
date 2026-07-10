@@ -3,10 +3,12 @@
 import { revalidatePath } from "next/cache";
 import { db } from "@/lib/db";
 import { ensureRealEstateSchema } from "@/lib/db/ensure-real-estate-schema";
+import { ensureExitRoiSchema } from "@/lib/db/ensure-exit-roi-schema";
 import { deleteBlobUrl, uploadPrivateFile } from "@/lib/blob";
 import { logAudit } from "@/lib/audit/log";
 import { canWrite, requireModuleAccess } from "@/lib/permissions/access";
 import { rePropertyEntityFilter } from "@/lib/permissions/scoped-queries";
+import { createAssetExitRecord } from "@/lib/actions/asset-exits";
 import {
   syncRePropertyAsset,
   updatePropertyUnitCount,
@@ -593,10 +595,14 @@ export async function createProperty(formData: FormData) {
 
 export async function updateProperty(propertyId: string, formData: FormData) {
   const ctx = await requireReWrite();
-  await findProperty(propertyId, ctx);
+  const existing = await findProperty(propertyId, ctx);
 
   const fields = readPropertyFieldsFromForm(formData);
   assertEntityAccess(ctx, fields.entityId);
+
+  if (fields.status === "SOLD" && existing.status !== "SOLD" && !existing.soldPriceOmr) {
+    throw new Error("Use Record Sale to mark a property as sold with sale price and ROI.");
+  }
 
   const property = await db.reProperty.update({
     where: { id: propertyId },
@@ -647,6 +653,67 @@ export async function deleteProperty(propertyId: string) {
 
   revalidateRealEstate();
   revalidatePath("/assets");
+}
+
+export async function recordRePropertySale(formData: FormData) {
+  const ctx = await requireReWrite();
+  await ensureExitRoiSchema();
+
+  const propertyId = String(formData.get("propertyId") ?? "").trim();
+  const soldTo = String(formData.get("soldTo") ?? "").trim() || undefined;
+  const notes = String(formData.get("notes") ?? "").trim() || undefined;
+  const soldDate = parseDateInput(String(formData.get("soldDate") ?? ""));
+  const soldPriceOmr = parseDecimalInput(String(formData.get("soldPriceOmr") ?? ""));
+
+  if (!propertyId) throw new Error("Property is required.");
+  if (!soldDate) throw new Error("Sale date is required.");
+  if (!soldPriceOmr) throw new Error("Sale price is required.");
+
+  const property = await db.reProperty.findFirst({
+    where: { id: propertyId, ...rePropertyEntityFilter(ctx) },
+    include: { asset: { include: { exit: true } } },
+  });
+  if (!property) throw new Error("Property not found.");
+  if (property.asset?.exit) {
+    throw new Error("This property already has a recorded sale.");
+  }
+
+  await db.reProperty.update({
+    where: { id: propertyId },
+    data: { status: "SOLD", soldDate, soldPriceOmr, soldTo, notes: notes ?? property.notes },
+  });
+
+  await syncRePropertyAsset(propertyId);
+
+  const synced = await db.reProperty.findUnique({
+    where: { id: propertyId },
+    select: { assetId: true },
+  });
+  if (!synced?.assetId) throw new Error("Failed to link property to an asset record.");
+
+  const exit = await createAssetExitRecord({
+    assetId: synced.assetId,
+    exitType: "SALE",
+    exitDate: soldDate,
+    proceeds: soldPriceOmr,
+    currency: "OMR",
+    counterparty: soldTo,
+    notes,
+    recordedById: ctx.id,
+  });
+
+  await logAudit({
+    userId: ctx.id,
+    action: "CREATE",
+    resource: "ReProperty",
+    resourceId: propertyId,
+    metadata: { action: "sale", soldPriceOmr, soldTo },
+  });
+
+  revalidateRealEstate(propertyId);
+  revalidatePath("/assets");
+  revalidatePath("/dashboard");
+  return exit;
 }
 
 export async function listPropertiesForSelect() {
