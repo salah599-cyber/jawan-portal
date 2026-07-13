@@ -25,7 +25,10 @@ export type LpCommitmentListRow = {
   unfundedCommitment: number;
   latestNav: number | null;
   totalDistributions: number;
+  dpi: number | null;
+  rvpi: number | null;
   tvpi: number | null;
+  netIrr: number | null;
   updatedAt: Date;
 };
 
@@ -157,7 +160,10 @@ export async function listLpCommitments(
       unfundedCommitment: metrics.unfundedCommitment,
       latestNav: metrics.latestNav,
       totalDistributions: metrics.totalDistributions,
+      dpi: metrics.dpi,
+      rvpi: metrics.rvpi,
       tvpi: metrics.tvpi,
+      netIrr: metrics.netIrr,
       updatedAt: commitment.updatedAt,
     };
   });

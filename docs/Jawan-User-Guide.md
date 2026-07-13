@@ -722,18 +722,26 @@ Store wills, LPAs, trust deeds, KYC packs, and adviser contracts here. Set **exp
 
 ## 20. Reports
 
-**Path:** Sidebar → **Reports** · **Planned**
+**Path:** Sidebar → **Reports** · **Available**
 
-Placeholder only. Planned reports:
+The Report Library includes balance-sheet, portfolio, operations, real estate, and register reports, plus a **Monthly Board Pack**.
 
-- Net worth statement (by entity, currency, asset class)
-- Public markets performance
-- PE/VC portfolio summary (MOIC, IRR)
-- Fund LP capital account
-- Real estate portfolio summary
-- Cash and liquidity report
-- Expense analysis
+### Featured: Monthly Board Pack
 
+Executive scorecard with net worth, allocation, valuation-based MTD/YTD performance, PE MOIC/IRR highlights, LP DPI/RVPI/TVPI/IRR, and cash. Export to Excel/CSV or print to PDF. Scheduled email delivery runs on the 1st of each month for users with Reports access (requires `RESEND_API_KEY`).
+
+### Key portfolio reports
+
+| Report | Highlights |
+|--------|------------|
+| Net Worth / Consolidated OMR | Ownership-adjusted portfolio vs liabilities |
+| Asset Allocation | Category mix with OMR weights |
+| Portfolio Performance | Valuation-based MTD/YTD per asset |
+| PE / VC Portfolio Summary | Invested, fair value, **MOIC**, **net IRR** |
+| Fund LP Portfolio Summary | Paid-in, NAV, unfunded, **DPI / RVPI / TVPI**, **net IRR** |
+| Cash Balances / Position | Liquidity by account and currency |
+
+Filters: entity (where supported) and optional date range. Export: XLSX, CSV, print.
 ---
 
 ## 21. Admin: User Management
@@ -790,7 +798,7 @@ Backend logging is active for create/update/delete across modules. Viewer UI com
 3. **Linked records** — Lands, Cars, and Companies create portfolio assets; manage exits in the correct module.
 4. **Family & contacts** — Use Documents + per-record contact fields until dedicated modules ship.
 5. **Proposals** — An approved proposal should be followed by registration in the relevant portfolio module.
-6. **Reports & Audit Log** — Coming soon.
+6. **Reports** — Board Pack, PE MOIC/IRR, and LP multiples are available under **Reports**. Audit Log UI coming soon.
 7. **Cheque deletes** — Soft delete; most other deletes are permanent.
 
 ---
@@ -812,7 +820,7 @@ Backend logging is active for create/update/delete across modules. Viewer UI com
 | Documents | Available |
 | Family & Succession | Planned |
 | Contacts directory | Planned |
-| Reports | Planned |
+| Reports | Available |
 | Audit Log UI | Planned |
 
 ---

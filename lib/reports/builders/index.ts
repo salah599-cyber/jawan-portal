@@ -24,6 +24,8 @@ import {
   LP_COMMITMENT_STATUS_LABELS,
   LP_FUND_STRATEGY_LABELS,
 } from "@/lib/lp/constants";
+import { formatIrr, formatMultiple } from "@/lib/lp/xirr";
+import { formatIrr as formatPeIrr, formatMultiple as formatPeMultiple } from "@/lib/pe/metrics";
 import {
   ASSET_CATEGORY_LABELS,
   ASSET_STATUS_LABELS,
@@ -65,7 +67,10 @@ import { getPortfolioRollup } from "@/lib/portfolio/rollup";
 import { getPortfolioPerformance } from "@/lib/portfolio/performance";
 import { getUnifiedExits, summarizeExits } from "@/lib/portfolio/exit-analytics";
 import { formatRoiPct } from "@/lib/portfolio/exit-metrics";
+import { buildBoardPackReport } from "@/lib/reports/builders/board-pack";
 import type { ReportId, ReportParams, ReportResult } from "@/lib/reports/types";
+
+export { buildBoardPackReport };
 
 const COUNTABLE_ASSET_STATUSES = ["ACTIVE", "MONITOR"] as const;
 
@@ -492,6 +497,8 @@ export async function buildPePortfolioReport(
     invested: formatAmount(company.totalInvested, company.reportingCurrency),
     fairValue: formatAmount(company.latestFairValue, company.reportingCurrency),
     distributed: formatAmount(company.totalDistributed, company.reportingCurrency),
+    moic: formatPeMultiple(company.moic) ?? "—",
+    irr: formatPeIrr(company.netIrr) ?? "—",
     currency: company.reportingCurrency,
   }));
 
@@ -499,7 +506,7 @@ export async function buildPePortfolioReport(
     ...baseResult(
       "pe-portfolio",
       "PE / VC Portfolio Summary",
-      "Private equity companies with invested capital and fair value.",
+      "Private equity companies with invested capital, fair value, MOIC, and net IRR.",
       entityName ?? summary?.entityName,
     ),
     metrics: summary
@@ -507,7 +514,11 @@ export async function buildPePortfolioReport(
           { label: "Companies", value: summary.companyCount.toString() },
           { label: "Total invested", value: formatAmount(summary.totalInvested, summary.reportingCurrency) },
           { label: "Fair value", value: formatAmount(summary.totalFairValue, summary.reportingCurrency) },
-          { label: "Unrealised gain", value: formatAmount(summary.unrealisedGain, summary.reportingCurrency) },
+          {
+            label: "Portfolio MOIC",
+            value: formatPeMultiple(summary.portfolioMoic) ?? "—",
+            detail: "Total value ÷ invested capital",
+          },
         ]
       : [{ label: "Companies", value: "0" }],
     columns: [
@@ -518,10 +529,16 @@ export async function buildPePortfolioReport(
       { key: "invested", label: "Invested", align: "right" },
       { key: "fairValue", label: "Fair Value", align: "right" },
       { key: "distributed", label: "Distributed", align: "right" },
+      { key: "moic", label: "MOIC", align: "right" },
+      { key: "irr", label: "Net IRR", align: "right" },
       { key: "currency", label: "Currency" },
     ],
     rows,
-    footnotes: ["Amounts in each company's reporting currency."],
+    footnotes: [
+      "Amounts in each company's reporting currency.",
+      "MOIC = (fair value or exit proceeds + distributions) ÷ invested capital.",
+      "Net IRR is money-weighted (XIRR) using investments, distributions, and terminal value.",
+    ],
   };
 }
 
@@ -546,7 +563,10 @@ export async function buildLpFundPortfolioReport(
     paidIn: formatAmount(row.paidInCapital, row.commitmentCurrency),
     nav: formatAmount(row.latestNav, row.commitmentCurrency),
     unfunded: formatAmount(row.unfundedCommitment, row.commitmentCurrency),
-    tvpi: row.tvpi != null ? `${row.tvpi.toFixed(2)}x` : "—",
+    dpi: formatMultiple(row.dpi) ?? "—",
+    rvpi: formatMultiple(row.rvpi) ?? "—",
+    tvpi: formatMultiple(row.tvpi) ?? "—",
+    irr: formatIrr(row.netIrr) ?? "—",
     currency: row.commitmentCurrency,
   }));
 
@@ -554,7 +574,7 @@ export async function buildLpFundPortfolioReport(
     ...baseResult(
       "lp-fund-portfolio",
       "Fund LP Portfolio Summary",
-      "LP fund commitments with paid-in capital, NAV, multiples, and unfunded balances.",
+      "LP fund commitments with paid-in capital, NAV, DPI/RVPI/TVPI, net IRR, and unfunded balances.",
       entityName ?? summary?.entityName,
     ),
     metrics: summary
@@ -576,11 +596,18 @@ export async function buildLpFundPortfolioReport(
       { key: "paidIn", label: "Paid-In", align: "right" },
       { key: "nav", label: "NAV", align: "right" },
       { key: "unfunded", label: "Unfunded", align: "right" },
+      { key: "dpi", label: "DPI", align: "right" },
+      { key: "rvpi", label: "RVPI", align: "right" },
       { key: "tvpi", label: "TVPI", align: "right" },
+      { key: "irr", label: "Net IRR", align: "right" },
       { key: "currency", label: "Currency" },
     ],
     rows,
-    footnotes: ["Amounts in each commitment's currency."],
+    footnotes: [
+      "Amounts in each commitment's currency.",
+      "DPI = distributions ÷ paid-in; RVPI = NAV ÷ paid-in; TVPI = (NAV + distributions) ÷ paid-in.",
+      "Net IRR is money-weighted (XIRR) including terminal NAV.",
+    ],
   };
 }
 

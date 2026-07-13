@@ -4,6 +4,7 @@ import { deletePeCompany } from "@/lib/actions/pe-portfolio";
 import { PE_STAGE_LABELS, PE_STATUS_LABELS } from "@/lib/labels";
 import { formatDate, formatMoney } from "@/lib/format";
 import type { PeCompanyListRow } from "@/lib/data/pe-portfolio";
+import { formatIrr, formatMultiple } from "@/lib/pe/metrics";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 
@@ -28,6 +29,8 @@ export function PeCompaniesTable({
           <TableHead>Entity</TableHead>
           <TableHead>Invested</TableHead>
           <TableHead>Fair Value</TableHead>
+          <TableHead>MOIC</TableHead>
+          <TableHead>Net IRR</TableHead>
           <TableHead>Status</TableHead>
           <TableHead>Updated</TableHead>
           {canEdit ? <TableHead className="w-[60px]">Actions</TableHead> : null}
@@ -53,6 +56,8 @@ export function PeCompaniesTable({
                 ? formatMoney(company.latestFairValue, company.reportingCurrency)
                 : "—"}
             </TableCell>
+            <TableCell>{formatMultiple(company.moic) ?? "—"}</TableCell>
+            <TableCell>{formatIrr(company.netIrr) ?? "—"}</TableCell>
             <TableCell>
               <Badge variant="secondary">{PE_STATUS_LABELS[company.status] ?? company.status}</Badge>
             </TableCell>
