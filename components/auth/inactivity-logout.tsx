@@ -8,7 +8,7 @@ import {
 } from "@/lib/auth/constants";
 
 const CHECK_INTERVAL_MS = 60 * 1000;
-const ACTIVITY_EVENTS = ["mousedown", "keydown", "scroll", "touchstart", "click"] as const;
+const WINDOW_ACTIVITY_EVENTS = ["mousedown", "keydown", "touchstart", "click"] as const;
 
 function readLastActivity() {
   const raw = localStorage.getItem(LAST_ACTIVITY_STORAGE_KEY);
@@ -20,35 +20,58 @@ function recordActivity() {
   localStorage.setItem(LAST_ACTIVITY_STORAGE_KEY, String(Date.now()));
 }
 
+export function isInactiveBeyondThreshold(
+  lastActivityMs: number,
+  nowMs: number,
+  thresholdMs: number = INACTIVITY_LOGOUT_MS,
+) {
+  return nowMs - lastActivityMs >= thresholdMs;
+}
+
 export function InactivityLogout() {
   const { isSignedIn } = useAuth();
   const { signOut, loaded } = useClerk();
+  const signOutRef = useRef(signOut);
   const signingOut = useRef(false);
+  const wasSignedIn = useRef(false);
+
+  signOutRef.current = signOut;
 
   useEffect(() => {
-    if (!loaded || !isSignedIn) return;
+    if (!loaded) return;
 
-    recordActivity();
-    signingOut.current = false;
+    if (!isSignedIn) {
+      wasSignedIn.current = false;
+      return;
+    }
+
+    if (!wasSignedIn.current) {
+      recordActivity();
+      wasSignedIn.current = true;
+      signingOut.current = false;
+    }
 
     function logoutForInactivity() {
       if (signingOut.current) return;
       signingOut.current = true;
       localStorage.removeItem(LAST_ACTIVITY_STORAGE_KEY);
-      void signOut({ redirectUrl: "/sign-in?reason=session_timeout" });
+      void signOutRef.current({ redirectUrl: "/sign-in?reason=session_timeout" });
     }
 
     function checkInactivity() {
-      if (Date.now() - readLastActivity() >= INACTIVITY_LOGOUT_MS) {
+      if (isInactiveBeyondThreshold(readLastActivity(), Date.now())) {
         logoutForInactivity();
       }
     }
 
     const onActivity = () => recordActivity();
 
-    for (const event of ACTIVITY_EVENTS) {
+    for (const event of WINDOW_ACTIVITY_EVENTS) {
       window.addEventListener(event, onActivity, { passive: true });
     }
+
+    // Scroll does not bubble; capture on document to detect nested scroll containers.
+    document.addEventListener("scroll", onActivity, { passive: true, capture: true });
 
     const intervalId = window.setInterval(checkInactivity, CHECK_INTERVAL_MS);
     const onVisibilityChange = () => {
@@ -64,16 +87,18 @@ export function InactivityLogout() {
 
     document.addEventListener("visibilitychange", onVisibilityChange);
     window.addEventListener("storage", onStorage);
+    checkInactivity();
 
     return () => {
-      for (const event of ACTIVITY_EVENTS) {
+      for (const event of WINDOW_ACTIVITY_EVENTS) {
         window.removeEventListener(event, onActivity);
       }
+      document.removeEventListener("scroll", onActivity, { capture: true });
       window.clearInterval(intervalId);
       document.removeEventListener("visibilitychange", onVisibilityChange);
       window.removeEventListener("storage", onStorage);
     };
-  }, [isSignedIn, loaded, signOut]);
+  }, [isSignedIn, loaded]);
 
   return null;
 }
