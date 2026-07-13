@@ -3,6 +3,7 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { updateProposal } from "@/lib/actions/proposals";
+import { uploadProposalDeckClient } from "@/lib/blob/client-upload";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -11,7 +12,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { EntitySelect } from "@/components/platform/entity-select";
 import { ApproverSelect, type ApproverOption } from "@/components/proposals/approver-select";
-import { ALLOWED_UPLOAD_ACCEPT } from "@/lib/upload-limits";
+import { ALLOWED_UPLOAD_ACCEPT, MAX_UPLOAD_LABEL } from "@/lib/upload-limits";
 
 type ProposalRecord = {
   id: string;
@@ -26,6 +27,14 @@ type ProposalRecord = {
   approvers: { userId: string }[];
   documents: { documentType: string; fileName: string }[];
 };
+
+function mapSubmitError(err: unknown) {
+  if (!(err instanceof Error)) return "Failed to update proposal.";
+  if (/failed to fetch/i.test(err.message)) {
+    return "Upload failed. Large decks must upload directly — please try again, or use a file under " + MAX_UPLOAD_LABEL + ".";
+  }
+  return err.message;
+}
 
 export function EditProposalForm({
   proposal,
@@ -44,6 +53,7 @@ export function EditProposalForm({
   const [entityId, setEntityId] = useState(proposal.entityId ?? "none");
   const [currency, setCurrency] = useState(proposal.currency);
   const [approverIds, setApproverIds] = useState(proposal.approvers.map((a) => a.userId));
+  const [deckFile, setDeckFile] = useState<File | null>(null);
   const hasDeck = proposal.documents.some((d) => d.documentType === "DECK");
 
   const [submitNow, setSubmitNow] = useState(false);
@@ -55,15 +65,27 @@ export function EditProposalForm({
     formData.set("entityId", entityId);
     formData.set("currency", currency);
     formData.set("submitNow", submitNow ? "true" : "false");
+    formData.delete("deckFiles");
+    formData.delete("deckFileUrl");
+    formData.delete("deckFileName");
+    formData.delete("deckMimeType");
+    formData.delete("deckFileSize");
     approverIds.forEach((id) => formData.append("approverIds", id));
 
     startTransition(async () => {
       try {
+        if (deckFile) {
+          const uploaded = await uploadProposalDeckClient(deckFile, currentUserId);
+          formData.set("deckFileUrl", uploaded.fileUrl);
+          formData.set("deckFileName", uploaded.fileName);
+          formData.set("deckMimeType", uploaded.mimeType);
+          formData.set("deckFileSize", String(uploaded.fileSize));
+        }
         await updateProposal(proposal.id, formData);
         router.push("/proposals/" + proposal.id);
         router.refresh();
       } catch (err) {
-        setError(err instanceof Error ? err.message : "Failed to update proposal.");
+        setError(mapSubmitError(err));
       }
     });
   }
@@ -131,11 +153,16 @@ export function EditProposalForm({
           </div>
           <div className="space-y-2 md:col-span-2">
             <Label htmlFor="deckFiles">Investment Deck</Label>
-            <Input id="deckFiles" name="deckFiles" type="file" accept={ALLOWED_UPLOAD_ACCEPT} />
+            <Input
+              id="deckFiles"
+              type="file"
+              accept={ALLOWED_UPLOAD_ACCEPT}
+              onChange={(e) => setDeckFile(e.target.files?.[0] ?? null)}
+            />
             <p className="text-xs text-muted-foreground">
               {hasDeck
-                ? "Upload a new file to replace the current deck. Required when submitting."
-                : "Required when submitting for approval."}
+                ? `Upload a new file to replace the current deck (max ${MAX_UPLOAD_LABEL}). Required when submitting.`
+                : `Required when submitting for approval (max ${MAX_UPLOAD_LABEL}).`}
             </p>
           </div>
           <ApproverSelect

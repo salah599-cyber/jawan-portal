@@ -11,7 +11,9 @@ const contentSecurityPolicy = [
   "style-src 'self' 'unsafe-inline'",
   "img-src 'self' https://img.clerk.com data: blob:",
   "font-src 'self' data:",
-  "connect-src 'self' " + clerkOrigin + " https://*.clerk.services",
+  "connect-src 'self' " +
+    clerkOrigin +
+    " https://*.clerk.services https://*.blob.vercel-storage.com https://vercel.com",
   `frame-src ${clerkOrigin} https://challenges.cloudflare.com`,
   "worker-src 'self' blob:",
   "base-uri 'self'",
