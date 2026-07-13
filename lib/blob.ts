@@ -71,6 +71,24 @@ export function buildUploadPathname(segments: (string | number)[], originalName:
   return [...safeSegments, unique + "-" + sanitizeFileName(originalName)].join("/");
 }
 
+const PRIVATE_STORE_REQUIRED_MESSAGE =
+  "Document uploads require a private Vercel Blob store. The current store is public — create a private Blob store in the Vercel dashboard (Storage → Blob → Private) and update BLOB_READ_WRITE_TOKEN.";
+
+function isPrivateBlobUrl(url: string): boolean {
+  return url.includes(".private.blob.vercel-storage.com");
+}
+
+function mapBlobUploadError(error: unknown): Error {
+  const message = error instanceof Error ? error.message : String(error);
+  if (/Cannot use private access on a public store/i.test(message)) {
+    return new Error(PRIVATE_STORE_REQUIRED_MESSAGE);
+  }
+  if (/BLOB_READ_WRITE_TOKEN/i.test(message) || /not configured/i.test(message)) {
+    return error instanceof Error ? error : new Error(message);
+  }
+  return error instanceof Error ? error : new Error(message);
+}
+
 /**
  * Uploads a file to private Vercel Blob storage after validating it. Private blobs are
  * never directly reachable by URL — they must be fetched server-side via `fetchPrivateBlob`
@@ -84,12 +102,17 @@ export async function uploadPrivateFile(
   const token = getBlobToken();
   const pathname = buildUploadPathname(segments, file.name);
 
-  const blob = await put(pathname, file, {
-    access: "private",
-    token,
-    contentType: file.type || undefined,
-    addRandomSuffix: false,
-  });
+  let blob;
+  try {
+    blob = await put(pathname, file, {
+      access: "private",
+      token,
+      contentType: file.type || undefined,
+      addRandomSuffix: false,
+    });
+  } catch (error) {
+    throw mapBlobUploadError(error);
+  }
 
   return {
     fileUrl: blob.url,
@@ -100,12 +123,33 @@ export async function uploadPrivateFile(
 }
 
 /**
- * Fetches a private blob's content stream. Callers must have already authorized the
- * request against the resource that owns `url` before calling this.
+ * Fetches a blob's content stream. Prefer private SDK access; fall back to a direct
+ * fetch for legacy public-store URLs created before the private-blob migration.
+ * Callers must have already authorized the request against the owning resource.
  */
 export async function fetchPrivateBlob(url: string) {
   const token = getBlobToken();
-  return get(url, { access: "private", token });
+
+  if (isPrivateBlobUrl(url)) {
+    return get(url, { access: "private", token });
+  }
+
+  try {
+    return await get(url, { access: "private", token });
+  } catch {
+    // Legacy public blobs remain reachable without auth.
+    const response = await fetch(url);
+    if (!response.ok || !response.body) {
+      return {
+        statusCode: response.status,
+        stream: null,
+      };
+    }
+    return {
+      statusCode: response.status,
+      stream: response.body,
+    };
+  }
 }
 
 export async function deleteBlobUrl(url: string) {
