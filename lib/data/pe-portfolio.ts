@@ -4,7 +4,11 @@ import { ensureDefaultEntity, listEntities } from "@/lib/data/entities";
 import type { PeCompanyStatus } from "@/lib/generated/prisma/client";
 import { peCompanyEntityFilter } from "@/lib/permissions/scoped-queries";
 import type { UserContext } from "@/lib/permissions/types";
-import { sumDecimals, toNumber } from "@/lib/pe/helpers";
+import { toNumber } from "@/lib/pe/helpers";
+import {
+  aggregatePePortfolioMoic,
+  computePeCompanyMetrics,
+} from "@/lib/pe/metrics";
 
 export type PeCompanyListRow = {
   id: string;
@@ -21,6 +25,9 @@ export type PeCompanyListRow = {
   totalInvested: number;
   latestFairValue: number | null;
   totalDistributed: number;
+  totalValue: number;
+  moic: number | null;
+  netIrr: number | null;
   investmentCount: number;
   updatedAt: Date;
 };
@@ -35,6 +42,7 @@ export type PePortfolioSummary = {
   totalFairValue: number;
   totalDistributed: number;
   unrealisedGain: number;
+  portfolioMoic: number | null;
   lastUpdated: Date | null;
 };
 
@@ -100,33 +108,71 @@ export async function listPeCompanies(
     where,
     include: {
       entity: { select: { name: true } },
-      investments: { select: { amountReporting: true } },
-      valuations: { orderBy: { valuationDate: "desc" }, take: 1, select: { stakeFairValueReporting: true } },
-      distributions: { select: { amountReporting: true } },
+      investments: {
+        select: { amountReporting: true, investmentDate: true },
+        orderBy: { investmentDate: "asc" },
+      },
+      valuations: {
+        orderBy: { valuationDate: "desc" },
+        take: 1,
+        select: { stakeFairValueReporting: true, valuationDate: true },
+      },
+      distributions: {
+        select: { amountReporting: true, distributionDate: true },
+        orderBy: { distributionDate: "asc" },
+      },
+      exit: {
+        select: { exitProceedsReporting: true, exitDate: true },
+      },
     },
     orderBy: { updatedAt: "desc" },
   });
 
-  return companies.map((company) => ({
-    id: company.id,
-    name: company.name,
-    tradingName: company.tradingName,
-    country: company.country,
-    sector: company.sector,
-    stage: company.stage,
-    status: company.status,
-    reportingCurrency: company.reportingCurrency,
-    entityId: company.entityId,
-    entityName: company.entity.name,
-    assetId: company.assetId,
-    totalInvested: sumDecimals(company.investments.map((i) => i.amountReporting)),
-    latestFairValue: company.valuations[0]
+  return companies.map((company) => {
+    const latestFairValue = company.valuations[0]
       ? toNumber(company.valuations[0].stakeFairValueReporting)
-      : null,
-    totalDistributed: sumDecimals(company.distributions.map((d) => d.amountReporting)),
-    investmentCount: company.investments.length,
-    updatedAt: company.updatedAt,
-  }));
+      : null;
+    const metrics = computePeCompanyMetrics({
+      investments: company.investments
+        .filter((row) => row.amountReporting != null)
+        .map((row) => ({
+          date: row.investmentDate,
+          amount: row.amountReporting!,
+        })),
+      distributions: company.distributions.map((row) => ({
+        date: row.distributionDate,
+        amount: row.amountReporting,
+      })),
+      latestFairValue,
+      latestValuationDate: company.valuations[0]?.valuationDate ?? null,
+      exitProceeds: company.exit?.exitProceedsReporting
+        ? toNumber(company.exit.exitProceedsReporting)
+        : null,
+      exitDate: company.exit?.exitDate ?? null,
+    });
+
+    return {
+      id: company.id,
+      name: company.name,
+      tradingName: company.tradingName,
+      country: company.country,
+      sector: company.sector,
+      stage: company.stage,
+      status: company.status,
+      reportingCurrency: company.reportingCurrency,
+      entityId: company.entityId,
+      entityName: company.entity.name,
+      assetId: company.assetId,
+      totalInvested: metrics.totalInvested,
+      latestFairValue,
+      totalDistributed: metrics.totalDistributed,
+      totalValue: metrics.totalValue,
+      moic: metrics.moic,
+      netIrr: metrics.netIrr,
+      investmentCount: company.investments.length,
+      updatedAt: company.updatedAt,
+    };
+  });
 }
 
 export async function getPePortfolioSummary(
@@ -151,6 +197,7 @@ export async function getPePortfolioSummary(
       totalFairValue: 0,
       totalDistributed: 0,
       unrealisedGain: 0,
+      portfolioMoic: null,
       lastUpdated: null,
     };
   }
@@ -179,6 +226,16 @@ export async function getPePortfolioSummary(
     totalFairValue,
     totalDistributed,
     unrealisedGain: totalFairValue - totalInvested,
+    portfolioMoic: aggregatePePortfolioMoic(
+      companies.map((company) => ({
+        totalInvested: company.totalInvested,
+        totalDistributed: company.totalDistributed,
+        carryingValue: company.latestFairValue ?? company.totalInvested,
+        totalValue: company.totalValue,
+        moic: company.moic,
+        netIrr: company.netIrr,
+      })),
+    ),
     lastUpdated,
   };
 }

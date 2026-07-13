@@ -1,5 +1,6 @@
 import { formatDate, formatMoney } from "@/lib/format";
 import type { PePortfolioSummary } from "@/lib/data/pe-portfolio";
+import { formatMultiple } from "@/lib/pe/metrics";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
 function SummaryMetric({
@@ -48,14 +49,18 @@ export function PePortfolioSummaryCards({ summary }: { summary: PePortfolioSumma
         detail={`${summary.entityName} · ${summary.activeCount} active`}
       />
       <SummaryMetric
-        label="Unrealised Gain"
-        value={formatMoney(summary.unrealisedGain, currency)}
-        detail={`${summary.totalDistributed > 0 ? formatMoney(summary.totalDistributed, currency) + " distributed" : "No distributions yet"}`}
+        label="Portfolio MOIC"
+        value={formatMultiple(summary.portfolioMoic) ?? "—"}
+        detail={
+          summary.totalDistributed > 0
+            ? `${formatMoney(summary.totalDistributed, currency)} distributed`
+            : "No distributions yet"
+        }
       />
       <SummaryMetric
         label="Portfolio Companies"
         value={summary.companyCount.toString()}
-        detail={`${summary.activeCount} active · ${summary.companyCount - summary.activeCount} exited / written off`}
+        detail={`${summary.activeCount} active · ${summary.companyCount - summary.activeCount} other`}
       />
     </div>
   );

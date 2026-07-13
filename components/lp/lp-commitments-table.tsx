@@ -37,7 +37,9 @@ export function LpCommitmentsTable({
           <TableHead>Committed</TableHead>
           <TableHead>Paid-In</TableHead>
           <TableHead>NAV</TableHead>
+          <TableHead>DPI</TableHead>
           <TableHead>TVPI</TableHead>
+          <TableHead>Net IRR</TableHead>
           <TableHead>Status</TableHead>
           <TableHead>Updated</TableHead>
           {canEdit ? <TableHead className="w-[60px]">Actions</TableHead> : null}
@@ -64,7 +66,11 @@ export function LpCommitmentsTable({
                 ? formatMoney(row.latestNav, row.commitmentCurrency)
                 : "—"}
             </TableCell>
+            <TableCell>{formatMultiple(row.dpi)}</TableCell>
             <TableCell>{formatMultiple(row.tvpi)}</TableCell>
+            <TableCell>
+              {row.netIrr != null ? `${(row.netIrr * 100).toFixed(1)}%` : "—"}
+            </TableCell>
             <TableCell>
               <Badge variant="secondary">
                 {LP_COMMITMENT_STATUS_LABELS[row.status] ?? row.status}

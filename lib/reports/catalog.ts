@@ -2,6 +2,16 @@ import type { ReportDefinition } from "@/lib/reports/types";
 
 export const REPORT_CATALOG: ReportDefinition[] = [
   {
+    id: "board-pack",
+    title: "Monthly Board Pack",
+    description:
+      "Executive summary: net worth, allocation, performance, PE MOIC/IRR, LP multiples, and cash.",
+    category: "balance-sheet",
+    requiredModules: ["ASSETS"],
+    supportsEntityFilter: true,
+    supportsDateRange: false,
+  },
+  {
     id: "net-worth",
     title: "Net Worth Statement",
     description: "Portfolio value, liabilities, and net worth by currency.",
@@ -76,7 +86,7 @@ export const REPORT_CATALOG: ReportDefinition[] = [
   {
     id: "pe-portfolio",
     title: "PE / VC Portfolio Summary",
-    description: "Private equity companies with invested capital, fair value, and distributions.",
+    description: "Private equity companies with invested capital, fair value, MOIC, and net IRR.",
     category: "portfolio",
     requiredModules: ["PRIVATE_EQUITY"],
     supportsEntityFilter: true,
@@ -85,7 +95,8 @@ export const REPORT_CATALOG: ReportDefinition[] = [
   {
     id: "lp-fund-portfolio",
     title: "Fund LP Portfolio Summary",
-    description: "LP fund commitments with paid-in capital, NAV, multiples, and unfunded balances.",
+    description:
+      "LP fund commitments with paid-in capital, NAV, DPI/RVPI/TVPI, net IRR, and unfunded balances.",
     category: "portfolio",
     requiredModules: ["FUND_LP"],
     supportsEntityFilter: true,

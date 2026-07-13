@@ -1,6 +1,7 @@
 import type { ModuleName } from "@/lib/permissions/types";
 
 export type ReportId =
+  | "board-pack"
   | "net-worth"
   | "consolidated-omr"
   | "asset-register"
@@ -73,6 +74,13 @@ export type ReportColumn = {
   align?: "left" | "right";
 };
 
+export type ReportSection = {
+  title: string;
+  metrics?: ReportMetric[];
+  columns: ReportColumn[];
+  rows: Record<string, string | number | null>[];
+};
+
 export type ReportResult = {
   reportId: ReportId;
   title: string;
@@ -82,6 +90,7 @@ export type ReportResult = {
   metrics: ReportMetric[];
   columns: ReportColumn[];
   rows: Record<string, string | number | null>[];
+  sections?: ReportSection[];
   footnotes: string[];
 };
 

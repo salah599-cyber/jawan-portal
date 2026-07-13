@@ -35,7 +35,9 @@ export function InactivityLogout() {
   const signingOut = useRef(false);
   const wasSignedIn = useRef(false);
 
-  signOutRef.current = signOut;
+  useEffect(() => {
+    signOutRef.current = signOut;
+  }, [signOut]);
 
   useEffect(() => {
     if (!loaded) return;

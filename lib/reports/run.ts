@@ -4,6 +4,7 @@ import {
   buildAssetAllocationReport,
   buildAssetRegisterReport,
   buildBankAccountsReport,
+  buildBoardPackReport,
   buildCashBalancesReport,
   buildCashPositionReport,
   buildChequesReport,
@@ -46,6 +47,7 @@ const BUILDERS: Record<
   ReportId,
   (ctx: UserContext, params: ReportParams) => Promise<ReportResult>
 > = {
+  "board-pack": buildBoardPackReport,
   "net-worth": buildNetWorthReport,
   "consolidated-omr": buildConsolidatedOmrReport,
   "asset-register": buildAssetRegisterReport,

@@ -1,6 +1,24 @@
 import * as XLSX from "xlsx";
 import type { ReportResult } from "@/lib/reports/types";
 
+function appendSectionSheet(
+  workbook: XLSX.WorkBook,
+  name: string,
+  columns: { key: string; label: string }[],
+  rows: Record<string, string | number | null>[],
+) {
+  const tableRows = rows.map((row) => {
+    const mapped: Record<string, string | number | null> = {};
+    for (const column of columns) {
+      mapped[column.label] = row[column.key] ?? null;
+    }
+    return mapped;
+  });
+  const worksheet = XLSX.utils.json_to_sheet(tableRows.length > 0 ? tableRows : [{}]);
+  const safeName = name.replace(/[\\/?*[\]]/g, " ").slice(0, 31) || "Sheet";
+  XLSX.utils.book_append_sheet(workbook, worksheet, safeName);
+}
+
 export function reportToWorkbook(result: ReportResult): Buffer {
   const rows: Record<string, string | number | null>[] = [];
 
@@ -29,6 +47,13 @@ export function reportToWorkbook(result: ReportResult): Buffer {
   const worksheet = XLSX.utils.json_to_sheet(rows);
   const workbook = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(workbook, worksheet, "Report");
+
+  if (result.sections?.length) {
+    for (const section of result.sections) {
+      appendSectionSheet(workbook, section.title, section.columns, section.rows);
+    }
+  }
+
   return XLSX.write(workbook, { type: "buffer", bookType: "xlsx" }) as Buffer;
 }
 
@@ -44,6 +69,25 @@ export function reportToCsv(result: ReportResult): string {
       return text.includes(",") || text.includes('"') ? `"${text.replace(/"/g, '""')}"` : text;
     });
     lines.push(values.join(","));
+  }
+
+  if (result.sections?.length) {
+    for (const section of result.sections) {
+      lines.push("");
+      lines.push(section.title);
+      lines.push(section.columns.map((column) => column.label).join(","));
+      for (const row of section.rows) {
+        const values = section.columns.map((column) => {
+          const value = row[column.key];
+          if (value == null) return "";
+          const text = String(value);
+          return text.includes(",") || text.includes('"')
+            ? `"${text.replace(/"/g, '""')}"`
+            : text;
+        });
+        lines.push(values.join(","));
+      }
+    }
   }
 
   return lines.join("\n");
