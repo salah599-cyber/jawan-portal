@@ -1,6 +1,12 @@
-import { describe, expect, it } from "vitest";
-import { assertValidUploadFile, buildUploadPathname, sanitizeFileName } from "@/lib/blob";
+import { describe, expect, it, vi } from "vitest";
+import { assertValidUploadFile, buildUploadPathname, sanitizeFileName, uploadPrivateFile } from "@/lib/blob";
 import { MAX_UPLOAD_BYTES } from "@/lib/upload-limits";
+
+vi.mock("@vercel/blob", () => ({
+  put: vi.fn(),
+  get: vi.fn(),
+  del: vi.fn(),
+}));
 
 function makeFile(name: string, sizeBytes: number, type = "application/pdf"): File {
   return new File([new Uint8Array(Math.max(0, sizeBytes))], name, { type });
@@ -66,5 +72,19 @@ describe("assertValidUploadFile", () => {
 
   it("does not throw for a valid, allowed file", () => {
     expect(() => assertValidUploadFile(makeFile("statement.pdf", 1024))).not.toThrow();
+  });
+});
+
+describe("uploadPrivateFile", () => {
+  it("maps public-store mismatch errors to a clear configuration message", async () => {
+    const { put } = await import("@vercel/blob");
+    vi.mocked(put).mockRejectedValueOnce(
+      new Error("Vercel Blob: Cannot use private access on a public store. The store must be configured with private access."),
+    );
+    process.env.BLOB_READ_WRITE_TOKEN = "vercel_blob_rw_test_token";
+
+    await expect(uploadPrivateFile(["cars", "id"], makeFile("mulkia.pdf", 1024))).rejects.toThrow(
+      /private Vercel Blob store/i,
+    );
   });
 });
