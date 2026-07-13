@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { db } from "@/lib/db";
 import { deleteBlobUrl, uploadPrivateFile } from "@/lib/blob";
+import { assertOwnedPendingProposalDeckUrl } from "@/lib/blob/client-upload-shared";
 import { logAudit } from "@/lib/audit/log";
 import { canWrite, getModulePermission, requireModuleAccess, requireUserContext } from "@/lib/permissions/access";
 import { proposalEntityFilter } from "@/lib/permissions/scoped-queries";
@@ -10,6 +11,13 @@ import { assertCanViewProposal } from "@/lib/proposals/access";
 import { evaluateMajorityOutcome } from "@/lib/proposals/approval";
 import { canSubmitProposal } from "@/lib/proposals/submit-access";
 import type { ProposalCommentKind, ProposalDecision, ProposalStatus } from "@/lib/generated/prisma/client";
+
+type ClientUploadedDeck = {
+  fileUrl: string;
+  fileName: string;
+  mimeType: string;
+  fileSize: number;
+};
 
 function parseDecimal(value?: string | null) {
   if (!value || value.trim() === "") return undefined;
@@ -77,21 +85,65 @@ async function syncApprovers(proposalId: string, approverIds: string[], submitte
   return uniqueIds.length;
 }
 
+function readClientUploadedDeck(formData: FormData): ClientUploadedDeck | null {
+  const fileUrl = String(formData.get("deckFileUrl") ?? "").trim();
+  if (!fileUrl) return null;
+
+  const fileName = String(formData.get("deckFileName") ?? "").trim();
+  const mimeType = String(formData.get("deckMimeType") ?? "").trim() || "application/octet-stream";
+  const fileSize = Number.parseInt(String(formData.get("deckFileSize") ?? ""), 10);
+
+  if (!fileName || !Number.isFinite(fileSize) || fileSize <= 0) {
+    throw new Error("Invalid deck upload metadata.");
+  }
+
+  return { fileUrl, fileName, mimeType, fileSize };
+}
+
+async function clearExistingDecks(proposalId: string) {
+  const existing = await db.proposalDocument.findMany({
+    where: { proposalId, documentType: "DECK" },
+  });
+  for (const doc of existing) {
+    await deleteBlobUrl(doc.fileUrl);
+  }
+  await db.proposalDocument.deleteMany({ where: { proposalId, documentType: "DECK" } });
+}
+
+async function attachClientUploadedDeck(
+  proposalId: string,
+  deck: ClientUploadedDeck,
+  uploadedById: string,
+  replaceExisting = false,
+) {
+  assertOwnedPendingProposalDeckUrl(deck.fileUrl, uploadedById);
+  if (replaceExisting) await clearExistingDecks(proposalId);
+
+  try {
+    await db.proposalDocument.create({
+      data: {
+        proposalId,
+        documentType: "DECK",
+        fileName: deck.fileName,
+        fileUrl: deck.fileUrl,
+        mimeType: deck.mimeType,
+        fileSize: deck.fileSize,
+        uploadedById,
+      },
+    });
+  } catch (error) {
+    await deleteBlobUrl(deck.fileUrl);
+    throw error;
+  }
+}
+
 async function uploadDeckFiles(
   proposalId: string,
   files: File[],
   uploadedById: string,
   replaceExisting = false,
 ) {
-  if (replaceExisting) {
-    const existing = await db.proposalDocument.findMany({
-      where: { proposalId, documentType: "DECK" },
-    });
-    for (const doc of existing) {
-      await deleteBlobUrl(doc.fileUrl);
-    }
-    await db.proposalDocument.deleteMany({ where: { proposalId, documentType: "DECK" } });
-  }
+  if (replaceExisting) await clearExistingDecks(proposalId);
 
   for (const file of files) {
     const uploaded = await uploadPrivateFile(["proposals", proposalId, "deck"], file);
@@ -242,12 +294,13 @@ export async function createProposal(formData: FormData) {
   const fields = readProposalFields(formData);
   const submitNow = String(formData.get("submitNow") ?? "") === "true";
   const approverIds = parseApproverIds(formData);
+  const clientDeck = readClientUploadedDeck(formData);
   const deckFiles = getFilesFromFormData(formData, "deckFiles");
 
   if (submitNow && approverIds.length === 0) {
     throw new Error("Select at least one approver before submitting.");
   }
-  if (submitNow && deckFiles.length === 0) {
+  if (submitNow && !clientDeck && deckFiles.length === 0) {
     throw new Error("An investment deck is required before submitting.");
   }
 
@@ -264,7 +317,9 @@ export async function createProposal(formData: FormData) {
     await syncApprovers(proposal.id, approverIds, ctx.id);
   }
 
-  if (deckFiles.length > 0) {
+  if (clientDeck) {
+    await attachClientUploadedDeck(proposal.id, clientDeck, ctx.id);
+  } else if (deckFiles.length > 0) {
     await uploadDeckFiles(proposal.id, deckFiles, ctx.id);
   }
 
@@ -288,7 +343,7 @@ export async function createProposal(formData: FormData) {
 
   revalidatePath("/proposals");
   revalidatePath("/dashboard");
-  return proposal;
+  return { id: proposal.id };
 }
 
 export async function updateProposal(id: string, formData: FormData) {
@@ -309,6 +364,7 @@ export async function updateProposal(id: string, formData: FormData) {
   const fields = readProposalFields(formData);
   const submitNow = String(formData.get("submitNow") ?? "") === "true";
   const approverIds = parseApproverIds(formData);
+  const clientDeck = readClientUploadedDeck(formData);
   const deckFiles = getFilesFromFormData(formData, "deckFiles");
 
   const updated = await db.investmentProposal.update({
@@ -325,7 +381,9 @@ export async function updateProposal(id: string, formData: FormData) {
     await syncApprovers(id, approverIds, ctx.id);
   }
 
-  if (deckFiles.length > 0) {
+  if (clientDeck) {
+    await attachClientUploadedDeck(id, clientDeck, ctx.id, true);
+  } else if (deckFiles.length > 0) {
     await uploadDeckFiles(id, deckFiles, ctx.id, true);
   }
 
