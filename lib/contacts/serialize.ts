@@ -1,4 +1,5 @@
 import { formatTags, isFollowUpOverdue } from "@/lib/contacts/helpers";
+import { formatPhoneDisplay } from "@/lib/contacts/phone-helpers";
 import type { DirectoryContactDetail } from "@/lib/actions/contacts";
 
 export type SerializedDirectoryContact = {
@@ -10,6 +11,15 @@ export type SerializedDirectoryContact = {
   email: string | null;
   phonePrimary: string | null;
   phoneSecondary: string | null;
+  emails: Array<{ id: string; email: string; label: string | null; sortOrder: number }>;
+  phones: Array<{
+    id: string;
+    countryCode: string;
+    phone: string;
+    label: string | null;
+    sortOrder: number;
+    display: string;
+  }>;
   address: string | null;
   city: string | null;
   country: string | null;
@@ -38,6 +48,20 @@ export function serializeDirectoryContact(
     email: contact.email,
     phonePrimary: contact.phonePrimary,
     phoneSecondary: contact.phoneSecondary,
+    emails: contact.emails.map((row) => ({
+      id: row.id,
+      email: row.email,
+      label: row.label,
+      sortOrder: row.sortOrder,
+    })),
+    phones: contact.phones.map((row) => ({
+      id: row.id,
+      countryCode: row.countryCode,
+      phone: row.phone,
+      label: row.label,
+      sortOrder: row.sortOrder,
+      display: formatPhoneDisplay(row.countryCode, row.phone),
+    })),
     address: contact.address,
     city: contact.city,
     country: contact.country,

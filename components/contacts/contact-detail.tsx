@@ -35,9 +35,26 @@ export function ContactDetail({ contact }: { contact: SerializedDirectoryContact
             }
           />
           <PeDetailField label="Entity" value={contact.entityName ?? "Global"} />
-          <PeDetailField label="Email" value={contact.email} />
-          <PeDetailField label="Primary Phone" value={contact.phonePrimary} />
-          <PeDetailField label="Secondary Phone" value={contact.phoneSecondary} />
+          <PeDetailField
+            label="Emails"
+            value={
+              contact.emails.length > 0
+                ? contact.emails
+                    .map((row) => (row.label ? `${row.email} · ${row.label}` : row.email))
+                    .join(", ")
+                : contact.email
+            }
+          />
+          <PeDetailField
+            label="Phones"
+            value={
+              contact.phones.length > 0
+                ? contact.phones
+                    .map((row) => (row.label ? `${row.display} · ${row.label}` : row.display))
+                    .join(", ")
+                : [contact.phonePrimary, contact.phoneSecondary].filter(Boolean).join(", ") || null
+            }
+          />
           <PeDetailField label="Website" value={contact.website} />
           {contact.tags.length > 0 ? (
             <div className="sm:col-span-2">
