@@ -5,9 +5,12 @@ require("./load-env.cjs");
 
 const { Client } = require("pg");
 
-const LP_FUND_SCHEMA_STATEMENTS = [
+const LP_FUND_ENUM_STATEMENTS = [
   `ALTER TYPE "ModuleName" ADD VALUE IF NOT EXISTS 'FUND_LP'`,
   `ALTER TYPE "AssetCategory" ADD VALUE IF NOT EXISTS 'FUND_LP'`,
+];
+
+const LP_FUND_TABLE_STATEMENTS = [
   `CREATE TYPE "LpFundStrategy" AS ENUM ('BUYOUT', 'VENTURE', 'GROWTH', 'REAL_ASSETS', 'CREDIT', 'FUND_OF_FUNDS', 'OTHER')`,
   `CREATE TYPE "LpFundStatus" AS ENUM ('ACTIVE', 'FULLY_INVESTED', 'HARVESTING', 'LIQUIDATED')`,
   `CREATE TYPE "LpCommitmentStatus" AS ENUM ('ACTIVE', 'FULLY_CALLED', 'HARVESTING', 'CLOSED', 'WRITTEN_OFF')`,
@@ -169,12 +172,22 @@ async function main() {
   await client.connect();
 
   try {
+    for (const statement of LP_FUND_ENUM_STATEMENTS) {
+      try {
+        await client.query(statement);
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        if (isIgnorableSchemaError(message)) continue;
+        throw error;
+      }
+    }
+
     if (await tableExists(client, "LpCommitment")) {
-      console.log("LP fund schema already present; nothing to do.");
+      console.log("LP fund schema already present; enum values ensured.");
       return;
     }
 
-    for (const statement of LP_FUND_SCHEMA_STATEMENTS) {
+    for (const statement of LP_FUND_TABLE_STATEMENTS) {
       try {
         await client.query(statement);
       } catch (error) {

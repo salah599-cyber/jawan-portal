@@ -1,6 +1,9 @@
-export const LP_FUND_SCHEMA_STATEMENTS = [
+export const LP_FUND_ENUM_STATEMENTS = [
   `ALTER TYPE "ModuleName" ADD VALUE IF NOT EXISTS 'FUND_LP'`,
   `ALTER TYPE "AssetCategory" ADD VALUE IF NOT EXISTS 'FUND_LP'`,
+] as const;
+
+export const LP_FUND_TABLE_STATEMENTS = [
   `CREATE TYPE "LpFundStrategy" AS ENUM ('BUYOUT', 'VENTURE', 'GROWTH', 'REAL_ASSETS', 'CREDIT', 'FUND_OF_FUNDS', 'OTHER')`,
   `CREATE TYPE "LpFundStatus" AS ENUM ('ACTIVE', 'FULLY_INVESTED', 'HARVESTING', 'LIQUIDATED')`,
   `CREATE TYPE "LpCommitmentStatus" AS ENUM ('ACTIVE', 'FULLY_CALLED', 'HARVESTING', 'CLOSED', 'WRITTEN_OFF')`,
@@ -119,7 +122,12 @@ export const LP_FUND_SCHEMA_STATEMENTS = [
   )`,
   `CREATE INDEX IF NOT EXISTS "LpFundDocument_fundId_documentType_idx" ON "LpFundDocument" ("fundId", "documentType")`,
   `CREATE INDEX IF NOT EXISTS "LpFundDocument_commitmentId_documentType_idx" ON "LpFundDocument" ("commitmentId", "documentType")`,
-];
+] as const;
+
+export const LP_FUND_SCHEMA_STATEMENTS = [
+  ...LP_FUND_ENUM_STATEMENTS,
+  ...LP_FUND_TABLE_STATEMENTS,
+] as const;
 
 export function isIgnorableLpFundSchemaError(message: string) {
   return (
@@ -129,3 +137,11 @@ export function isIgnorableLpFundSchemaError(message: string) {
     message.includes("IF NOT EXISTS")
   );
 }
+
+export const LP_FUND_SCHEMA_TABLE_CHECK_SQL = `
+  SELECT EXISTS (
+    SELECT 1
+    FROM pg_tables
+    WHERE schemaname = 'public' AND tablename = 'LpCommitment'
+  ) AS "exists"
+`;

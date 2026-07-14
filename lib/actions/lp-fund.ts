@@ -1,7 +1,6 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { redirect } from "next/navigation";
 import { db } from "@/lib/db";
 import { ensureLpFundSchema } from "@/lib/db/ensure-lp-fund-schema";
 import { deleteBlobUrl, uploadPrivateFile } from "@/lib/blob";
@@ -187,7 +186,7 @@ export async function createLpCommitment(formData: FormData) {
   });
 
   revalidateLpCommitment(commitment.id);
-  redirect(`${LP_PATH}/${commitment.id}`);
+  return { id: commitment.id };
 }
 
 export async function updateLpCommitment(id: string, formData: FormData) {
@@ -281,7 +280,7 @@ export async function updateLpCommitment(id: string, formData: FormData) {
   });
 
   revalidateLpCommitment(id);
-  redirect(`${LP_PATH}/${id}`);
+  return { id };
 }
 
 export async function deleteLpCommitment(id: string) {
@@ -315,7 +314,6 @@ export async function deleteLpCommitment(id: string) {
   });
 
   revalidateLpCommitment(id);
-  redirect(LP_PATH);
 }
 
 export async function upsertLpCapitalCall(formData: FormData) {

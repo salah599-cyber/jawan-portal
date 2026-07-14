@@ -1,7 +1,7 @@
 "use client";
 
 import { useRef, useState, useTransition } from "react";
-import { isRedirectError } from "next/dist/client/components/redirect-error";
+import { useRouter } from "next/navigation";
 import { updateLpCommitment } from "@/lib/actions/lp-fund";
 import {
   LP_COMMITMENT_STATUS_LABELS,
@@ -20,6 +20,14 @@ import { EntitySelect, type EntityOption } from "@/components/platform/entity-se
 
 const CURRENCIES = ["USD", "EUR", "GBP", "CHF", "SGD", "AED", "SAR", "OMR"] as const;
 
+function mapSubmitError(err: unknown) {
+  if (!(err instanceof Error)) return "Failed to update commitment.";
+  if (/failed to fetch/i.test(err.message)) {
+    return "Could not save changes. Please check your connection and try again.";
+  }
+  return err.message;
+}
+
 export function EditLpCommitmentForm({
   commitment,
   entities,
@@ -27,6 +35,7 @@ export function EditLpCommitmentForm({
   commitment: LpCommitmentDetail;
   entities: EntityOption[];
 }) {
+  const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
   const [entityId, setEntityId] = useState(commitment.entityId);
@@ -52,10 +61,11 @@ export function EditLpCommitmentForm({
     startTransition(async () => {
       try {
         await updateLpCommitment(commitment.id, formData);
+        router.push(`/portfolio/fund-lp/${commitment.id}`);
+        router.refresh();
       } catch (err) {
-        if (isRedirectError(err)) throw err;
         submittingRef.current = false;
-        setError(err instanceof Error ? err.message : "Failed to update commitment.");
+        setError(mapSubmitError(err));
       }
     });
   }
