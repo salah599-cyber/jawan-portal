@@ -17,6 +17,7 @@ export type StatementAccountCandidate = {
   accountName: string;
   bankName: string;
   accountNumber: string;
+  accountNumbers?: Array<{ accountNumber: string; currency: string }>;
   iban: string | null;
   currency: string;
   entityId: string | null;

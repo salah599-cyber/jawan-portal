@@ -3,16 +3,11 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { createBankAccount } from "@/lib/actions/bank-accounts";
+import type { BankAccountNumberInput } from "@/lib/bank/account-numbers";
+import { BankAccountNumbersFields } from "@/components/bank/bank-account-numbers-fields";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { EntitySelect, type EntityOption } from "@/components/platform/entity-select";
@@ -22,9 +17,11 @@ export function CreateBankForm({ entities }: { entities: EntityOption[] }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
-  const [currency, setCurrency] = useState("OMR");
   const [entityId, setEntityId] = useState<string>("none");
   const [includeInCashPosition, setIncludeInCashPosition] = useState(false);
+  const [accounts, setAccounts] = useState<BankAccountNumberInput[]>([
+    { accountNumber: "", currency: "OMR", label: "" },
+  ]);
 
   function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -36,11 +33,10 @@ export function CreateBankForm({ entities }: { entities: EntityOption[] }) {
         const account = await createBankAccount({
           accountName: String(form.get("accountName") ?? ""),
           bankName: String(form.get("bankName") ?? ""),
-          accountNumber: String(form.get("accountNumber") ?? ""),
+          accounts,
           iban: String(form.get("iban") ?? ""),
           swiftCode: String(form.get("swiftCode") ?? ""),
           sortCode: String(form.get("sortCode") ?? ""),
-          currency,
           entityId: entityId === "none" ? undefined : entityId,
           notes: String(form.get("notes") ?? ""),
           includeInCashPosition,
@@ -62,18 +58,15 @@ export function CreateBankForm({ entities }: { entities: EntityOption[] }) {
         <form onSubmit={handleSubmit} className="grid gap-4 md:grid-cols-2">
           <div className="space-y-2">
             <Label htmlFor="accountName">Account Name</Label>
-            <Input id="accountName" name="accountName" required />
+            <Input id="accountName" name="accountName" required placeholder="e.g. Salah - NBO" />
           </div>
 
           <div className="space-y-2">
             <Label htmlFor="bankName">Bank Name</Label>
-            <Input id="bankName" name="bankName" required />
+            <Input id="bankName" name="bankName" required placeholder="e.g. National Bank of Oman" />
           </div>
 
-          <div className="space-y-2">
-            <Label htmlFor="accountNumber">Account Number</Label>
-            <Input id="accountNumber" name="accountNumber" required />
-          </div>
+          <BankAccountNumbersFields accounts={accounts} onChange={setAccounts} />
 
           <div className="space-y-2">
             <Label htmlFor="iban">IBAN</Label>
@@ -88,22 +81,6 @@ export function CreateBankForm({ entities }: { entities: EntityOption[] }) {
           <div className="space-y-2">
             <Label htmlFor="sortCode">Sort Code</Label>
             <Input id="sortCode" name="sortCode" />
-          </div>
-
-          <div className="space-y-2">
-            <Label>Currency</Label>
-            <Select value={currency} onValueChange={setCurrency}>
-              <SelectTrigger>
-                <SelectValue placeholder="Select currency" />
-              </SelectTrigger>
-              <SelectContent>
-                {["OMR", "USD", "EUR", "GBP", "AED"].map((c) => (
-                  <SelectItem key={c} value={c}>
-                    {c}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
           </div>
 
           <div className="space-y-2">

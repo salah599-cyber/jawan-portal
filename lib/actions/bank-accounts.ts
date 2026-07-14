@@ -3,6 +3,12 @@
 import { revalidatePath } from "next/cache";
 import { db } from "@/lib/db";
 import { logAudit } from "@/lib/audit/log";
+import {
+  requireBankAccountNumbers,
+  toLegacyBankAccountFields,
+  type BankAccountNumberInput,
+} from "@/lib/bank/account-numbers";
+import { ensureCashManagementSchema } from "@/lib/db/ensure-cash-management-schema";
 import { canAccess, canWrite, getModulePermission, requireModuleAccess } from "@/lib/permissions/access";
 import type { UserContext } from "@/lib/permissions/types";
 import { syncBankBalancesToCashAssets } from "@/lib/portfolio/cash-sync";
@@ -10,15 +16,37 @@ import { syncBankBalancesToCashAssets } from "@/lib/portfolio/cash-sync";
 export type CreateBankAccountInput = {
   accountName: string;
   bankName: string;
-  accountNumber: string;
+  accountNumber?: string;
+  accounts?: BankAccountNumberInput[];
   iban?: string;
   swiftCode?: string;
   sortCode?: string;
-  currency: string;
+  currency?: string;
   entityId?: string;
   notes?: string;
   includeInCashPosition?: boolean;
 };
+
+const bankAccountInclude = {
+  entity: true,
+  accountNumbers: { orderBy: { sortOrder: "asc" as const } },
+  cheques: {
+    where: { deletedAt: null },
+    select: {
+      id: true,
+      chequeNumber: true,
+      amount: true,
+      currency: true,
+      status: true,
+      direction: true,
+      payee: true,
+      issueDate: true,
+      dueDate: true,
+    },
+    orderBy: { issueDate: "desc" as const },
+    take: 25,
+  },
+} as const;
 
 function bankAccountFilter(ctx: UserContext) {
   const level = getModulePermission(ctx, "ASSETS");
@@ -34,11 +62,28 @@ async function syncCashIfNeeded(ctx: UserContext) {
   revalidatePath("/cash");
 }
 
+async function replaceBankAccountNumbers(bankAccountId: string, accounts: BankAccountNumberInput[]) {
+  await db.bankAccountNumber.deleteMany({ where: { bankAccountId } });
+  if (accounts.length === 0) return;
+
+  await db.bankAccountNumber.createMany({
+    data: accounts.map((account, index) => ({
+      bankAccountId,
+      accountNumber: account.accountNumber,
+      currency: account.currency?.trim() || "OMR",
+      label: account.label?.trim() || null,
+      sortOrder: index,
+    })),
+  });
+}
+
 export async function createBankAccount(input: CreateBankAccountInput) {
   const ctx = await requireModuleAccess("ASSETS");
   if (!canWrite(ctx, "ASSETS")) {
     throw new Error("You do not have permission to create bank accounts.");
   }
+
+  await ensureCashManagementSchema();
 
   if (
     input.entityId &&
@@ -48,20 +93,32 @@ export async function createBankAccount(input: CreateBankAccountInput) {
     throw new Error("You do not have access to this entity.");
   }
 
+  const accounts = requireBankAccountNumbers(input);
+  const legacy = toLegacyBankAccountFields(accounts);
+
   const account = await db.bankAccount.create({
     data: {
       accountName: input.accountName.trim(),
       bankName: input.bankName.trim(),
-      accountNumber: input.accountNumber.trim(),
+      accountNumber: legacy.accountNumber,
       iban: input.iban?.trim() || undefined,
       swiftCode: input.swiftCode?.trim() || undefined,
       sortCode: input.sortCode?.trim() || undefined,
-      currency: input.currency || "OMR",
+      currency: legacy.currency,
       entityId: input.entityId || undefined,
       notes: input.notes?.trim() || undefined,
       isActive: true,
       includeInCashPosition: input.includeInCashPosition ?? false,
+      accountNumbers: {
+        create: accounts.map((row, index) => ({
+          accountNumber: row.accountNumber,
+          currency: row.currency?.trim() || "OMR",
+          label: row.label?.trim() || null,
+          sortOrder: index,
+        })),
+      },
     },
+    include: bankAccountInclude,
   });
 
   await logAudit({
@@ -87,9 +144,13 @@ export async function createBankAccount(input: CreateBankAccountInput) {
 
 export async function listBankAccounts() {
   const ctx = await requireModuleAccess("ASSETS");
+  await ensureCashManagementSchema();
   return db.bankAccount.findMany({
     where: bankAccountFilter(ctx),
-    include: { entity: true },
+    include: {
+      entity: true,
+      accountNumbers: { orderBy: { sortOrder: "asc" } },
+    },
     orderBy: { updatedAt: "desc" },
   });
 }
@@ -99,6 +160,8 @@ export async function deleteBankAccount(id: string) {
   if (!canWrite(ctx, "ASSETS")) {
     throw new Error("You do not have permission to delete bank accounts.");
   }
+
+  await ensureCashManagementSchema();
 
   const account = await db.bankAccount.findFirst({
     where: { id, ...bankAccountFilter(ctx) },
@@ -124,27 +187,10 @@ export async function deleteBankAccount(id: string) {
 
 export async function getBankAccount(id: string) {
   const ctx = await requireModuleAccess("ASSETS");
+  await ensureCashManagementSchema();
   return db.bankAccount.findFirst({
     where: { id, ...bankAccountFilter(ctx) },
-    include: {
-      entity: true,
-      cheques: {
-        where: { deletedAt: null },
-        select: {
-          id: true,
-          chequeNumber: true,
-          amount: true,
-          currency: true,
-          status: true,
-          direction: true,
-          payee: true,
-          issueDate: true,
-          dueDate: true,
-        },
-        orderBy: { issueDate: "desc" },
-        take: 25,
-      },
-    },
+    include: bankAccountInclude,
   });
 }
 
@@ -153,6 +199,8 @@ export async function updateBankAccount(id: string, input: CreateBankAccountInpu
   if (!canWrite(ctx, "ASSETS")) {
     throw new Error("You do not have permission to update bank accounts.");
   }
+
+  await ensureCashManagementSchema();
 
   const account = await db.bankAccount.findFirst({
     where: { id, ...bankAccountFilter(ctx) },
@@ -167,24 +215,34 @@ export async function updateBankAccount(id: string, input: CreateBankAccountInpu
     throw new Error("You do not have access to this entity.");
   }
 
+  const accounts = requireBankAccountNumbers(input);
+  const legacy = toLegacyBankAccountFields(accounts);
   const includeInCashPosition = input.includeInCashPosition ?? false;
   const usageChanged = account.includeInCashPosition !== includeInCashPosition;
 
-  const updated = await db.bankAccount.update({
+  await db.bankAccount.update({
     where: { id },
     data: {
       accountName: input.accountName.trim(),
       bankName: input.bankName.trim(),
-      accountNumber: input.accountNumber.trim(),
+      accountNumber: legacy.accountNumber,
       iban: input.iban?.trim() || undefined,
       swiftCode: input.swiftCode?.trim() || undefined,
       sortCode: input.sortCode?.trim() || undefined,
-      currency: input.currency || "OMR",
+      currency: legacy.currency,
       entityId: input.entityId || undefined,
       notes: input.notes?.trim() || undefined,
       includeInCashPosition,
     },
   });
+
+  await replaceBankAccountNumbers(id, accounts);
+
+  const refreshed = await db.bankAccount.findFirst({
+    where: { id },
+    include: bankAccountInclude,
+  });
+  if (!refreshed) throw new Error("Bank account not found.");
 
   await logAudit({
     userId: ctx.id,
@@ -192,8 +250,8 @@ export async function updateBankAccount(id: string, input: CreateBankAccountInpu
     resource: "BankAccount",
     resourceId: id,
     metadata: {
-      accountName: updated.accountName,
-      includeInCashPosition: updated.includeInCashPosition,
+      accountName: refreshed.accountName,
+      includeInCashPosition: refreshed.includeInCashPosition,
     },
   });
 
@@ -204,5 +262,5 @@ export async function updateBankAccount(id: string, input: CreateBankAccountInpu
   revalidatePath("/assets/bank-details");
   revalidatePath("/assets/bank-details/" + id);
   revalidatePath("/assets/bank-details/" + id + "/edit");
-  return updated;
+  return refreshed;
 }

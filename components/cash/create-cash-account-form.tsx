@@ -3,12 +3,12 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { createCashAccount } from "@/lib/actions/cash-management";
-import { CASH_CURRENCIES } from "@/lib/cash/constants";
+import type { BankAccountNumberInput } from "@/lib/bank/account-numbers";
+import { BankAccountNumbersFields } from "@/components/bank/bank-account-numbers-fields";
 import type { StatementAccountPrefill } from "@/lib/cash/statements/types";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { EntitySelect, type EntityOption } from "@/components/platform/entity-select";
@@ -25,9 +25,15 @@ export function CreateCashAccountForm({
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
-  const [currency, setCurrency] = useState(prefill?.currency ?? "OMR");
   const [entityId, setEntityId] = useState<string>("none");
   const [includeInCashPosition, setIncludeInCashPosition] = useState(true);
+  const [accounts, setAccounts] = useState<BankAccountNumberInput[]>([
+    {
+      accountNumber: prefill?.accountNumber ?? "",
+      currency: prefill?.currency ?? "OMR",
+      label: "",
+    },
+  ]);
 
   function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -39,11 +45,10 @@ export function CreateCashAccountForm({
         const account = await createCashAccount({
           accountName: String(form.get("accountName") ?? ""),
           bankName: String(form.get("bankName") ?? ""),
-          accountNumber: String(form.get("accountNumber") ?? ""),
+          accounts,
           iban: String(form.get("iban") ?? ""),
           swiftCode: String(form.get("swiftCode") ?? ""),
           sortCode: String(form.get("sortCode") ?? ""),
-          currency,
           entityId: entityId === "none" ? undefined : entityId,
           notes: String(form.get("notes") ?? ""),
           includeInCashPosition,
@@ -57,6 +62,8 @@ export function CreateCashAccountForm({
     });
   }
 
+  const primaryCurrency = accounts[0]?.currency ?? prefill?.currency ?? "OMR";
+
   return (
     <Card>
       <CardHeader>
@@ -66,7 +73,7 @@ export function CreateCashAccountForm({
             Pre-filled from statement <span className="font-medium">{prefill.fileName}</span>
             {prefill.parserId ? ` · parsed with ${prefill.parserId}` : ""}.
             {prefill.balance != null && prefill.balanceDate
-              ? ` Closing balance of ${formatMoney(prefill.balance, currency)} as of ${prefill.balanceDate} will be applied after saving.`
+              ? ` Closing balance of ${formatMoney(prefill.balance, primaryCurrency)} as of ${prefill.balanceDate} will be applied after saving.`
               : " Review the details below before saving."}
           </CardDescription>
         ) : null}
@@ -93,15 +100,7 @@ export function CreateCashAccountForm({
               placeholder="e.g. Bank Muscat"
             />
           </div>
-          <div className="space-y-2">
-            <Label htmlFor="accountNumber">Account Number</Label>
-            <Input
-              id="accountNumber"
-              name="accountNumber"
-              required
-              defaultValue={prefill?.accountNumber ?? ""}
-            />
-          </div>
+          <BankAccountNumbersFields accounts={accounts} onChange={setAccounts} />
           <div className="space-y-2">
             <Label htmlFor="iban">IBAN</Label>
             <Input id="iban" name="iban" defaultValue={prefill?.iban ?? ""} />
@@ -113,21 +112,6 @@ export function CreateCashAccountForm({
           <div className="space-y-2">
             <Label htmlFor="sortCode">Sort Code</Label>
             <Input id="sortCode" name="sortCode" />
-          </div>
-          <div className="space-y-2">
-            <Label>Currency</Label>
-            <Select value={currency} onValueChange={setCurrency}>
-              <SelectTrigger>
-                <SelectValue placeholder="Select currency" />
-              </SelectTrigger>
-              <SelectContent>
-                {CASH_CURRENCIES.map((c) => (
-                  <SelectItem key={c} value={c}>
-                    {c}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
           </div>
           <div className="space-y-2">
             <Label>Entity (optional)</Label>

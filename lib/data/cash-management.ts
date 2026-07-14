@@ -1,4 +1,5 @@
 import { db } from "@/lib/db";
+import { formatBankAccountNumbers } from "@/lib/bank/account-numbers";
 import { ensureCashManagementSchema } from "@/lib/db/ensure-cash-management-schema";
 import { isStaleBalance, toNumber } from "@/lib/cash/helpers";
 import type { StatementAccountPrefill, StatementImportRow } from "@/lib/cash/statements/types";
@@ -11,6 +12,8 @@ export type CashAccountRow = {
   accountName: string;
   bankName: string;
   accountNumber: string;
+  accountNumbers: Array<{ accountNumber: string; currency: string; label: string | null }>;
+  accountNumbersLabel: string;
   iban: string | null;
   currency: string;
   entityId: string | null;
@@ -67,17 +70,25 @@ async function accountToRow(
     balanceAsOf: Date | null;
     notes: string | null;
     includeInCashPosition: boolean;
+    accountNumbers?: Array<{
+      accountNumber: string;
+      currency: string;
+      label: string | null;
+    }>;
   },
 ): Promise<CashAccountRow> {
   const currentBalance = toNumber(account.currentBalance);
   const balanceOmr =
     currentBalance != null ? await convertToOmr(currentBalance, account.currency) : null;
+  const accountNumbers = account.accountNumbers ?? [];
 
   return {
     id: account.id,
     accountName: account.accountName,
     bankName: account.bankName,
     accountNumber: account.accountNumber,
+    accountNumbers,
+    accountNumbersLabel: formatBankAccountNumbers(accountNumbers, account),
     iban: account.iban,
     currency: account.currency,
     entityId: account.entityId,
@@ -100,7 +111,10 @@ export async function getCashSummary(ctx: UserContext): Promise<CashSummary> {
 
   const accounts = await db.bankAccount.findMany({
     where: cashBankAccountFilter(ctx),
-    include: { entity: { select: { name: true } } },
+    include: {
+      entity: { select: { name: true } },
+      accountNumbers: { orderBy: { sortOrder: "asc" } },
+    },
     orderBy: [{ bankName: "asc" }, { accountName: "asc" }],
   });
 
@@ -174,7 +188,10 @@ export async function getCashAccount(accountId: string, ctx: UserContext) {
 
   const account = await db.bankAccount.findFirst({
     where: { id: accountId, ...cashBankAccountFilter(ctx) },
-    include: { entity: true },
+    include: {
+      entity: true,
+      accountNumbers: { orderBy: { sortOrder: "asc" } },
+    },
   });
 
   if (!account) return null;
@@ -226,13 +243,23 @@ export async function getCashStatementImports(
   const accountFilter = cashBankAccountFilter(ctx);
   const accessibleAccounts = await db.bankAccount.findMany({
     where: accountFilter,
-    select: { id: true, accountName: true, bankName: true, accountNumber: true },
+    select: {
+      id: true,
+      accountName: true,
+      bankName: true,
+      accountNumber: true,
+      currency: true,
+      accountNumbers: {
+        orderBy: { sortOrder: "asc" },
+        select: { accountNumber: true, currency: true },
+      },
+    },
   });
   const accountIds = accessibleAccounts.map((account) => account.id);
   const accountLabelMap = new Map(
     accessibleAccounts.map((account) => [
       account.id,
-      `${account.accountName} · ${account.bankName} (${account.accountNumber})`,
+      `${account.accountName} · ${account.bankName} (${formatBankAccountNumbers(account.accountNumbers, account)})`,
     ]),
   );
 
@@ -322,6 +349,10 @@ export async function listCashAccountCandidates(ctx: UserContext) {
       iban: true,
       currency: true,
       entityId: true,
+      accountNumbers: {
+        orderBy: { sortOrder: "asc" },
+        select: { accountNumber: true, currency: true },
+      },
     },
     orderBy: [{ bankName: "asc" }, { accountName: "asc" }],
   });

@@ -3,6 +3,11 @@
 import { revalidatePath } from "next/cache";
 import { db } from "@/lib/db";
 import { logAudit } from "@/lib/audit/log";
+import {
+  requireBankAccountNumbers,
+  toLegacyBankAccountFields,
+  type BankAccountNumberInput,
+} from "@/lib/bank/account-numbers";
 import { ensureCashManagementSchema } from "@/lib/db/ensure-cash-management-schema";
 import { canWrite, requireModuleAccess } from "@/lib/permissions/access";
 import { cashBankAccountFilter } from "@/lib/permissions/scoped-queries";
@@ -10,16 +15,32 @@ import { syncBankBalancesToCashAssets } from "@/lib/portfolio/cash-sync";
 export type CashAccountInput = {
   accountName: string;
   bankName: string;
-  accountNumber: string;
+  accountNumber?: string;
+  accounts?: BankAccountNumberInput[];
   iban?: string;
   swiftCode?: string;
   sortCode?: string;
-  currency: string;
+  currency?: string;
   entityId?: string;
   notes?: string;
   includeInCashPosition?: boolean;
   statementImportId?: string;
 };
+
+async function replaceBankAccountNumbers(bankAccountId: string, accounts: BankAccountNumberInput[]) {
+  await db.bankAccountNumber.deleteMany({ where: { bankAccountId } });
+  if (accounts.length === 0) return;
+
+  await db.bankAccountNumber.createMany({
+    data: accounts.map((account, index) => ({
+      bankAccountId,
+      accountNumber: account.accountNumber,
+      currency: account.currency?.trim() || "OMR",
+      label: account.label?.trim() || null,
+      sortOrder: index,
+    })),
+  });
+}
 
 function parseDecimal(value?: string | null) {
   if (!value || value.trim() === "") return undefined;
@@ -64,19 +85,30 @@ export async function createCashAccount(input: CashAccountInput) {
   await ensureCashManagementSchema();
   assertEntityAccess(ctx, input.entityId);
 
+  const accounts = requireBankAccountNumbers(input);
+  const legacy = toLegacyBankAccountFields(accounts);
+
   const account = await db.bankAccount.create({
     data: {
       accountName: input.accountName.trim(),
       bankName: input.bankName.trim(),
-      accountNumber: input.accountNumber.trim(),
+      accountNumber: legacy.accountNumber,
       iban: input.iban?.trim() || undefined,
       swiftCode: input.swiftCode?.trim() || undefined,
       sortCode: input.sortCode?.trim() || undefined,
-      currency: input.currency || "OMR",
+      currency: legacy.currency,
       entityId: input.entityId || undefined,
       notes: input.notes?.trim() || undefined,
       isActive: true,
       includeInCashPosition: input.includeInCashPosition ?? true,
+      accountNumbers: {
+        create: accounts.map((row, index) => ({
+          accountNumber: row.accountNumber,
+          currency: row.currency?.trim() || "OMR",
+          label: row.label?.trim() || null,
+          sortOrder: index,
+        })),
+      },
     },
   });
 
@@ -126,6 +158,8 @@ export async function updateCashAccount(id: string, input: CashAccountInput) {
   });
   if (!account) throw new Error("Bank account not found.");
 
+  const accounts = requireBankAccountNumbers(input);
+  const legacy = toLegacyBankAccountFields(accounts);
   const includeInCashPosition = input.includeInCashPosition ?? true;
   const usageChanged = account.includeInCashPosition !== includeInCashPosition;
 
@@ -134,16 +168,18 @@ export async function updateCashAccount(id: string, input: CashAccountInput) {
     data: {
       accountName: input.accountName.trim(),
       bankName: input.bankName.trim(),
-      accountNumber: input.accountNumber.trim(),
+      accountNumber: legacy.accountNumber,
       iban: input.iban?.trim() || undefined,
       swiftCode: input.swiftCode?.trim() || undefined,
       sortCode: input.sortCode?.trim() || undefined,
-      currency: input.currency || "OMR",
+      currency: legacy.currency,
       entityId: input.entityId || undefined,
       notes: input.notes?.trim() || undefined,
       includeInCashPosition,
     },
   });
+
+  await replaceBankAccountNumbers(id, accounts);
 
   if (includeInCashPosition || usageChanged || account.includeInCashPosition) {
     await syncBankBalancesToCashAssets(ctx);

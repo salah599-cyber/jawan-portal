@@ -55,7 +55,7 @@ export default async function CashAccountDetailPage({
                 <div>
                   <CardTitle>{account.accountName}</CardTitle>
                   <CardDescription>
-                    {account.bankName} · {account.accountNumber}
+                    {account.bankName} · {account.accountNumbersLabel}
                   </CardDescription>
                 </div>
                 <StaleBalanceBadge balanceAsOf={account.balanceAsOf} isStale={account.isStale} />
@@ -63,7 +63,8 @@ export default async function CashAccountDetailPage({
             </CardHeader>
             <CardContent className="grid gap-4 sm:grid-cols-2">
               <Detail label="Entity" value={account.entityName ?? "—"} />
-              <Detail label="Currency" value={account.currency} />
+              <Detail label="Account Numbers" value={account.accountNumbersLabel} />
+              <Detail label="Primary Currency" value={account.currency} />
               <Detail
                 label="Usage"
                 value={

@@ -2,6 +2,7 @@ import Link from "next/link";
 import { PlatformHeader } from "@/components/platform/platform-header";
 import { AddLinkButton } from "@/components/platform/add-link-button";
 import { RowActions } from "@/components/platform/row-actions";
+import { formatBankAccountNumbers } from "@/lib/bank/account-numbers";
 import { listBankAccounts, deleteBankAccount } from "@/lib/actions/bank-accounts";
 import { canWrite, requireModuleAccess } from "@/lib/permissions/access";
 import { formatDate } from "@/lib/format";
@@ -44,9 +45,9 @@ export default async function BankDetailsPage() {
                   <TableRow>
                     <TableHead>Account Name</TableHead>
                     <TableHead>Bank</TableHead>
-                    <TableHead>Account Number</TableHead>
+                    <TableHead>Account Numbers</TableHead>
                     <TableHead>IBAN</TableHead>
-                    <TableHead>Currency</TableHead>
+                    <TableHead>Primary Currency</TableHead>
                     <TableHead>Usage</TableHead>
                     <TableHead>Entity</TableHead>
                     <TableHead>Updated</TableHead>
@@ -62,7 +63,7 @@ export default async function BankDetailsPage() {
                         </Link>
                       </TableCell>
                       <TableCell>{account.bankName}</TableCell>
-                      <TableCell>{account.accountNumber}</TableCell>
+                      <TableCell>{formatBankAccountNumbers(account.accountNumbers, account)}</TableCell>
                       <TableCell>{account.iban ?? "—"}</TableCell>
                       <TableCell>{account.currency}</TableCell>
                       <TableCell>

@@ -45,7 +45,7 @@ export function CashAccountsTable({
               <Link href={"/cash/" + account.id} className="hover:underline">
                 {account.accountName}
               </Link>
-              <p className="text-xs text-muted-foreground">{account.accountNumber}</p>
+              <p className="text-xs text-muted-foreground">{account.accountNumbersLabel}</p>
             </TableCell>
             <TableCell>{account.bankName}</TableCell>
             <TableCell>{account.entityName ?? "—"}</TableCell>
