@@ -91,6 +91,13 @@ export function serializeFamilyMember(member: FamilyMemberDetail) {
       roleType: role.roleType,
       bankName: role.bankName,
       accountRef: role.accountRef,
+      accounts: role.accounts.map((account) => ({
+        id: account.id,
+        accountNumber: account.accountNumber,
+        currency: account.currency,
+        label: account.label,
+        sortOrder: account.sortOrder,
+      })),
       effectiveFrom: role.effectiveFrom?.toISOString() ?? null,
       effectiveTo: role.effectiveTo?.toISOString() ?? null,
       isActive: role.isActive,

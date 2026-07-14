@@ -40,6 +40,7 @@ import type {
   FamilyEmailInput,
   FamilyPhoneInput,
   OwnershipStakeInput,
+  SignatoryAccountInput,
   SignatoryRoleInput,
 } from "@/lib/family/types";
 
@@ -65,6 +66,7 @@ const memberInclude = {
       registeredCompany: { select: { name: true } },
       asset: { select: { name: true } },
       vehicle: { select: { name: true } },
+      accounts: { orderBy: { sortOrder: "asc" as const } },
     },
   },
   beneficiaryDesignations: {
@@ -98,7 +100,7 @@ export type FamilyMemberListRow = {
   updatedAt: Date;
 };
 
-export type { OwnershipStakeInput, SignatoryRoleInput, BeneficiaryDesignationInput, FamilyEmailInput, FamilyPhoneInput } from "@/lib/family/types";
+export type { OwnershipStakeInput, SignatoryRoleInput, SignatoryAccountInput, BeneficiaryDesignationInput, FamilyEmailInput, FamilyPhoneInput } from "@/lib/family/types";
 
 function legacyContactFields(emails: FamilyEmailInput[], phones: FamilyPhoneInput[]) {
   const validEmails = emails.map((row) => row.email.trim()).filter(Boolean);
@@ -357,23 +359,55 @@ async function replaceSignatoryRoles(memberId: string, roles: SignatoryRoleInput
   const valid = roles.filter((role) => role.entityId?.trim());
   if (valid.length === 0) return;
 
-  await db.familySignatoryRole.createMany({
-    data: valid.map((role, index) => ({
-      familyMemberId: memberId,
-      entityId: role.entityId,
-      registeredCompanyId: role.registeredCompanyId || null,
-      assetId: role.assetId || null,
-      vehicleId: role.vehicleId || null,
-      roleType: (role.roleType || "OTHER") as FamilySignatoryRoleType,
-      bankName: role.bankName?.trim() || null,
-      accountRef: role.accountRef?.trim() || null,
-      effectiveFrom: parseDate(role.effectiveFrom ?? ""),
-      effectiveTo: parseDate(role.effectiveTo ?? ""),
-      isActive: role.isActive !== false,
-      notes: role.notes?.trim() || null,
-      sortOrder: index,
-    })),
-  });
+  for (const [index, role] of valid.entries()) {
+    const accounts = normalizeSignatoryAccounts(role);
+    const primaryAccount = accounts[0]?.accountNumber ?? role.accountRef?.trim() ?? null;
+
+    await db.familySignatoryRole.create({
+      data: {
+        familyMemberId: memberId,
+        entityId: role.entityId,
+        registeredCompanyId: role.registeredCompanyId || null,
+        assetId: role.assetId || null,
+        vehicleId: role.vehicleId || null,
+        roleType: (role.roleType || "OTHER") as FamilySignatoryRoleType,
+        bankName: role.bankName?.trim() || null,
+        accountRef: primaryAccount,
+        effectiveFrom: parseDate(role.effectiveFrom ?? ""),
+        effectiveTo: parseDate(role.effectiveTo ?? ""),
+        isActive: role.isActive !== false,
+        notes: role.notes?.trim() || null,
+        sortOrder: index,
+        accounts: {
+          create: accounts.map((account, accountIndex) => ({
+            accountNumber: account.accountNumber,
+            currency: account.currency?.trim() || "OMR",
+            label: account.label?.trim() || null,
+            sortOrder: accountIndex,
+          })),
+        },
+      },
+    });
+  }
+}
+
+function normalizeSignatoryAccounts(role: SignatoryRoleInput): SignatoryAccountInput[] {
+  const fromAccounts = (role.accounts ?? [])
+    .map((account) => ({
+      accountNumber: account.accountNumber.trim(),
+      currency: account.currency?.trim() || "OMR",
+      label: account.label?.trim() || undefined,
+    }))
+    .filter((account) => account.accountNumber);
+
+  if (fromAccounts.length > 0) return fromAccounts;
+
+  const legacyRef = role.accountRef?.trim();
+  if (legacyRef) {
+    return [{ accountNumber: legacyRef, currency: "OMR" }];
+  }
+
+  return [];
 }
 
 async function replaceBeneficiaryDesignations(memberId: string, designations: BeneficiaryDesignationInput[]) {

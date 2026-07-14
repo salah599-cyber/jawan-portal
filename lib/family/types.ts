@@ -11,6 +11,12 @@ export type OwnershipStakeInput = {
   notes?: string;
 };
 
+export type SignatoryAccountInput = {
+  accountNumber: string;
+  currency?: string;
+  label?: string;
+};
+
 export type SignatoryRoleInput = {
   entityId: string;
   registeredCompanyId?: string;
@@ -18,7 +24,9 @@ export type SignatoryRoleInput = {
   vehicleId?: string;
   roleType?: string;
   bankName?: string;
+  /** @deprecated Use accounts instead — kept for legacy payloads */
   accountRef?: string;
+  accounts?: SignatoryAccountInput[];
   effectiveFrom?: string;
   effectiveTo?: string;
   isActive?: boolean;

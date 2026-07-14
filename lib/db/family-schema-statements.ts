@@ -242,4 +242,33 @@ export const FAMILY_SCHEMA_MIGRATION_STATEMENTS = [
     ALTER TABLE "FamilyMemberPhone" ADD CONSTRAINT "FamilyMemberPhone_familyMemberId_fkey"
       FOREIGN KEY ("familyMemberId") REFERENCES "FamilyMember"("id") ON DELETE CASCADE ON UPDATE CASCADE;
   EXCEPTION WHEN duplicate_object THEN NULL; END $$`,
+  `CREATE TABLE IF NOT EXISTS "FamilySignatoryAccount" (
+    "id" TEXT NOT NULL,
+    "familySignatoryRoleId" TEXT NOT NULL,
+    "accountNumber" TEXT NOT NULL,
+    "currency" TEXT NOT NULL DEFAULT 'OMR',
+    "label" TEXT,
+    "sortOrder" INTEGER NOT NULL DEFAULT 0,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT "FamilySignatoryAccount_pkey" PRIMARY KEY ("id")
+  )`,
+  `CREATE INDEX IF NOT EXISTS "FamilySignatoryAccount_familySignatoryRoleId_idx" ON "FamilySignatoryAccount" ("familySignatoryRoleId")`,
+  `DO $$ BEGIN
+    ALTER TABLE "FamilySignatoryAccount" ADD CONSTRAINT "FamilySignatoryAccount_familySignatoryRoleId_fkey"
+      FOREIGN KEY ("familySignatoryRoleId") REFERENCES "FamilySignatoryRole"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+  EXCEPTION WHEN duplicate_object THEN NULL; END $$`,
+  `INSERT INTO "FamilySignatoryAccount" ("id", "familySignatoryRoleId", "accountNumber", "currency", "sortOrder", "createdAt")
+    SELECT
+      'fsa_' || substr(md5(r.id || r."accountRef" || r."createdAt"::text), 1, 24),
+      r.id,
+      TRIM(r."accountRef"),
+      'OMR',
+      0,
+      CURRENT_TIMESTAMP
+    FROM "FamilySignatoryRole" r
+    WHERE r."accountRef" IS NOT NULL
+      AND TRIM(r."accountRef") <> ''
+      AND NOT EXISTS (
+        SELECT 1 FROM "FamilySignatoryAccount" a WHERE a."familySignatoryRoleId" = r.id
+      )`,
 ];

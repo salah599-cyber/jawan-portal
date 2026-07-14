@@ -2787,9 +2787,23 @@ model FamilySignatoryRole {
   sortOrder           Int                     @default(0)
   createdAt           DateTime                @default(now())
   updatedAt           DateTime                @updatedAt
+  accounts            FamilySignatoryAccount[]
 
   @@index([familyMemberId])
   @@index([entityId])
+}
+
+model FamilySignatoryAccount {
+  id                    String              @id @default(cuid())
+  familySignatoryRoleId String
+  familySignatoryRole   FamilySignatoryRole @relation(fields: [familySignatoryRoleId], references: [id], onDelete: Cascade)
+  accountNumber         String
+  currency              String              @default("OMR")
+  label                 String?
+  sortOrder             Int                 @default(0)
+  createdAt             DateTime            @default(now())
+
+  @@index([familySignatoryRoleId])
 }
 
 model BeneficiaryDesignation {

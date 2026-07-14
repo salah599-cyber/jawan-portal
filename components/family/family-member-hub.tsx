@@ -104,6 +104,16 @@ export function FamilyMemberHub({
     roleType: r.roleType,
     bankName: r.bankName ?? undefined,
     accountRef: r.accountRef ?? undefined,
+    accounts:
+      r.accounts.length > 0
+        ? r.accounts.map((account) => ({
+            accountNumber: account.accountNumber,
+            currency: account.currency,
+            label: account.label ?? undefined,
+          }))
+        : r.accountRef
+          ? [{ accountNumber: r.accountRef, currency: "OMR" }]
+          : [],
     notes: r.notes ?? undefined,
     isActive: r.isActive,
   }));
@@ -243,6 +253,7 @@ export function FamilyMemberHub({
                     <TableHead>Entity</TableHead>
                     <TableHead>Role</TableHead>
                     <TableHead>Bank</TableHead>
+                    <TableHead>Accounts</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -251,6 +262,15 @@ export function FamilyMemberHub({
                       <TableCell>{r.entityName}</TableCell>
                       <TableCell>{FAMILY_SIGNATORY_ROLE_TYPE_LABELS[r.roleType] ?? r.roleType}</TableCell>
                       <TableCell>{r.bankName ?? "—"}</TableCell>
+                      <TableCell>
+                        {r.accounts.length > 0
+                          ? r.accounts
+                              .map((account) => `${account.accountNumber} (${account.currency})`)
+                              .join(", ")
+                          : r.accountRef
+                            ? `${r.accountRef} (OMR)`
+                            : "—"}
+                      </TableCell>
                     </TableRow>
                   ))}
                 </TableBody>
