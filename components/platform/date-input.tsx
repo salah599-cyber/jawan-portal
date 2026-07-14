@@ -30,7 +30,7 @@ function toIsoValue(value?: string | null): string {
 }
 
 const inputClassName =
-  "h-8 w-full min-w-0 rounded-lg border border-input bg-transparent px-2.5 py-1 pr-9 text-base transition-colors outline-none placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 disabled:pointer-events-none disabled:cursor-not-allowed disabled:bg-input/50 disabled:opacity-50 aria-invalid:border-destructive aria-invalid:ring-3 aria-invalid:ring-destructive/20 md:text-sm dark:bg-input/30 dark:disabled:bg-input/80 dark:aria-invalid:border-destructive/50 dark:aria-invalid:ring-destructive/40";
+  "h-8 w-full min-w-0 rounded-lg border border-input bg-transparent px-2.5 py-1 pr-11 text-base transition-colors outline-none placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 disabled:pointer-events-none disabled:cursor-not-allowed disabled:bg-input/50 disabled:opacity-50 aria-invalid:border-destructive aria-invalid:ring-3 aria-invalid:ring-destructive/20 md:text-sm dark:bg-input/30 dark:disabled:bg-input/80 dark:aria-invalid:border-destructive/50 dark:aria-invalid:ring-destructive/40";
 
 export function DateInput({
   className,
@@ -106,24 +106,6 @@ export function DateInput({
     applyIsoValue(event, event.target.value);
   };
 
-  function openCalendar() {
-    if (disabled) return;
-    const nativeInput = nativeInputRef.current;
-    if (!nativeInput) return;
-
-    if (typeof nativeInput.showPicker === "function") {
-      try {
-        nativeInput.showPicker();
-        return;
-      } catch {
-        nativeInput.click();
-        return;
-      }
-    }
-
-    nativeInput.click();
-  }
-
   return (
     <div className={cn("relative w-full", className)}>
       <input
@@ -151,28 +133,23 @@ export function DateInput({
           disabled={disabled}
         />
       ) : null}
-      <input
-        ref={nativeInputRef}
-        type="date"
-        value={submittedIso}
-        onChange={handleNativeChange}
-        min={min == null ? undefined : String(min)}
-        max={max == null ? undefined : String(max)}
-        required={required}
-        disabled={disabled}
-        tabIndex={-1}
-        aria-hidden
-        className="sr-only"
-      />
-      <button
-        type="button"
-        onClick={openCalendar}
-        disabled={disabled}
-        aria-label="Open calendar"
-        className="absolute top-1/2 right-2.5 -translate-y-1/2 rounded-sm text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50"
-      >
-        <Calendar className="size-4" />
-      </button>
+      <div className="absolute top-1/2 right-1 flex size-9 -translate-y-1/2 items-center justify-center">
+        <Calendar
+          aria-hidden
+          className="pointer-events-none size-4 text-muted-foreground"
+        />
+        <input
+          ref={nativeInputRef}
+          type="date"
+          value={submittedIso}
+          onChange={handleNativeChange}
+          min={min == null ? undefined : String(min)}
+          max={max == null ? undefined : String(max)}
+          disabled={disabled}
+          aria-label="Open calendar"
+          className="absolute inset-0 z-10 cursor-pointer opacity-0 [color-scheme:light] dark:[color-scheme:dark]"
+        />
+      </div>
     </div>
   );
 }
