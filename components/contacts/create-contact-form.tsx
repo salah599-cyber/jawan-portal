@@ -3,6 +3,7 @@
 import { useState, useTransition } from "react";
 import { isRedirectError } from "next/dist/client/components/redirect-error";
 import { createDirectoryContact } from "@/lib/actions/contacts";
+import { DirectoryContactFields } from "@/components/contacts/directory-contact-fields";
 import { DIRECTORY_CONTACT_TYPE_LABELS } from "@/lib/labels";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -22,10 +23,15 @@ export function CreateContactForm({ entities }: { entities: EntityOption[] }) {
   function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     setError(null);
-    const formData = new FormData(e.currentTarget);
+    const form = e.currentTarget;
+    const formData = new FormData(form);
     formData.set("entityId", entityId === "none" ? "" : entityId);
     formData.set("contactType", contactType);
     formData.set("isActive", isActive ? "true" : "false");
+    const emailsInput = form.querySelector<HTMLInputElement>('input[name="emailsJson"]');
+    const phonesInput = form.querySelector<HTMLInputElement>('input[name="phonesJson"]');
+    if (emailsInput) formData.set("emailsJson", emailsInput.value);
+    if (phonesInput) formData.set("phonesJson", phonesInput.value);
 
     startTransition(async () => {
       try {
@@ -81,18 +87,9 @@ export function CreateContactForm({ entities }: { entities: EntityOption[] }) {
             <Label htmlFor="jobTitle">Job Title</Label>
             <Input id="jobTitle" name="jobTitle" placeholder="Role or title" />
           </div>
-          <div className="space-y-2">
-            <Label htmlFor="email">Email</Label>
-            <Input id="email" name="email" type="email" placeholder="email@example.com" />
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="phonePrimary">Primary Phone</Label>
-            <Input id="phonePrimary" name="phonePrimary" placeholder="+968 ..." />
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="phoneSecondary">Secondary Phone</Label>
-            <Input id="phoneSecondary" name="phoneSecondary" />
-          </div>
+
+          <DirectoryContactFields />
+
           <div className="space-y-2">
             <Label htmlFor="website">Website</Label>
             <Input id="website" name="website" placeholder="https://..." />

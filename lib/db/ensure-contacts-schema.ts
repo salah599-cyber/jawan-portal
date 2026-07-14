@@ -1,5 +1,6 @@
 import { Client } from "pg";
 import {
+  CONTACTS_SCHEMA_MIGRATION_STATEMENTS,
   CONTACTS_SCHEMA_STATEMENTS,
   isIgnorableContactsSchemaError,
 } from "@/lib/db/contacts-schema-statements";
@@ -27,6 +28,18 @@ async function tableExists(client: Client, tableName: string) {
   return Boolean(result.rows[0]?.exists);
 }
 
+async function runStatements(client: Client, statements: string[]) {
+  for (const statement of statements) {
+    try {
+      await client.query(statement);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      if (isIgnorableContactsSchemaError(message)) continue;
+      throw new Error(`Contacts schema statement failed: ${message}`);
+    }
+  }
+}
+
 async function applyContactsSchema() {
   const connectionString = getDatabaseUrl();
   if (!connectionString) {
@@ -37,23 +50,15 @@ async function applyContactsSchema() {
   await client.connect();
 
   try {
-    if (await tableExists(client, "DirectoryContact")) {
-      return;
-    }
+    if (!(await tableExists(client, "DirectoryContact"))) {
+      await runStatements(client, CONTACTS_SCHEMA_STATEMENTS);
 
-    for (const statement of CONTACTS_SCHEMA_STATEMENTS) {
-      try {
-        await client.query(statement);
-      } catch (error) {
-        const message = error instanceof Error ? error.message : String(error);
-        if (isIgnorableContactsSchemaError(message)) continue;
-        throw new Error(`Contacts schema statement failed: ${message}`);
+      if (!(await tableExists(client, "DirectoryContact"))) {
+        throw new Error("Contacts schema sync finished but DirectoryContact table is still missing.");
       }
     }
 
-    if (!(await tableExists(client, "DirectoryContact"))) {
-      throw new Error("Contacts schema sync finished but DirectoryContact table is still missing.");
-    }
+    await runStatements(client, CONTACTS_SCHEMA_MIGRATION_STATEMENTS);
   } finally {
     await client.end();
   }

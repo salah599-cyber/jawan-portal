@@ -3020,9 +3020,36 @@ model DirectoryContact {
   isActive          Boolean              @default(true)
   createdAt         DateTime             @default(now())
   updatedAt         DateTime             @updatedAt
+  emails            DirectoryContactEmail[]
+  phones            DirectoryContactPhone[]
 
   @@index([fullName])
   @@index([contactType])
   @@index([entityId])
   @@index([nextFollowUpDate])
+}
+
+model DirectoryContactEmail {
+  id                 String           @id @default(cuid())
+  directoryContactId String
+  directoryContact   DirectoryContact @relation(fields: [directoryContactId], references: [id], onDelete: Cascade)
+  email              String
+  label              String?
+  sortOrder          Int              @default(0)
+  createdAt          DateTime         @default(now())
+
+  @@index([directoryContactId])
+}
+
+model DirectoryContactPhone {
+  id                 String           @id @default(cuid())
+  directoryContactId String
+  directoryContact   DirectoryContact @relation(fields: [directoryContactId], references: [id], onDelete: Cascade)
+  countryCode        String           @default("+968")
+  phone              String
+  label              String?
+  sortOrder          Int              @default(0)
+  createdAt          DateTime         @default(now())
+
+  @@index([directoryContactId])
 }

@@ -3,6 +3,7 @@
 import { useState, useTransition } from "react";
 import { isRedirectError } from "next/dist/client/components/redirect-error";
 import { updateDirectoryContact } from "@/lib/actions/contacts";
+import { DirectoryContactFields } from "@/components/contacts/directory-contact-fields";
 import { DIRECTORY_CONTACT_TYPE_LABELS } from "@/lib/labels";
 import { formatDateInput } from "@/lib/format";
 import { formatTags } from "@/lib/contacts/helpers";
@@ -31,10 +32,15 @@ export function EditContactForm({
   function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     setError(null);
-    const formData = new FormData(e.currentTarget);
+    const form = e.currentTarget;
+    const formData = new FormData(form);
     formData.set("entityId", entityId === "none" ? "" : entityId);
     formData.set("contactType", contactType);
     formData.set("isActive", isActive ? "true" : "false");
+    const emailsInput = form.querySelector<HTMLInputElement>('input[name="emailsJson"]');
+    const phonesInput = form.querySelector<HTMLInputElement>('input[name="phonesJson"]');
+    if (emailsInput) formData.set("emailsJson", emailsInput.value);
+    if (phonesInput) formData.set("phonesJson", phonesInput.value);
 
     startTransition(async () => {
       try {
@@ -89,18 +95,22 @@ export function EditContactForm({
             <Label htmlFor="jobTitle">Job Title</Label>
             <Input id="jobTitle" name="jobTitle" defaultValue={contact.jobTitle ?? ""} />
           </div>
-          <div className="space-y-2">
-            <Label htmlFor="email">Email</Label>
-            <Input id="email" name="email" type="email" defaultValue={contact.email ?? ""} />
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="phonePrimary">Primary Phone</Label>
-            <Input id="phonePrimary" name="phonePrimary" defaultValue={contact.phonePrimary ?? ""} />
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="phoneSecondary">Secondary Phone</Label>
-            <Input id="phoneSecondary" name="phoneSecondary" defaultValue={contact.phoneSecondary ?? ""} />
-          </div>
+
+          <DirectoryContactFields
+            initialEmails={contact.emails.map((row) => ({
+              email: row.email,
+              label: row.label ?? undefined,
+            }))}
+            initialPhones={contact.phones.map((row) => ({
+              countryCode: row.countryCode,
+              phone: row.phone,
+              label: row.label ?? undefined,
+            }))}
+            legacyEmail={contact.email}
+            legacyPrimaryPhone={contact.phonePrimary}
+            legacySecondaryPhone={contact.phoneSecondary}
+          />
+
           <div className="space-y-2">
             <Label htmlFor="website">Website</Label>
             <Input id="website" name="website" defaultValue={contact.website ?? ""} />
