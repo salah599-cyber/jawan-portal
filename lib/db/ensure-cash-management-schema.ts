@@ -1,5 +1,5 @@
 import { Client } from "pg";
-import { CASH_MANAGEMENT_SCHEMA_STATEMENTS } from "@/lib/db/cash-management-schema-statements";
+import { CASH_MANAGEMENT_MIGRATION_STATEMENTS, CASH_MANAGEMENT_SCHEMA_STATEMENTS } from "@/lib/db/cash-management-schema-statements";
 import { CASH_STATEMENT_IMPORT_SCHEMA_STATEMENTS } from "@/lib/db/cash-statement-import-schema-statements";
 
 let ensurePromise: Promise<void> | null = null;
@@ -78,6 +78,7 @@ async function applyCashManagementSchema() {
     if (!hasBalanceEntryTable) {
       await runStatements(client, CASH_MANAGEMENT_SCHEMA_STATEMENTS);
       await runStatements(client, CASH_STATEMENT_IMPORT_SCHEMA_STATEMENTS);
+      await runStatements(client, CASH_MANAGEMENT_MIGRATION_STATEMENTS);
 
       if (!(await tableExists(client, "BankBalanceEntry"))) {
         throw new Error(
@@ -109,6 +110,8 @@ async function applyCashManagementSchema() {
         ]);
       }
     }
+
+    await runStatements(client, CASH_MANAGEMENT_MIGRATION_STATEMENTS);
   } finally {
     await client.end();
   }

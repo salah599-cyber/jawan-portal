@@ -18,6 +18,9 @@ export default async function EditCashAccountPage({
 
   const account = await db.bankAccount.findFirst({
     where: { id, ...cashBankAccountFilter(ctx) },
+    include: {
+      accountNumbers: { orderBy: { sortOrder: "asc" } },
+    },
   });
   if (!account) notFound();
 

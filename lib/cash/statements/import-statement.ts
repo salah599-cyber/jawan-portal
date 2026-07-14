@@ -75,6 +75,10 @@ export async function listStatementAccountCandidates(
       iban: true,
       currency: true,
       entityId: true,
+      accountNumbers: {
+        orderBy: { sortOrder: "asc" },
+        select: { accountNumber: true, currency: true },
+      },
     },
     orderBy: [{ bankName: "asc" }, { accountName: "asc" }],
   });

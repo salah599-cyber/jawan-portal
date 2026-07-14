@@ -14,6 +14,33 @@ function lastDigits(value: string, count = 4) {
   return digits.slice(-count);
 }
 
+function candidateAccountNumbers(account: StatementAccountCandidate): string[] {
+  const numbers = (account.accountNumbers ?? []).map((row) => row.accountNumber);
+  if (numbers.length > 0) return numbers;
+  return account.accountNumber ? [account.accountNumber] : [];
+}
+
+function accountNumberMatches(parsedAccount: string, account: StatementAccountCandidate) {
+  const numbers = candidateAccountNumbers(account).map((value) => normalizeToken(value));
+  if (numbers.some((value) => value === parsedAccount)) {
+    return { matched: true, confidence: "high" as const, reason: "Matched by account number." };
+  }
+
+  const suffix = lastDigits(parsedAccount);
+  if (suffix.length >= 4) {
+    const suffixMatches = numbers.filter((value) => lastDigits(value) === suffix);
+    if (suffixMatches.length === 1) {
+      return {
+        matched: true,
+        confidence: "medium" as const,
+        reason: "Matched by account suffix.",
+      };
+    }
+  }
+
+  return { matched: false, confidence: "none" as const, reason: null };
+}
+
 export function matchBankAccount(
   parsed: ParsedBankStatement,
   accounts: StatementAccountCandidate[],
@@ -33,7 +60,6 @@ export function matchBankAccount(
     const parsedIban = normalizeToken(parsed.iban);
     const parsedAccount = normalizeToken(parsed.accountNumber);
     const preferredIban = normalizeToken(preferred.iban);
-    const preferredAccount = normalizeToken(preferred.accountNumber);
 
     if (parsedIban && preferredIban && parsedIban === preferredIban) {
       return {
@@ -44,18 +70,16 @@ export function matchBankAccount(
       };
     }
 
-    if (
-      parsedAccount &&
-      preferredAccount &&
-      (parsedAccount === preferredAccount ||
-        lastDigits(parsedAccount) === lastDigits(preferredAccount))
-    ) {
-      return {
-        accountId: preferred.id,
-        accountName: preferred.accountName,
-        confidence: parsedAccount === preferredAccount ? "high" : "medium",
-        reason: "Account number matches selected account.",
-      };
+    if (parsedAccount) {
+      const numberMatch = accountNumberMatches(parsedAccount, preferred);
+      if (numberMatch.matched) {
+        return {
+          accountId: preferred.id,
+          accountName: preferred.accountName,
+          confidence: numberMatch.confidence,
+          reason: "Account number matches selected account.",
+        };
+      }
     }
 
     return {
@@ -81,23 +105,23 @@ export function matchBankAccount(
 
   const parsedAccount = normalizeToken(parsed.accountNumber);
   if (parsedAccount) {
-    const exact = accounts.find(
-      (account) => normalizeToken(account.accountNumber) === parsedAccount,
-    );
+    const exact = accounts.find((account) => accountNumberMatches(parsedAccount, account).matched);
     if (exact) {
+      const numberMatch = accountNumberMatches(parsedAccount, exact);
       return {
         accountId: exact.id,
         accountName: exact.accountName,
-        confidence: "high",
-        reason: "Matched by account number.",
+        confidence: numberMatch.confidence === "medium" ? "medium" : "high",
+        reason: numberMatch.reason ?? "Matched by account number.",
       };
     }
 
     const suffix = lastDigits(parsedAccount);
     if (suffix.length >= 4) {
-      const suffixMatches = accounts.filter(
-        (account) => lastDigits(account.accountNumber) === suffix,
-      );
+      const suffixMatches = accounts.filter((account) => {
+        const numbers = candidateAccountNumbers(account).map((value) => normalizeToken(value));
+        return numbers.some((value) => lastDigits(value) === suffix);
+      });
       if (suffixMatches.length === 1) {
         const match = suffixMatches[0]!;
         const bankMatches =
@@ -125,7 +149,12 @@ export function matchBankAccount(
 }
 
 export function accountLabel(account: StatementAccountCandidate) {
-  return `${account.accountName} · ${account.bankName} (${account.accountNumber})`;
+  const numbers = account.accountNumbers ?? [];
+  const numberLabel =
+    numbers.length > 0
+      ? numbers.map((row) => `${row.accountNumber} (${row.currency})`).join(", ")
+      : account.accountNumber;
+  return `${account.accountName} · ${account.bankName} (${numberLabel})`;
 }
 
 export function confidenceLabel(confidence: StatementMatchConfidence) {
