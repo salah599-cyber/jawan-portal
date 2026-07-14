@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useLayoutEffect, useRef, useState } from "react";
 import type { SignatoryRoleInput } from "@/lib/family/types";
 import { FAMILY_SIGNATORY_ROLE_TYPE_LABELS } from "@/lib/labels";
 import { Button } from "@/components/ui/button";
@@ -11,6 +11,8 @@ import { Textarea } from "@/components/ui/textarea";
 
 type LinkOptions = Awaited<ReturnType<typeof import("@/lib/actions/family-members").getFamilyLinkOptions>>;
 
+const NONE_COMPANY = "__none__";
+
 const emptyRole = (): SignatoryRoleInput => ({
   entityId: "",
   roleType: "OTHER",
@@ -19,6 +21,26 @@ const emptyRole = (): SignatoryRoleInput => ({
   notes: "",
   isActive: true,
 });
+
+export function serializeSignatoryRolesJson(roles: SignatoryRoleInput[]): string {
+  return JSON.stringify(
+    roles
+      .filter((role) => role.entityId?.trim())
+      .map((role) => ({
+        entityId: role.entityId.trim(),
+        registeredCompanyId: role.registeredCompanyId?.trim() || undefined,
+        assetId: role.assetId?.trim() || undefined,
+        vehicleId: role.vehicleId?.trim() || undefined,
+        roleType: role.roleType || "OTHER",
+        bankName: role.bankName?.trim() || undefined,
+        accountRef: role.accountRef?.trim() || undefined,
+        effectiveFrom: role.effectiveFrom?.trim() || undefined,
+        effectiveTo: role.effectiveTo?.trim() || undefined,
+        isActive: role.isActive !== false,
+        notes: role.notes?.trim() || undefined,
+      })),
+  );
+}
 
 export function FamilySignatoryRolesFields({
   initialRoles = [],
@@ -29,6 +51,7 @@ export function FamilySignatoryRolesFields({
   linkOptions: LinkOptions;
   signatoryRolesJsonName?: string;
 }) {
+  const hiddenRef = useRef<HTMLInputElement>(null);
   const [roles, setRoles] = useState<SignatoryRoleInput[]>(
     initialRoles.length > 0 ? initialRoles : [],
   );
@@ -39,11 +62,17 @@ export function FamilySignatoryRolesFields({
     );
   }
 
-  const serialized = JSON.stringify(roles.filter((role) => role.entityId?.trim()));
+  const serialized = serializeSignatoryRolesJson(roles);
+
+  useLayoutEffect(() => {
+    if (hiddenRef.current) {
+      hiddenRef.current.value = serialized;
+    }
+  }, [serialized]);
 
   return (
     <div className="md:col-span-2 space-y-4">
-      <input type="hidden" name={signatoryRolesJsonName} value={serialized} readOnly />
+      <input ref={hiddenRef} type="hidden" name={signatoryRolesJsonName} defaultValue={serialized} />
       <div className="flex items-center justify-between gap-4">
         <p className="text-sm font-medium text-muted-foreground">Signatory Roles</p>
         <Button type="button" variant="outline" size="sm" onClick={() => setRoles((c) => [...c, emptyRole()])}>
@@ -68,7 +97,10 @@ export function FamilySignatoryRolesFields({
           </div>
           <div className="space-y-2">
             <Label>Entity</Label>
-            <Select value={role.entityId} onValueChange={(v) => updateRole(index, "entityId", v)}>
+            <Select
+              value={role.entityId || undefined}
+              onValueChange={(v) => updateRole(index, "entityId", v)}
+            >
               <SelectTrigger><SelectValue placeholder="Select entity" /></SelectTrigger>
               <SelectContent>
                 {linkOptions.entities.map((e) => (
@@ -91,12 +123,14 @@ export function FamilySignatoryRolesFields({
           <div className="space-y-2">
             <Label>Company (optional)</Label>
             <Select
-              value={role.registeredCompanyId ?? ""}
-              onValueChange={(v) => updateRole(index, "registeredCompanyId", v)}
+              value={role.registeredCompanyId || NONE_COMPANY}
+              onValueChange={(v) =>
+                updateRole(index, "registeredCompanyId", v === NONE_COMPANY ? "" : v)
+              }
             >
               <SelectTrigger><SelectValue placeholder="None" /></SelectTrigger>
               <SelectContent>
-                <SelectItem value="">None</SelectItem>
+                <SelectItem value={NONE_COMPANY}>None</SelectItem>
                 {linkOptions.companies.map((c) => (
                   <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
                 ))}
