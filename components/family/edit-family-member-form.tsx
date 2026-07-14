@@ -3,6 +3,7 @@
 import { useState, useTransition } from "react";
 import { isRedirectError } from "next/dist/client/components/redirect-error";
 import { updateFamilyMember } from "@/lib/actions/family-members";
+import { FamilyContactFields } from "@/components/family/family-contact-fields";
 import {
   FAMILY_KYC_STATUS_LABELS,
   FAMILY_MEMBER_ID_TYPE_LABELS,
@@ -124,18 +125,15 @@ export function EditFamilyMemberForm({ member }: { member: SerializedFamilyMembe
             <Label htmlFor="kycNotes">KYC Notes</Label>
             <Textarea id="kycNotes" name="kycNotes" rows={2} defaultValue={member.kycNotes ?? ""} />
           </div>
-          <div className="space-y-2">
-            <Label htmlFor="email">Email</Label>
-            <Input id="email" name="email" type="email" defaultValue={member.email ?? ""} />
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="phonePrimary">Primary Phone</Label>
-            <Input id="phonePrimary" name="phonePrimary" defaultValue={member.phonePrimary ?? ""} />
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="phoneSecondary">Secondary Phone</Label>
-            <Input id="phoneSecondary" name="phoneSecondary" defaultValue={member.phoneSecondary ?? ""} />
-          </div>
+
+          <FamilyContactFields
+            initialEmails={member.emails.map((row) => ({ email: row.email, label: row.label ?? undefined }))}
+            initialPhones={member.phones.map((row) => ({ phone: row.phone, label: row.label ?? undefined }))}
+            legacyEmail={member.email}
+            legacyPrimaryPhone={member.phonePrimary}
+            legacySecondaryPhone={member.phoneSecondary}
+          />
+
           <div className="space-y-2 md:col-span-2">
             <Label htmlFor="address">Address</Label>
             <Textarea id="address" name="address" rows={2} defaultValue={member.address ?? ""} />

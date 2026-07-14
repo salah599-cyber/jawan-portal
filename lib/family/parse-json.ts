@@ -1,5 +1,7 @@
 import type {
   BeneficiaryDesignationInput,
+  FamilyEmailInput,
+  FamilyPhoneInput,
   OwnershipStakeInput,
   SignatoryRoleInput,
 } from "@/lib/family/types";
@@ -24,4 +26,12 @@ export function parseSignatoryRolesJson(raw: string | null): SignatoryRoleInput[
 
 export function parseBeneficiaryDesignationsJson(raw: string | null): BeneficiaryDesignationInput[] {
   return parseJsonArray<BeneficiaryDesignationInput>(raw, "beneficiary designations");
+}
+
+export function parseFamilyEmailsJson(raw: string | null): FamilyEmailInput[] {
+  return parseJsonArray<FamilyEmailInput>(raw, "email addresses");
+}
+
+export function parseFamilyPhonesJson(raw: string | null): FamilyPhoneInput[] {
+  return parseJsonArray<FamilyPhoneInput>(raw, "phone numbers");
 }

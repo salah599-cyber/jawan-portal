@@ -2601,7 +2601,10 @@ model InsurancePolicyDocument {
 // --- Family Members & Beneficiaries ---
 
 enum FamilyRelationship {
+  HEAD_OF_FAMILY
   SPOUSE
+  SON
+  DAUGHTER
   CHILD
   PARENT
   SIBLING
@@ -2629,6 +2632,7 @@ enum FamilyMemberDocumentType {
   RESIDENCE
   PROOF_OF_ADDRESS
   BIRTH_CERTIFICATE
+  POA
   OTHER
 }
 
@@ -2676,6 +2680,8 @@ model FamilyMember {
   userId                String?                 @unique
   user                  User?                   @relation("FamilyMemberUser", fields: [userId], references: [id], onDelete: SetNull)
   notes                 String?
+  emails                FamilyMemberEmail[]
+  phones                FamilyMemberPhone[]
   documents             FamilyMemberDocument[]
   ownershipStakes       FamilyOwnershipStake[]
   signatoryRoles        FamilySignatoryRole[]
@@ -2688,6 +2694,30 @@ model FamilyMember {
   @@index([fullName])
   @@index([kycStatus])
   @@index([isBeneficiary])
+}
+
+model FamilyMemberEmail {
+  id             String       @id @default(cuid())
+  familyMemberId String
+  familyMember   FamilyMember @relation(fields: [familyMemberId], references: [id], onDelete: Cascade)
+  email          String
+  label          String?
+  sortOrder      Int          @default(0)
+  createdAt      DateTime     @default(now())
+
+  @@index([familyMemberId])
+}
+
+model FamilyMemberPhone {
+  id             String       @id @default(cuid())
+  familyMemberId String
+  familyMember   FamilyMember @relation(fields: [familyMemberId], references: [id], onDelete: Cascade)
+  phone          String
+  label          String?
+  sortOrder      Int          @default(0)
+  createdAt      DateTime     @default(now())
+
+  @@index([familyMemberId])
 }
 
 model FamilyMemberDocument {

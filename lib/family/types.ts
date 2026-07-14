@@ -37,3 +37,13 @@ export type BeneficiaryDesignationInput = {
   effectiveDate?: string;
   notes?: string;
 };
+
+export type FamilyEmailInput = {
+  email: string;
+  label?: string;
+};
+
+export type FamilyPhoneInput = {
+  phone: string;
+  label?: string;
+};

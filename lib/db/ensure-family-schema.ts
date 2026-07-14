@@ -1,5 +1,6 @@
 import { Client } from "pg";
 import {
+  FAMILY_SCHEMA_MIGRATION_STATEMENTS,
   FAMILY_SCHEMA_STATEMENTS,
   isIgnorableFamilySchemaError,
 } from "@/lib/db/family-schema-statements";
@@ -27,6 +28,18 @@ async function tableExists(client: Client, tableName: string) {
   return Boolean(result.rows[0]?.exists);
 }
 
+async function runStatements(client: Client, statements: string[]) {
+  for (const statement of statements) {
+    try {
+      await client.query(statement);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      if (isIgnorableFamilySchemaError(message)) continue;
+      throw new Error(`Family schema statement failed: ${message}`);
+    }
+  }
+}
+
 async function applyFamilySchema() {
   const connectionString = getDatabaseUrl();
   if (!connectionString) {
@@ -37,23 +50,15 @@ async function applyFamilySchema() {
   await client.connect();
 
   try {
-    if (await tableExists(client, "FamilyMember")) {
-      return;
-    }
+    if (!(await tableExists(client, "FamilyMember"))) {
+      await runStatements(client, FAMILY_SCHEMA_STATEMENTS);
 
-    for (const statement of FAMILY_SCHEMA_STATEMENTS) {
-      try {
-        await client.query(statement);
-      } catch (error) {
-        const message = error instanceof Error ? error.message : String(error);
-        if (isIgnorableFamilySchemaError(message)) continue;
-        throw new Error(`Family schema statement failed: ${message}`);
+      if (!(await tableExists(client, "FamilyMember"))) {
+        throw new Error("Family schema sync finished but FamilyMember table is still missing.");
       }
     }
 
-    if (!(await tableExists(client, "FamilyMember"))) {
-      throw new Error("Family schema sync finished but FamilyMember table is still missing.");
-    }
+    await runStatements(client, FAMILY_SCHEMA_MIGRATION_STATEMENTS);
   } finally {
     await client.end();
   }

@@ -639,7 +639,10 @@ export const INSURANCE_DOCUMENT_TYPE_LABELS: Record<string, string> = {
 };
 
 export const FAMILY_RELATIONSHIP_LABELS: Record<string, string> = {
+  HEAD_OF_FAMILY: "Head of Family",
   SPOUSE: "Spouse",
+  SON: "Son",
+  DAUGHTER: "Daughter",
   CHILD: "Child",
   PARENT: "Parent",
   SIBLING: "Sibling",
@@ -667,6 +670,7 @@ export const FAMILY_MEMBER_DOCUMENT_TYPE_LABELS: Record<string, string> = {
   RESIDENCE: "Residence",
   PROOF_OF_ADDRESS: "Proof of Address",
   BIRTH_CERTIFICATE: "Birth Certificate",
+  POA: "Power of Attorney",
   OTHER: "Other",
 };
 

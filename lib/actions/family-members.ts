@@ -10,6 +10,8 @@ import { FAMILY_MEMBERS_PATH } from "@/lib/family/constants";
 import { parseDate, parseDecimal } from "@/lib/family/helpers";
 import {
   parseBeneficiaryDesignationsJson,
+  parseFamilyEmailsJson,
+  parseFamilyPhonesJson,
   parseOwnershipStakesJson,
   parseSignatoryRolesJson,
 } from "@/lib/family/parse-json";
@@ -35,11 +37,15 @@ import type {
 } from "@/lib/generated/prisma/client";
 import type {
   BeneficiaryDesignationInput,
+  FamilyEmailInput,
+  FamilyPhoneInput,
   OwnershipStakeInput,
   SignatoryRoleInput,
 } from "@/lib/family/types";
 
 const memberInclude = {
+  emails: { orderBy: { sortOrder: "asc" as const } },
+  phones: { orderBy: { sortOrder: "asc" as const } },
   documents: { orderBy: { createdAt: "desc" as const } },
   ownershipStakes: {
     orderBy: { sortOrder: "asc" as const },
@@ -92,7 +98,68 @@ export type FamilyMemberListRow = {
   updatedAt: Date;
 };
 
-export type { OwnershipStakeInput, SignatoryRoleInput, BeneficiaryDesignationInput } from "@/lib/family/types";
+export type { OwnershipStakeInput, SignatoryRoleInput, BeneficiaryDesignationInput, FamilyEmailInput, FamilyPhoneInput } from "@/lib/family/types";
+
+function legacyContactFields(emails: FamilyEmailInput[], phones: FamilyPhoneInput[]) {
+  const validEmails = emails.map((row) => row.email.trim()).filter(Boolean);
+  const validPhones = phones.map((row) => row.phone.trim()).filter(Boolean);
+
+  return {
+    email: validEmails[0] ?? null,
+    phonePrimary: validPhones[0] ?? null,
+    phoneSecondary: validPhones[1] ?? null,
+  };
+}
+
+async function replaceEmails(memberId: string, emails: FamilyEmailInput[]) {
+  await db.familyMemberEmail.deleteMany({ where: { familyMemberId: memberId } });
+  const valid = emails
+    .map((row) => ({ email: row.email.trim(), label: row.label?.trim() || null }))
+    .filter((row) => row.email);
+
+  if (valid.length === 0) return;
+
+  await db.familyMemberEmail.createMany({
+    data: valid.map((row, index) => ({
+      familyMemberId: memberId,
+      email: row.email,
+      label: row.label,
+      sortOrder: index,
+    })),
+  });
+}
+
+async function replacePhones(memberId: string, phones: FamilyPhoneInput[]) {
+  await db.familyMemberPhone.deleteMany({ where: { familyMemberId: memberId } });
+  const valid = phones
+    .map((row) => ({ phone: row.phone.trim(), label: row.label?.trim() || null }))
+    .filter((row) => row.phone);
+
+  if (valid.length === 0) return;
+
+  await db.familyMemberPhone.createMany({
+    data: valid.map((row, index) => ({
+      familyMemberId: memberId,
+      phone: row.phone,
+      label: row.label,
+      sortOrder: index,
+    })),
+  });
+}
+
+async function replaceMemberContacts(
+  memberId: string,
+  emails: FamilyEmailInput[],
+  phones: FamilyPhoneInput[],
+) {
+  await replaceEmails(memberId, emails);
+  await replacePhones(memberId, phones);
+
+  await db.familyMember.update({
+    where: { id: memberId },
+    data: legacyContactFields(emails, phones),
+  });
+}
 
 function sanitizeFileName(name: string) {
   return name.replace(/[^a-zA-Z0-9._-]/g, "_");
@@ -133,9 +200,6 @@ function readMemberFormData(formData: FormData) {
     idExpiryDate: parseDate(String(formData.get("idExpiryDate") ?? "")),
     kycStatus: String(formData.get("kycStatus") ?? "NOT_STARTED") as FamilyKycStatus,
     kycNotes: String(formData.get("kycNotes") ?? "").trim() || null,
-    email: String(formData.get("email") ?? "").trim() || null,
-    phonePrimary: String(formData.get("phonePrimary") ?? "").trim() || null,
-    phoneSecondary: String(formData.get("phoneSecondary") ?? "").trim() || null,
     address: String(formData.get("address") ?? "").trim() || null,
     emergencyContactName: String(formData.get("emergencyContactName") ?? "").trim() || null,
     emergencyContactPhone: String(formData.get("emergencyContactPhone") ?? "").trim() || null,
@@ -343,15 +407,33 @@ export async function createFamilyMember(formData: FormData) {
   await ensureFamilySchema();
   const data = readMemberFormData(formData);
 
-  const member = await db.familyMember.create({ data });
+  const member = await db.familyMember.create({
+    data: {
+      ...data,
+      ...legacyContactFields(
+        parseFamilyEmailsJson(String(formData.get("emailsJson") ?? "")),
+        parseFamilyPhonesJson(String(formData.get("phonesJson") ?? "")),
+      ),
+    },
+  });
 
   const stakes = parseOwnershipStakesJson(String(formData.get("stakesJson") ?? ""));
   const roles = parseSignatoryRolesJson(String(formData.get("signatoryRolesJson") ?? ""));
   const designations = parseBeneficiaryDesignationsJson(String(formData.get("beneficiaryDesignationsJson") ?? ""));
+  const emails = parseFamilyEmailsJson(String(formData.get("emailsJson") ?? ""));
+  const phones = parseFamilyPhonesJson(String(formData.get("phonesJson") ?? ""));
+
+  await replaceMemberContacts(member.id, emails, phones);
 
   await replaceOwnershipStakes(member.id, stakes);
   await replaceSignatoryRoles(member.id, roles);
   await replaceBeneficiaryDesignations(member.id, designations);
+
+  const poaFiles = getFilesFromFormData(formData, "poaFiles");
+  if (poaFiles.length > 0) {
+    const poaExpiry = parseDate(String(formData.get("poaExpiryDate") ?? ""));
+    await uploadMemberFiles(member.id, poaFiles, "POA", ctx.id, poaExpiry);
+  }
 
   await logAudit({
     userId: ctx.id,
@@ -378,6 +460,12 @@ export async function updateFamilyMember(memberId: string, formData: FormData) {
   const data = readMemberFormData(formData);
 
   await db.familyMember.update({ where: { id: memberId }, data });
+
+  if (formData.has("emailsJson") || formData.has("phonesJson")) {
+    const emails = parseFamilyEmailsJson(String(formData.get("emailsJson") ?? ""));
+    const phones = parseFamilyPhonesJson(String(formData.get("phonesJson") ?? ""));
+    await replaceMemberContacts(memberId, emails, phones);
+  }
 
   if (formData.has("stakesJson")) {
     await replaceOwnershipStakes(memberId, parseOwnershipStakesJson(String(formData.get("stakesJson"))));
