@@ -5,6 +5,7 @@ import { getModulePermission } from "@/lib/permissions/access";
 import { assetEntityFilter } from "@/lib/permissions/scoped-queries";
 import type { UserContext } from "@/lib/permissions/types";
 import type { PortfolioRollup } from "@/lib/portfolio/rollup";
+import { getUnlinkedPropertyMortgageTotalOmr } from "@/lib/portfolio/property-liabilities";
 import { backfillAssetValuations } from "@/lib/portfolio/valuations";
 import { entityWhere } from "@/lib/reports/helpers";
 
@@ -256,6 +257,8 @@ export async function getNetWorthTrend(
     paymentsByLiability.set(payment.liabilityId, rows);
   }
 
+  const unlinkedMortgageOmr = await getUnlinkedPropertyMortgageTotalOmr(ctx);
+
   const points: NetWorthTrendPoint[] = [];
 
   for (const anchor of anchors) {
@@ -274,11 +277,9 @@ export async function getNetWorthTrend(
     }
 
     const portfolioOmr = await getWeightedPortfolioOmrAtDate(assets, valuationsByAsset, anchor);
-    const liabilityOmr = await getLiabilityTotalOmrAtDate(
-      liabilities,
-      paymentsByLiability,
-      anchor,
-    );
+    const liabilityOmr =
+      (await getLiabilityTotalOmrAtDate(liabilities, paymentsByLiability, anchor)) +
+      unlinkedMortgageOmr;
 
     points.push({
       date: dateKey,

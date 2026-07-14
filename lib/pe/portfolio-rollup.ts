@@ -9,6 +9,7 @@ function isActivePeCompany(status: string) {
 export function applyPeCarryingDelta(
   companies: PeCompanyListRow[],
   assetValuesById: Map<string, number>,
+  assetOwnershipPctById: Map<string, number>,
   addAmount: (currency: string, amount: number) => void,
 ) {
   for (const company of companies) {
@@ -17,10 +18,12 @@ export function applyPeCarryingDelta(
     const carrying = getPeCarryingValue(company.totalInvested, company.latestFairValue);
     if (carrying <= 0 || !company.assetId) continue;
 
+    const ownershipPct = assetOwnershipPctById.get(company.assetId) ?? 100;
+    const targetCarrying = (carrying * ownershipPct) / 100;
     const recorded = assetValuesById.get(company.assetId) ?? 0;
-    if (recorded >= carrying) continue;
+    if (recorded >= targetCarrying) continue;
 
-    addAmount(company.reportingCurrency, carrying - recorded);
+    addAmount(company.reportingCurrency, targetCarrying - recorded);
   }
 }
 

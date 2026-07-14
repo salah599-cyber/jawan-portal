@@ -17,7 +17,7 @@ export function isManagedCashAssetName(name: string): boolean {
   return name.startsWith(MANAGED_CASH_ASSET_PREFIX);
 }
 
-type CashGroup = {
+export type CashGroup = {
   entityId: string;
   entityName: string;
   currency: string;
@@ -25,7 +25,7 @@ type CashGroup = {
   latestBalanceAsOf: Date | null;
 };
 
-async function buildCashGroups(ctx: UserContext): Promise<CashGroup[]> {
+export async function buildCashGroups(ctx: UserContext): Promise<CashGroup[]> {
   const accounts = await db.bankAccount.findMany({
     where: cashBankAccountFilter(ctx),
     include: { entity: { select: { name: true } } },

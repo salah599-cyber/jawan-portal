@@ -6,7 +6,8 @@ import { canAccess, getModulePermission } from "@/lib/permissions/access";
 import { assetEntityFilter } from "@/lib/permissions/scoped-queries";
 import type { UserContext } from "@/lib/permissions/types";
 import { applyPeCarryingDelta } from "@/lib/pe/portfolio-rollup";
-import { syncBankBalancesToCashAssets } from "@/lib/portfolio/cash-sync";
+import { buildCashGroups, isManagedCashAssetName, syncBankBalancesToCashAssets } from "@/lib/portfolio/cash-sync";
+import { addUnlinkedPropertyMortgagesToMap } from "@/lib/portfolio/property-liabilities";
 import { convertToOmr, entityWhere, weightedValue } from "@/lib/reports/helpers";
 
 const COUNTABLE_ASSET_STATUSES = ["ACTIVE", "MONITOR"] as const;
@@ -29,7 +30,7 @@ export type PortfolioRollup = {
 };
 
 function addToCurrencyMap(map: Map<string, number>, currency: string, amount: number) {
-  if (amount <= 0) return;
+  if (amount <= 0 || Number.isNaN(amount)) return;
   map.set(currency, (map.get(currency) ?? 0) + amount);
 }
 
@@ -80,6 +81,9 @@ export async function getPortfolioRollup(
     await syncBankBalancesToCashAssets(ctx);
   }
 
+  const bankCashGroups = canAccess(ctx, "CASH_MANAGEMENT") ? await buildCashGroups(ctx) : [];
+  const bankCashKeys = new Set(bankCashGroups.map((group) => `${group.entityId}:${group.currency}`));
+
   const assets = await db.asset.findMany({
     where: {
       ...entityWhere(options.entityId, assetEntityFilter(ctx)),
@@ -87,6 +91,8 @@ export async function getPortfolioRollup(
     },
     select: {
       id: true,
+      name: true,
+      entityId: true,
       category: true,
       assetType: { select: { name: true } },
       status: true,
@@ -96,7 +102,20 @@ export async function getPortfolioRollup(
     },
   });
 
+  const assetOwnershipPctById = new Map<string, number>();
+
   for (const asset of assets) {
+    const ownershipPct = parseFloat(asset.ownershipPct.toString());
+    assetOwnershipPctById.set(asset.id, Number.isNaN(ownershipPct) ? 100 : ownershipPct);
+
+    if (
+      asset.category === "CASH" &&
+      isManagedCashAssetName(asset.name) &&
+      bankCashKeys.has(`${asset.entityId}:${asset.currency}`)
+    ) {
+      continue;
+    }
+
     const value = weightedValue(asset.currentValue, asset.ownershipPct);
     assetValuesById.set(asset.id, value);
     addToCurrencyMap(portfolioMap, asset.currency, value);
@@ -108,10 +127,20 @@ export async function getPortfolioRollup(
     categoryMap.set(categoryKey, entry);
   }
 
+  for (const group of bankCashGroups) {
+    addToCurrencyMap(portfolioMap, group.currency, group.totalBalance);
+
+    const categoryKey = "CASH";
+    const entry = categoryMap.get(categoryKey) ?? { count: 0, totals: new Map<string, number>() };
+    entry.count += 1;
+    addToCurrencyMap(entry.totals, group.currency, group.totalBalance);
+    categoryMap.set(categoryKey, entry);
+  }
+
   if (canAccess(ctx, "PRIVATE_EQUITY")) {
     await ensurePeSchema();
     const peCompanies = await listPeCompanies(ctx, options.entityId);
-    applyPeCarryingDelta(peCompanies, assetValuesById, (currency, delta) => {
+    applyPeCarryingDelta(peCompanies, assetValuesById, assetOwnershipPctById, (currency, delta) => {
       addToCurrencyMap(portfolioMap, currency, delta);
 
       const categoryKey = "PRIVATE_EQUITY";
@@ -131,8 +160,11 @@ export async function getPortfolioRollup(
 
   for (const liability of liabilities) {
     const balance = liability.outstandingBalance ?? liability.amount;
-    addToCurrencyMap(liabilityMap, liability.currency, parseFloat(balance.toString()));
+    const parsed = parseFloat(balance.toString());
+    addToCurrencyMap(liabilityMap, liability.currency, parsed);
   }
+
+  await addUnlinkedPropertyMortgagesToMap(ctx, liabilityMap, options.entityId);
 
   const portfolioTotalOmr = await consolidateMapToOmr(portfolioMap);
   const liabilityTotalOmr = await consolidateMapToOmr(liabilityMap);
