@@ -48,7 +48,12 @@ function RelationsForm({
       onSubmit={(e) => {
         e.preventDefault();
         setError(null);
-        const formData = new FormData(e.currentTarget);
+        const form = e.currentTarget;
+        const formData = new FormData(form);
+        const jsonInput = form.querySelector<HTMLInputElement>(`input[name="${fieldName}"]`);
+        if (jsonInput) {
+          formData.set(fieldName, jsonInput.value);
+        }
         startTransition(async () => {
           try {
             await saveFamilyMemberRelations(memberId, formData);

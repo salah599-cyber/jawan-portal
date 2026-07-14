@@ -30,7 +30,12 @@ export function CreateFamilyMemberForm({ linkOptions }: { linkOptions: LinkOptio
   function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     setError(null);
-    const formData = new FormData(e.currentTarget);
+    const form = e.currentTarget;
+    const formData = new FormData(form);
+    const signatoryInput = form.querySelector<HTMLInputElement>('input[name="signatoryRolesJson"]');
+    if (signatoryInput) {
+      formData.set("signatoryRolesJson", signatoryInput.value);
+    }
     if (relationship) formData.set("relationship", relationship);
     if (idType) formData.set("idType", idType);
     formData.set("kycStatus", kycStatus);
