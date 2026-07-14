@@ -27,6 +27,18 @@ export function serializeFamilyMember(member: FamilyMemberDetail) {
     email: member.email,
     phonePrimary: member.phonePrimary,
     phoneSecondary: member.phoneSecondary,
+    emails: member.emails.map((row) => ({
+      id: row.id,
+      email: row.email,
+      label: row.label,
+      sortOrder: row.sortOrder,
+    })),
+    phones: member.phones.map((row) => ({
+      id: row.id,
+      phone: row.phone,
+      label: row.label,
+      sortOrder: row.sortOrder,
+    })),
     address: member.address,
     emergencyContactName: member.emergencyContactName,
     emergencyContactPhone: member.emergencyContactPhone,

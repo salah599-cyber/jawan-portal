@@ -141,8 +141,36 @@ export function FamilyMemberHub({
             <div><p className="text-xs text-muted-foreground">Date of Birth</p><p>{member.dateOfBirth ? formatDate(member.dateOfBirth) : "—"}</p></div>
             <div><p className="text-xs text-muted-foreground">ID</p><p>{member.idType ? `${FAMILY_MEMBER_ID_TYPE_LABELS[member.idType]}: ${member.idNumber ?? "—"}` : "—"}</p></div>
             <div><p className="text-xs text-muted-foreground">ID Expiry</p><p>{member.idExpiryDate ? formatDate(member.idExpiryDate) : "—"}</p></div>
-            <div><p className="text-xs text-muted-foreground">Email</p><p>{member.email ?? "—"}</p></div>
-            <div><p className="text-xs text-muted-foreground">Phone</p><p>{member.phonePrimary ?? "—"}</p></div>
+            <div className="sm:col-span-2">
+              <p className="text-xs text-muted-foreground">Email Addresses</p>
+              {member.emails.length > 0 ? (
+                <ul className="space-y-1">
+                  {member.emails.map((row) => (
+                    <li key={row.id}>
+                      {row.email}
+                      {row.label ? <span className="text-muted-foreground"> · {row.label}</span> : null}
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <p>{member.email ?? "—"}</p>
+              )}
+            </div>
+            <div className="sm:col-span-2">
+              <p className="text-xs text-muted-foreground">Phone Numbers</p>
+              {member.phones.length > 0 ? (
+                <ul className="space-y-1">
+                  {member.phones.map((row) => (
+                    <li key={row.id}>
+                      {row.phone}
+                      {row.label ? <span className="text-muted-foreground"> · {row.label}</span> : null}
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <p>{member.phonePrimary ?? "—"}</p>
+              )}
+            </div>
             <div className="sm:col-span-2"><p className="text-xs text-muted-foreground">Address</p><p>{member.address ?? "—"}</p></div>
             {canEdit ? (
               <div className="sm:col-span-2">

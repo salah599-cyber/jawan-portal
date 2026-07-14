@@ -3,6 +3,8 @@
 import { useState, useTransition } from "react";
 import { isRedirectError } from "next/dist/client/components/redirect-error";
 import { createFamilyMember } from "@/lib/actions/family-members";
+import { FamilyContactFields } from "@/components/family/family-contact-fields";
+import { FamilySignatoryRolesFields } from "@/components/family/family-signatory-roles-fields";
 import {
   FAMILY_KYC_STATUS_LABELS,
   FAMILY_MEMBER_ID_TYPE_LABELS,
@@ -15,7 +17,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 
-export function CreateFamilyMemberForm() {
+type LinkOptions = Awaited<ReturnType<typeof import("@/lib/actions/family-members").getFamilyLinkOptions>>;
+
+export function CreateFamilyMemberForm({ linkOptions }: { linkOptions: LinkOptions }) {
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
   const [relationship, setRelationship] = useState("");
@@ -46,7 +50,9 @@ export function CreateFamilyMemberForm() {
     <Card>
       <CardHeader>
         <CardTitle>Add Family Member</CardTitle>
-        <CardDescription>Register a family member in the central person registry.</CardDescription>
+        <CardDescription>
+          Register a family member with contact details, signatory roles, and optional POA documents.
+        </CardDescription>
       </CardHeader>
       <CardContent>
         <form onSubmit={handleSubmit} className="grid gap-4 md:grid-cols-2">
@@ -107,22 +113,35 @@ export function CreateFamilyMemberForm() {
               </SelectContent>
             </Select>
           </div>
-          <div className="space-y-2">
-            <Label htmlFor="email">Email</Label>
-            <Input id="email" name="email" type="email" />
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="phonePrimary">Primary Phone</Label>
-            <Input id="phonePrimary" name="phonePrimary" />
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="phoneSecondary">Secondary Phone</Label>
-            <Input id="phoneSecondary" name="phoneSecondary" />
-          </div>
+
+          <FamilyContactFields />
+
           <div className="space-y-2 md:col-span-2">
             <Label htmlFor="address">Address</Label>
             <Textarea id="address" name="address" rows={2} />
           </div>
+
+          <FamilySignatoryRolesFields linkOptions={linkOptions} />
+
+          <div className="space-y-4 rounded-lg border p-4 md:col-span-2">
+            <div>
+              <p className="text-sm font-medium">Power of Attorney</p>
+              <p className="text-xs text-muted-foreground">
+                Upload POA documents now or add more from the member profile later.
+              </p>
+            </div>
+            <div className="grid gap-4 md:grid-cols-2">
+              <div className="space-y-2">
+                <Label htmlFor="poaExpiryDate">POA Expiry Date</Label>
+                <Input id="poaExpiryDate" name="poaExpiryDate" type="date" />
+              </div>
+              <div className="space-y-2 md:col-span-2">
+                <Label htmlFor="poaFiles">POA Files</Label>
+                <Input id="poaFiles" name="poaFiles" type="file" multiple accept=".pdf,.jpg,.jpeg,.png,.webp" />
+              </div>
+            </div>
+          </div>
+
           <div className="flex items-center gap-2 md:col-span-2">
             <input
               id="isBeneficiary"

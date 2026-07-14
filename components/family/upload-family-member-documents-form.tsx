@@ -54,7 +54,7 @@ export function UploadFamilyMemberDocumentsForm({
         <Card>
           <CardHeader>
             <CardTitle>Upload KYC Documents</CardTitle>
-            <CardDescription>Passport, national ID, proof of address, and other identity documents</CardDescription>
+            <CardDescription>Passport, national ID, proof of address, power of attorney, and other identity documents</CardDescription>
           </CardHeader>
           <CardContent>
             <form onSubmit={handleUpload} className="grid gap-4 md:grid-cols-2">

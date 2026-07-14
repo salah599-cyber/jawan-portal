@@ -208,3 +208,38 @@ export function isIgnorableFamilySchemaError(message: string) {
     message.includes("IF NOT EXISTS")
   );
 }
+
+export const FAMILY_SCHEMA_MIGRATION_STATEMENTS = [
+  `ALTER TYPE "FamilyRelationship" ADD VALUE IF NOT EXISTS 'HEAD_OF_FAMILY'`,
+  `ALTER TYPE "FamilyRelationship" ADD VALUE IF NOT EXISTS 'SON'`,
+  `ALTER TYPE "FamilyRelationship" ADD VALUE IF NOT EXISTS 'DAUGHTER'`,
+  `ALTER TYPE "FamilyMemberDocumentType" ADD VALUE IF NOT EXISTS 'POA'`,
+  `CREATE TABLE IF NOT EXISTS "FamilyMemberEmail" (
+    "id" TEXT NOT NULL,
+    "familyMemberId" TEXT NOT NULL,
+    "email" TEXT NOT NULL,
+    "label" TEXT,
+    "sortOrder" INTEGER NOT NULL DEFAULT 0,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT "FamilyMemberEmail_pkey" PRIMARY KEY ("id")
+  )`,
+  `CREATE INDEX IF NOT EXISTS "FamilyMemberEmail_familyMemberId_idx" ON "FamilyMemberEmail" ("familyMemberId")`,
+  `CREATE TABLE IF NOT EXISTS "FamilyMemberPhone" (
+    "id" TEXT NOT NULL,
+    "familyMemberId" TEXT NOT NULL,
+    "phone" TEXT NOT NULL,
+    "label" TEXT,
+    "sortOrder" INTEGER NOT NULL DEFAULT 0,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT "FamilyMemberPhone_pkey" PRIMARY KEY ("id")
+  )`,
+  `CREATE INDEX IF NOT EXISTS "FamilyMemberPhone_familyMemberId_idx" ON "FamilyMemberPhone" ("familyMemberId")`,
+  `DO $$ BEGIN
+    ALTER TABLE "FamilyMemberEmail" ADD CONSTRAINT "FamilyMemberEmail_familyMemberId_fkey"
+      FOREIGN KEY ("familyMemberId") REFERENCES "FamilyMember"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+  EXCEPTION WHEN duplicate_object THEN NULL; END $$`,
+  `DO $$ BEGIN
+    ALTER TABLE "FamilyMemberPhone" ADD CONSTRAINT "FamilyMemberPhone_familyMemberId_fkey"
+      FOREIGN KEY ("familyMemberId") REFERENCES "FamilyMember"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+  EXCEPTION WHEN duplicate_object THEN NULL; END $$`,
+];
