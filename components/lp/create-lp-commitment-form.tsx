@@ -1,7 +1,7 @@
 "use client";
 
 import { useRef, useState, useTransition } from "react";
-import { isRedirectError } from "next/dist/client/components/redirect-error";
+import { useRouter } from "next/navigation";
 import { createLpCommitment } from "@/lib/actions/lp-fund";
 import {
   LP_COMMITMENT_STATUS_LABELS,
@@ -20,6 +20,14 @@ const CURRENCIES = ["USD", "EUR", "GBP", "CHF", "SGD", "AED", "SAR", "OMR"] as c
 
 type FundOption = { id: string; name: string; gpName: string | null; strategy: string };
 
+function mapSubmitError(err: unknown) {
+  if (!(err instanceof Error)) return "Failed to add commitment.";
+  if (/failed to fetch/i.test(err.message)) {
+    return "Could not save the commitment. Please check your connection and try again.";
+  }
+  return err.message;
+}
+
 export function CreateLpCommitmentForm({
   entities,
   existingFunds,
@@ -27,6 +35,7 @@ export function CreateLpCommitmentForm({
   entities: EntityOption[];
   existingFunds: FundOption[];
 }) {
+  const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
   const [fundMode, setFundMode] = useState<"new" | "existing">("new");
@@ -55,11 +64,12 @@ export function CreateLpCommitmentForm({
 
     startTransition(async () => {
       try {
-        await createLpCommitment(formData);
+        const commitment = await createLpCommitment(formData);
+        router.push(`/portfolio/fund-lp/${commitment.id}`);
+        router.refresh();
       } catch (err) {
-        if (isRedirectError(err)) throw err;
         submittingRef.current = false;
-        setError(err instanceof Error ? err.message : "Failed to add commitment.");
+        setError(mapSubmitError(err));
       }
     });
   }

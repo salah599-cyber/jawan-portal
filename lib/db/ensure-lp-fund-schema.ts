@@ -1,61 +1,45 @@
-import { Client } from "pg";
+import { db } from "@/lib/db";
 import {
-  LP_FUND_SCHEMA_STATEMENTS,
   isIgnorableLpFundSchemaError,
+  LP_FUND_ENUM_STATEMENTS,
+  LP_FUND_SCHEMA_TABLE_CHECK_SQL,
+  LP_FUND_TABLE_STATEMENTS,
 } from "@/lib/db/lp-fund-schema-statements";
 
 let ensurePromise: Promise<void> | null = null;
 
-function getDatabaseUrl() {
-  return (
-    process.env.POSTGRES_URL_NON_POOLING ||
-    process.env.POSTGRES_URL ||
-    process.env.DATABASE_URL_UNPOOLED ||
-    process.env.DATABASE_URL ||
-    process.env.POSTGRES_PRISMA_URL
+async function lpFundSchemaReady(): Promise<boolean> {
+  const rows = await db.$queryRawUnsafe<Array<{ exists: boolean }>>(
+    LP_FUND_SCHEMA_TABLE_CHECK_SQL,
   );
+  return Boolean(rows[0]?.exists);
 }
 
-async function tableExists(client: Client, tableName: string) {
-  const result = await client.query(
-    `SELECT EXISTS (
-      SELECT 1 FROM pg_tables
-      WHERE schemaname = 'public' AND tablename = $1
-    )`,
-    [tableName],
-  );
-  return Boolean(result.rows[0]?.exists);
+async function runStatements(statements: readonly string[]) {
+  for (const statement of statements) {
+    try {
+      await db.$executeRawUnsafe(statement);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      if (isIgnorableLpFundSchemaError(message)) continue;
+      throw new Error(`LP fund schema statement failed: ${message}`);
+    }
+  }
 }
 
 async function applyLpFundSchema() {
-  const connectionString = getDatabaseUrl();
-  if (!connectionString) {
-    throw new Error("No database URL is configured for LP fund schema sync.");
+  // Enum values must be applied even when tables already exist (e.g. after a
+  // partial deploy) so asset rows can use category FUND_LP.
+  await runStatements(LP_FUND_ENUM_STATEMENTS);
+
+  if (await lpFundSchemaReady()) {
+    return;
   }
 
-  const client = new Client({ connectionString });
-  await client.connect();
+  await runStatements(LP_FUND_TABLE_STATEMENTS);
 
-  try {
-    if (await tableExists(client, "LpCommitment")) {
-      return;
-    }
-
-    for (const statement of LP_FUND_SCHEMA_STATEMENTS) {
-      try {
-        await client.query(statement);
-      } catch (error) {
-        const message = error instanceof Error ? error.message : String(error);
-        if (isIgnorableLpFundSchemaError(message)) continue;
-        throw new Error(`LP fund schema statement failed: ${message}`);
-      }
-    }
-
-    if (!(await tableExists(client, "LpCommitment"))) {
-      throw new Error("LP fund schema sync finished but LpCommitment table is still missing.");
-    }
-  } finally {
-    await client.end();
+  if (!(await lpFundSchemaReady())) {
+    throw new Error("LP fund schema sync finished but LpCommitment table is still missing.");
   }
 }
 
@@ -71,16 +55,9 @@ export function ensureLpFundSchema() {
 }
 
 export async function isLpFundSchemaReady() {
-  const connectionString = getDatabaseUrl();
-  if (!connectionString) return false;
-
-  const client = new Client({ connectionString });
   try {
-    await client.connect();
-    return await tableExists(client, "LpCommitment");
+    return await lpFundSchemaReady();
   } catch {
     return false;
-  } finally {
-    await client.end();
   }
 }
