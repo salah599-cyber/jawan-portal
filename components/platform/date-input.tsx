@@ -42,13 +42,17 @@ export function DateInput({
   required,
   disabled,
   placeholder = DATE_INPUT_PLACEHOLDER,
+  min,
+  max,
   ...props
 }: DateInputProps) {
+  const nativeInputRef = React.useRef<HTMLInputElement>(null);
   const isControlled = value !== undefined;
-  // Only used in uncontrolled mode — the controlled `value`/`visibleValue`/
-  // `submittedIso` below are derived directly from props during render.
   const [displayValue, setDisplayValue] = React.useState(() => toDisplayValue(defaultValue));
   const [isoValue, setIsoValue] = React.useState(() => toIsoValue(defaultValue));
+
+  const submittedIso = isControlled ? toIsoValue(value) : isoValue;
+  const visibleValue = isControlled ? toDisplayValue(value) : displayValue;
 
   const emitChange = React.useCallback(
     (event: React.ChangeEvent<HTMLInputElement>, nextIso: string) => {
@@ -62,6 +66,17 @@ export function DateInput({
     },
     [onChange],
   );
+
+  function applyIsoValue(event: React.ChangeEvent<HTMLInputElement>, nextIso: string) {
+    const nextDisplay = nextIso ? formatDateForInput(nextIso) : "";
+
+    if (!isControlled) {
+      setDisplayValue(nextDisplay);
+      setIsoValue(nextIso);
+    }
+
+    emitChange(event, nextIso);
+  }
 
   const handleDisplayChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const nextDisplay = event.target.value;
@@ -87,8 +102,27 @@ export function DateInput({
     props.onBlur?.(event);
   };
 
-  const submittedIso = isControlled ? toIsoValue(value) : isoValue;
-  const visibleValue = isControlled ? toDisplayValue(value) : displayValue;
+  const handleNativeChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    applyIsoValue(event, event.target.value);
+  };
+
+  function openCalendar() {
+    if (disabled) return;
+    const nativeInput = nativeInputRef.current;
+    if (!nativeInput) return;
+
+    if (typeof nativeInput.showPicker === "function") {
+      try {
+        nativeInput.showPicker();
+        return;
+      } catch {
+        nativeInput.click();
+        return;
+      }
+    }
+
+    nativeInput.click();
+  }
 
   return (
     <div className={cn("relative w-full", className)}>
@@ -117,10 +151,28 @@ export function DateInput({
           disabled={disabled}
         />
       ) : null}
-      <Calendar
+      <input
+        ref={nativeInputRef}
+        type="date"
+        value={submittedIso}
+        onChange={handleNativeChange}
+        min={min == null ? undefined : String(min)}
+        max={max == null ? undefined : String(max)}
+        required={required}
+        disabled={disabled}
+        tabIndex={-1}
         aria-hidden
-        className="pointer-events-none absolute top-1/2 right-2.5 size-4 -translate-y-1/2 text-muted-foreground"
+        className="sr-only"
       />
+      <button
+        type="button"
+        onClick={openCalendar}
+        disabled={disabled}
+        aria-label="Open calendar"
+        className="absolute top-1/2 right-2.5 -translate-y-1/2 rounded-sm text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50"
+      >
+        <Calendar className="size-4" />
+      </button>
     </div>
   );
 }
