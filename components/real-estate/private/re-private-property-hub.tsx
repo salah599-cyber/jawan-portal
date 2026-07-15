@@ -329,8 +329,11 @@ function RunningCostCard({
             <Field label="Provider" name="provider" defaultValue={cost.provider ?? ""} />
             <Field label="Meter #" name="meterNumber" defaultValue={cost.meterNumber ?? ""} />
             <Field label="Account #" name="accountNumber" defaultValue={cost.accountNumber ?? ""} />
-            <Field label="Monthly (OMR)" name="monthlyCostOmr" type="number" defaultValue={cost.monthlyCostOmr ?? ""} />
-            <Field label="Annual (OMR)" name="annualCostOmr" type="number" defaultValue={cost.annualCostOmr ?? ""} />
+            <LinkedMonthlyAnnualFields
+              idPrefix={cost.id}
+              monthlyDefault={cost.monthlyCostOmr}
+              annualDefault={cost.annualCostOmr}
+            />
             <Field label="Payment status" name="paymentStatus" defaultValue={cost.paymentStatus ?? ""} />
             <div className="md:col-span-3">
               <Label htmlFor={`notes-${cost.id}`}>Notes</Label>
@@ -534,6 +537,100 @@ function DeleteButton({ label, onConfirm }: { label: string; onConfirm: () => Pr
     >
       {label}
     </Button>
+  );
+}
+
+function roundOmr3(value: number): number {
+  return Math.round(value * 1000) / 1000;
+}
+
+function deriveMonthlyAnnualPair(
+  monthlyDefault?: string | null,
+  annualDefault?: string | null,
+): { monthly: string; annual: string } {
+  const monthly = monthlyDefault ?? "";
+  const annual = annualDefault ?? "";
+  if (monthly && !annual) {
+    const num = parseFloat(monthly);
+    if (!Number.isNaN(num)) {
+      return { monthly, annual: String(roundOmr3(num * 12)) };
+    }
+  }
+  if (annual && !monthly) {
+    const num = parseFloat(annual);
+    if (!Number.isNaN(num)) {
+      return { monthly: String(roundOmr3(num / 12)), annual };
+    }
+  }
+  return { monthly, annual };
+}
+
+function LinkedMonthlyAnnualFields({
+  idPrefix,
+  monthlyDefault,
+  annualDefault,
+}: {
+  idPrefix: string;
+  monthlyDefault?: string | null;
+  annualDefault?: string | null;
+}) {
+  const [{ monthly, annual }, setValues] = useState(() =>
+    deriveMonthlyAnnualPair(monthlyDefault, annualDefault),
+  );
+
+  const handleMonthlyChange = (value: string) => {
+    if (value === "") {
+      setValues({ monthly: "", annual: "" });
+      return;
+    }
+    const num = parseFloat(value);
+    if (Number.isNaN(num)) {
+      setValues((prev) => ({ ...prev, monthly: value }));
+      return;
+    }
+    setValues({ monthly: value, annual: String(roundOmr3(num * 12)) });
+  };
+
+  const handleAnnualChange = (value: string) => {
+    if (value === "") {
+      setValues({ monthly: "", annual: "" });
+      return;
+    }
+    const num = parseFloat(value);
+    if (Number.isNaN(num)) {
+      setValues((prev) => ({ ...prev, annual: value }));
+      return;
+    }
+    setValues({ monthly: String(roundOmr3(num / 12)), annual: value });
+  };
+
+  return (
+    <>
+      <div>
+        <Label htmlFor={`monthlyCostOmr-${idPrefix}`}>Monthly (OMR)</Label>
+        <Input
+          id={`monthlyCostOmr-${idPrefix}`}
+          name="monthlyCostOmr"
+          type="number"
+          step="0.001"
+          min="0"
+          value={monthly}
+          onChange={(event) => handleMonthlyChange(event.target.value)}
+        />
+      </div>
+      <div>
+        <Label htmlFor={`annualCostOmr-${idPrefix}`}>Annual (OMR)</Label>
+        <Input
+          id={`annualCostOmr-${idPrefix}`}
+          name="annualCostOmr"
+          type="number"
+          step="0.001"
+          min="0"
+          value={annual}
+          onChange={(event) => handleAnnualChange(event.target.value)}
+        />
+      </div>
+    </>
   );
 }
 
