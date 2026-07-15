@@ -30,7 +30,7 @@ export default async function CashManagementPage() {
           <div>
             <h2 className="text-lg font-semibold">Cash Position</h2>
             <p className="text-sm text-muted-foreground">
-              Manual balance tracking across all family office bank accounts.
+              Balance tracking for accounts included in cash position. Reference-only accounts are managed under Bank Details.
             </p>
           </div>
           {canEdit ? <AddLinkButton href="/cash/new" label="Add Account" /> : null}
@@ -57,7 +57,7 @@ export default async function CashManagementPage() {
           <CardHeader>
             <CardTitle>All Accounts</CardTitle>
             <CardDescription>
-              Balances converted to OMR using the latest available FX rates. Accounts not updated in 30 days are flagged.
+              Accounts included in cash position. Balances converted to OMR using the latest available FX rates. Accounts not updated in 30 days are flagged.
             </CardDescription>
           </CardHeader>
           <CardContent>

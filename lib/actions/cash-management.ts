@@ -10,7 +10,7 @@ import {
 } from "@/lib/bank/account-numbers";
 import { ensureCashManagementSchema } from "@/lib/db/ensure-cash-management-schema";
 import { canWrite, requireModuleAccess } from "@/lib/permissions/access";
-import { cashBankAccountFilter } from "@/lib/permissions/scoped-queries";
+import { cashPositionBankAccountFilter } from "@/lib/permissions/scoped-queries";
 import { syncBankBalancesToCashAssets } from "@/lib/portfolio/cash-sync";
 export type CashAccountInput = {
   accountName: string;
@@ -154,7 +154,7 @@ export async function updateCashAccount(id: string, input: CashAccountInput) {
   assertEntityAccess(ctx, input.entityId);
 
   const account = await db.bankAccount.findFirst({
-    where: { id, ...cashBankAccountFilter(ctx) },
+    where: { id, ...cashPositionBankAccountFilter(ctx) },
   });
   if (!account) throw new Error("Bank account not found.");
 
@@ -206,7 +206,7 @@ export async function updateCashAccountNotes(id: string, notes: string) {
   await ensureCashManagementSchema();
 
   const account = await db.bankAccount.findFirst({
-    where: { id, ...cashBankAccountFilter(ctx) },
+    where: { id, ...cashPositionBankAccountFilter(ctx) },
   });
   if (!account) throw new Error("Bank account not found.");
 
@@ -238,7 +238,7 @@ export async function recordCashBalance(formData: FormData) {
   if (!balanceDate) throw new Error("Balance date is required.");
 
   const account = await db.bankAccount.findFirst({
-    where: { id: bankAccountId, ...cashBankAccountFilter(ctx) },
+    where: { id: bankAccountId, ...cashPositionBankAccountFilter(ctx) },
   });
   if (!account) throw new Error("Bank account not found.");
 
@@ -285,7 +285,7 @@ export async function deactivateCashAccount(id: string) {
   await ensureCashManagementSchema();
 
   const account = await db.bankAccount.findFirst({
-    where: { id, ...cashBankAccountFilter(ctx) },
+    where: { id, ...cashPositionBankAccountFilter(ctx) },
   });
   if (!account) throw new Error("Bank account not found.");
 
@@ -337,7 +337,7 @@ export async function applyCashStatementImport(input: {
   if (!balanceDate) throw new Error("Balance date is required.");
 
   const account = await db.bankAccount.findFirst({
-    where: { id: bankAccountId, ...cashBankAccountFilter(ctx) },
+    where: { id: bankAccountId, ...cashPositionBankAccountFilter(ctx) },
   });
   if (!account) throw new Error("Bank account not found.");
 

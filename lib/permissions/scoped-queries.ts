@@ -142,6 +142,14 @@ export function cashBankAccountFilter(ctx: UserContext) {
   return { id: "__none__" };
 }
 
+/** Active bank accounts tracked in Cash Management (excludes reference-only registry entries). */
+export function cashPositionBankAccountFilter(ctx: UserContext) {
+  return {
+    ...cashBankAccountFilter(ctx),
+    includeInCashPosition: true,
+  };
+}
+
 export function taskEntityFilter(ctx: UserContext) {
   const level = getModulePermission(ctx, "CALENDAR");
   if (level === "FULL" || level === "READ") return {};
