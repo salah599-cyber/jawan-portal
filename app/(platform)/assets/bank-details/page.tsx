@@ -2,7 +2,8 @@ import Link from "next/link";
 import { PlatformHeader } from "@/components/platform/platform-header";
 import { AddLinkButton } from "@/components/platform/add-link-button";
 import { RowActions } from "@/components/platform/row-actions";
-import { formatBankAccountNumbers } from "@/lib/bank/account-numbers";
+import { BankAccountNumbersList } from "@/components/bank/bank-account-numbers-list";
+import { resolveBankAccountNumberRows } from "@/lib/bank/account-numbers";
 import { listBankAccounts, deleteBankAccount } from "@/lib/actions/bank-accounts";
 import { canWrite, requireModuleAccess } from "@/lib/permissions/access";
 import { formatDate } from "@/lib/format";
@@ -45,9 +46,7 @@ export default async function BankDetailsPage() {
                   <TableRow>
                     <TableHead>Account Name</TableHead>
                     <TableHead>Bank</TableHead>
-                    <TableHead>Account Numbers</TableHead>
-                    <TableHead>IBAN</TableHead>
-                    <TableHead>Primary Currency</TableHead>
+                    <TableHead>Registered Accounts</TableHead>
                     <TableHead>Usage</TableHead>
                     <TableHead>Entity</TableHead>
                     <TableHead>Updated</TableHead>
@@ -57,22 +56,25 @@ export default async function BankDetailsPage() {
                 <TableBody>
                   {accounts.map((account) => (
                     <TableRow key={account.id}>
-                      <TableCell className="font-medium">
+                      <TableCell className="font-medium align-top">
                         <Link href={"/assets/bank-details/" + account.id} className="hover:underline">
                           {account.accountName}
                         </Link>
                       </TableCell>
-                      <TableCell>{account.bankName}</TableCell>
-                      <TableCell>{formatBankAccountNumbers(account.accountNumbers, account)}</TableCell>
-                      <TableCell>{account.iban ?? "—"}</TableCell>
-                      <TableCell>{account.currency}</TableCell>
-                      <TableCell>
+                      <TableCell className="align-top">{account.bankName}</TableCell>
+                      <TableCell className="align-top min-w-[220px]">
+                        <BankAccountNumbersList
+                          accounts={resolveBankAccountNumberRows(account.accountNumbers, account)}
+                          variant="compact"
+                        />
+                      </TableCell>
+                      <TableCell className="align-top">
                         <BankAccountUsageBadge includeInCashPosition={account.includeInCashPosition} />
                       </TableCell>
-                      <TableCell>{account.entity?.name ?? "—"}</TableCell>
-                      <TableCell>{formatDate(account.updatedAt)}</TableCell>
+                      <TableCell className="align-top">{account.entity?.name ?? "—"}</TableCell>
+                      <TableCell className="align-top">{formatDate(account.updatedAt)}</TableCell>
                       {showAdd ? (
-                        <TableCell>
+                        <TableCell className="align-top">
                           <RowActions
                             editHref={"/assets/bank-details/" + account.id + "/edit"}
                             itemId={account.id}

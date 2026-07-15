@@ -28,6 +28,7 @@ type BankRecord = {
   accountNumbers?: Array<{
     accountNumber: string;
     currency: string;
+    iban: string | null;
     label: string | null;
   }>;
 };
@@ -39,7 +40,7 @@ export function EditBankForm({ account, entities }: { account: BankRecord; entit
   const [entityId, setEntityId] = useState(account.entityId ?? "none");
   const [includeInCashPosition, setIncludeInCashPosition] = useState(account.includeInCashPosition);
   const [accounts, setAccounts] = useState<BankAccountNumberInput[]>(
-    accountNumbersFromLegacy(account.accountNumber, account.currency, account.accountNumbers),
+    accountNumbersFromLegacy(account.accountNumber, account.currency, account.accountNumbers, account.iban),
   );
 
   function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
@@ -53,7 +54,6 @@ export function EditBankForm({ account, entities }: { account: BankRecord; entit
           accountName: String(form.get("accountName") ?? ""),
           bankName: String(form.get("bankName") ?? ""),
           accounts,
-          iban: String(form.get("iban") ?? ""),
           swiftCode: String(form.get("swiftCode") ?? ""),
           sortCode: String(form.get("sortCode") ?? ""),
           entityId: entityId === "none" ? undefined : entityId,
@@ -76,7 +76,6 @@ export function EditBankForm({ account, entities }: { account: BankRecord; entit
           <div className="space-y-2"><Label htmlFor="accountName">Account Name</Label><Input id="accountName" name="accountName" required defaultValue={account.accountName} /></div>
           <div className="space-y-2"><Label htmlFor="bankName">Bank Name</Label><Input id="bankName" name="bankName" required defaultValue={account.bankName} /></div>
           <BankAccountNumbersFields accounts={accounts} onChange={setAccounts} />
-          <div className="space-y-2"><Label htmlFor="iban">IBAN</Label><Input id="iban" name="iban" defaultValue={account.iban ?? ""} /></div>
           <div className="space-y-2"><Label htmlFor="swiftCode">SWIFT Code</Label><Input id="swiftCode" name="swiftCode" defaultValue={account.swiftCode ?? ""} /></div>
           <div className="space-y-2"><Label htmlFor="sortCode">Sort Code</Label><Input id="sortCode" name="sortCode" defaultValue={account.sortCode ?? ""} /></div>
           <div className="space-y-2">

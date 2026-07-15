@@ -12,7 +12,7 @@ export type CashAccountRow = {
   accountName: string;
   bankName: string;
   accountNumber: string;
-  accountNumbers: Array<{ accountNumber: string; currency: string; label: string | null }>;
+  accountNumbers: Array<{ accountNumber: string; currency: string; iban: string | null; label: string | null }>;
   accountNumbersLabel: string;
   iban: string | null;
   currency: string;
@@ -73,6 +73,7 @@ async function accountToRow(
     accountNumbers?: Array<{
       accountNumber: string;
       currency: string;
+      iban: string | null;
       label: string | null;
     }>;
   },

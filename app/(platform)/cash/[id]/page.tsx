@@ -2,6 +2,8 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { PlatformHeader } from "@/components/platform/platform-header";
 import { EditLinkButton } from "@/components/platform/edit-link-button";
+import { BankAccountNumbersList } from "@/components/bank/bank-account-numbers-list";
+import { resolveBankAccountNumberRows } from "@/lib/bank/account-numbers";
 import { RecordBalanceForm } from "@/components/cash/record-balance-form";
 import { UploadStatementForm } from "@/components/cash/upload-statement-form";
 import { StatementImportHistory } from "@/components/cash/statement-import-history";
@@ -36,6 +38,7 @@ export default async function CashAccountDetailPage({
   if (!account) notFound();
 
   const canEdit = canWrite(ctx, "CASH_MANAGEMENT");
+  const registeredAccounts = resolveBankAccountNumberRows(account.accountNumbers, account);
 
   return (
     <>
@@ -55,49 +58,56 @@ export default async function CashAccountDetailPage({
                 <div>
                   <CardTitle>{account.accountName}</CardTitle>
                   <CardDescription>
-                    {account.bankName} · {account.accountNumbersLabel}
+                    {account.bankName}
+                    {registeredAccounts.length > 0
+                      ? ` · ${registeredAccounts.length} registered account${registeredAccounts.length === 1 ? "" : "s"}`
+                      : ""}
                   </CardDescription>
                 </div>
                 <StaleBalanceBadge balanceAsOf={account.balanceAsOf} isStale={account.isStale} />
               </div>
             </CardHeader>
-            <CardContent className="grid gap-4 sm:grid-cols-2">
-              <Detail label="Entity" value={account.entityName ?? "—"} />
-              <Detail label="Account Numbers" value={account.accountNumbersLabel} />
-              <Detail label="Primary Currency" value={account.currency} />
-              <Detail
-                label="Usage"
-                value={
-                  <div className="space-y-1">
-                    <BankAccountUsageBadge includeInCashPosition={account.includeInCashPosition} />
-                    <p className="text-xs text-muted-foreground">
-                      {account.includeInCashPosition
-                        ? "Included in cash position and net worth."
-                        : "Excluded from cash position totals."}
-                    </p>
+            <CardContent className="space-y-6">
+              <div className="grid gap-4 sm:grid-cols-2">
+                <Detail label="Entity" value={account.entityName ?? "—"} />
+                <Detail label="Primary Currency" value={account.currency} />
+                <Detail
+                  label="Usage"
+                  value={
+                    <div className="space-y-1">
+                      <BankAccountUsageBadge includeInCashPosition={account.includeInCashPosition} />
+                      <p className="text-xs text-muted-foreground">
+                        {account.includeInCashPosition
+                          ? "Included in cash position and net worth."
+                          : "Excluded from cash position totals."}
+                      </p>
+                    </div>
+                  }
+                />
+                <Detail
+                  label="Current Balance"
+                  value={
+                    account.currentBalance != null
+                      ? formatMoney(account.currentBalance, account.currency)
+                      : "—"
+                  }
+                />
+                <Detail
+                  label="OMR Equivalent"
+                  value={account.balanceOmr != null ? formatOmr(account.balanceOmr) : "—"}
+                />
+                <Detail label="Balance As Of" value={formatDate(account.balanceAsOf)} />
+                {account.notes ? (
+                  <div className="sm:col-span-2">
+                    <p className="text-sm font-medium text-muted-foreground">Account Notes</p>
+                    <p className="mt-1 text-sm whitespace-pre-wrap">{account.notes}</p>
                   </div>
-                }
-              />
-              <Detail
-                label="Current Balance"
-                value={
-                  account.currentBalance != null
-                    ? formatMoney(account.currentBalance, account.currency)
-                    : "—"
-                }
-              />
-              <Detail
-                label="OMR Equivalent"
-                value={account.balanceOmr != null ? formatOmr(account.balanceOmr) : "—"}
-              />
-              <Detail label="Balance As Of" value={formatDate(account.balanceAsOf)} />
-              <Detail label="IBAN" value={account.iban ?? "—"} />
-              {account.notes ? (
-                <div className="sm:col-span-2">
-                  <p className="text-sm font-medium text-muted-foreground">Account Notes</p>
-                  <p className="mt-1 text-sm whitespace-pre-wrap">{account.notes}</p>
-                </div>
-              ) : null}
+                ) : null}
+              </div>
+              <div>
+                <p className="mb-3 text-sm font-medium text-muted-foreground">Registered Accounts</p>
+                <BankAccountNumbersList accounts={registeredAccounts} variant="compact" />
+              </div>
             </CardContent>
           </Card>
 
