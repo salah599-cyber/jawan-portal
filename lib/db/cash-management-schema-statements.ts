@@ -30,10 +30,18 @@ export const CASH_MANAGEMENT_MIGRATION_STATEMENTS = [
   )`,
   `CREATE INDEX IF NOT EXISTS "BankAccountNumber_bankAccountId_idx" ON "BankAccountNumber" ("bankAccountId")`,
   `CREATE INDEX IF NOT EXISTS "BankAccountNumber_accountNumber_idx" ON "BankAccountNumber" ("accountNumber")`,
+  `ALTER TABLE "BankAccountNumber" ADD COLUMN IF NOT EXISTS "iban" TEXT`,
   `DO $$ BEGIN
     ALTER TABLE "BankAccountNumber" ADD CONSTRAINT "BankAccountNumber_bankAccountId_fkey"
       FOREIGN KEY ("bankAccountId") REFERENCES "BankAccount"("id") ON DELETE CASCADE ON UPDATE CASCADE;
   EXCEPTION WHEN duplicate_object THEN NULL; END $$`,
+  `UPDATE "BankAccountNumber" n
+    SET iban = b.iban
+    FROM "BankAccount" b
+    WHERE n."bankAccountId" = b.id
+      AND n."sortOrder" = 0
+      AND n.iban IS NULL
+      AND b.iban IS NOT NULL`,
   `INSERT INTO "BankAccountNumber" ("id", "bankAccountId", "accountNumber", "currency", "sortOrder", "createdAt")
     SELECT
       'ban_' || substr(md5(b.id || b."accountNumber" || b."createdAt"::text), 1, 24),

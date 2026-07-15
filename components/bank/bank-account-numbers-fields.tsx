@@ -10,6 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 const emptyAccount = (): BankAccountNumberInput => ({
   accountNumber: "",
   currency: "OMR",
+  iban: "",
   label: "",
 });
 
@@ -39,9 +40,9 @@ export function BankAccountNumbersFields({
     <div className="md:col-span-2 space-y-3 rounded-lg border bg-muted/20 p-4">
       <div className="flex items-center justify-between gap-4">
         <div>
-          <p className="text-sm font-medium">Account Numbers</p>
+          <p className="text-sm font-medium">Registered Accounts</p>
           <p className="text-xs text-muted-foreground">
-            Add each account number and currency at this bank.
+            Add each account at this bank on its own line — number, currency, and IBAN can differ.
           </p>
         </div>
         <Button type="button" variant="outline" size="sm" onClick={addAccount}>
@@ -51,40 +52,10 @@ export function BankAccountNumbersFields({
       {rows.map((account, index) => (
         <div
           key={index}
-          className="grid gap-3 rounded-lg border bg-background p-3 md:grid-cols-[1fr_120px_1fr_auto]"
+          className="space-y-3 rounded-lg border bg-background p-3"
         >
-          <div className="space-y-2">
-            <Label>Account Number</Label>
-            <Input
-              value={account.accountNumber}
-              onChange={(e) => updateAccount(index, "accountNumber", e.target.value)}
-              placeholder="1049-485882-001"
-              required={index === 0}
-            />
-          </div>
-          <div className="space-y-2">
-            <Label>Currency</Label>
-            <Select
-              value={account.currency || "OMR"}
-              onValueChange={(value) => updateAccount(index, "currency", value)}
-            >
-              <SelectTrigger><SelectValue /></SelectTrigger>
-              <SelectContent>
-                {CASH_CURRENCIES.map((currency) => (
-                  <SelectItem key={currency} value={currency}>{currency}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-          <div className="space-y-2">
-            <Label>Label (optional)</Label>
-            <Input
-              value={account.label ?? ""}
-              onChange={(e) => updateAccount(index, "label", e.target.value)}
-              placeholder="Current, savings…"
-            />
-          </div>
-          <div className="flex items-end">
+          <div className="flex items-center justify-between gap-2">
+            <p className="text-sm font-medium text-muted-foreground">Account {index + 1}</p>
             <Button
               type="button"
               variant="ghost"
@@ -94,6 +65,47 @@ export function BankAccountNumbersFields({
             >
               Remove
             </Button>
+          </div>
+          <div className="grid gap-3 md:grid-cols-2">
+            <div className="space-y-2">
+              <Label>Account Number</Label>
+              <Input
+                value={account.accountNumber}
+                onChange={(e) => updateAccount(index, "accountNumber", e.target.value)}
+                placeholder="1049-485882-001"
+                required={index === 0}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Currency</Label>
+              <Select
+                value={account.currency || "OMR"}
+                onValueChange={(value) => updateAccount(index, "currency", value)}
+              >
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  {CASH_CURRENCIES.map((currency) => (
+                    <SelectItem key={currency} value={currency}>{currency}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2 md:col-span-2">
+              <Label>IBAN</Label>
+              <Input
+                value={account.iban ?? ""}
+                onChange={(e) => updateAccount(index, "iban", e.target.value)}
+                placeholder="OM00 0000 0000 0000 0000 0000 000"
+              />
+            </div>
+            <div className="space-y-2 md:col-span-2">
+              <Label>Label (optional)</Label>
+              <Input
+                value={account.label ?? ""}
+                onChange={(e) => updateAccount(index, "label", e.target.value)}
+                placeholder="Current, savings, USD account…"
+              />
+            </div>
           </div>
         </div>
       ))}

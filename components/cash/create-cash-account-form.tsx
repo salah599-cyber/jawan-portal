@@ -31,6 +31,7 @@ export function CreateCashAccountForm({
     {
       accountNumber: prefill?.accountNumber ?? "",
       currency: prefill?.currency ?? "OMR",
+      iban: prefill?.iban ?? "",
       label: "",
     },
   ]);
@@ -46,7 +47,6 @@ export function CreateCashAccountForm({
           accountName: String(form.get("accountName") ?? ""),
           bankName: String(form.get("bankName") ?? ""),
           accounts,
-          iban: String(form.get("iban") ?? ""),
           swiftCode: String(form.get("swiftCode") ?? ""),
           sortCode: String(form.get("sortCode") ?? ""),
           entityId: entityId === "none" ? undefined : entityId,
@@ -101,10 +101,6 @@ export function CreateCashAccountForm({
             />
           </div>
           <BankAccountNumbersFields accounts={accounts} onChange={setAccounts} />
-          <div className="space-y-2">
-            <Label htmlFor="iban">IBAN</Label>
-            <Input id="iban" name="iban" defaultValue={prefill?.iban ?? ""} />
-          </div>
           <div className="space-y-2">
             <Label htmlFor="swiftCode">SWIFT Code</Label>
             <Input id="swiftCode" name="swiftCode" />

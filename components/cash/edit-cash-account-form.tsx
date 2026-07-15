@@ -28,6 +28,7 @@ type CashAccountRecord = {
   accountNumbers?: Array<{
     accountNumber: string;
     currency: string;
+    iban: string | null;
     label: string | null;
   }>;
 };
@@ -45,7 +46,7 @@ export function EditCashAccountForm({
   const [entityId, setEntityId] = useState(account.entityId ?? "none");
   const [includeInCashPosition, setIncludeInCashPosition] = useState(account.includeInCashPosition);
   const [accounts, setAccounts] = useState<BankAccountNumberInput[]>(
-    accountNumbersFromLegacy(account.accountNumber, account.currency, account.accountNumbers),
+    accountNumbersFromLegacy(account.accountNumber, account.currency, account.accountNumbers, account.iban),
   );
 
   function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
@@ -59,7 +60,6 @@ export function EditCashAccountForm({
           accountName: String(form.get("accountName") ?? ""),
           bankName: String(form.get("bankName") ?? ""),
           accounts,
-          iban: String(form.get("iban") ?? ""),
           swiftCode: String(form.get("swiftCode") ?? ""),
           sortCode: String(form.get("sortCode") ?? ""),
           entityId: entityId === "none" ? undefined : entityId,
@@ -90,10 +90,6 @@ export function EditCashAccountForm({
             <Input id="bankName" name="bankName" required defaultValue={account.bankName} />
           </div>
           <BankAccountNumbersFields accounts={accounts} onChange={setAccounts} />
-          <div className="space-y-2">
-            <Label htmlFor="iban">IBAN</Label>
-            <Input id="iban" name="iban" defaultValue={account.iban ?? ""} />
-          </div>
           <div className="space-y-2">
             <Label htmlFor="swiftCode">SWIFT Code</Label>
             <Input id="swiftCode" name="swiftCode" defaultValue={account.swiftCode ?? ""} />

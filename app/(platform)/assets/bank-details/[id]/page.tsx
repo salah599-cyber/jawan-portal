@@ -3,7 +3,8 @@ import { notFound } from "next/navigation";
 import { PlatformHeader } from "@/components/platform/platform-header";
 import { DeleteEntryButton } from "@/components/platform/delete-entry-button";
 import { EditLinkButton } from "@/components/platform/edit-link-button";
-import { formatBankAccountNumbers } from "@/lib/bank/account-numbers";
+import { BankAccountNumbersList } from "@/components/bank/bank-account-numbers-list";
+import { resolveBankAccountNumberRows } from "@/lib/bank/account-numbers";
 import { getBankAccount, deleteBankAccount } from "@/lib/actions/bank-accounts";
 import { canWrite, requireModuleAccess } from "@/lib/permissions/access";
 import { CHEQUE_DIRECTION_LABELS, CHEQUE_STATUS_LABELS } from "@/lib/labels";
@@ -28,7 +29,7 @@ export default async function BankAccountDetailPage({ params }: { params: Promis
   if (!account) notFound();
 
   const showActions = canWrite(ctx, "ASSETS");
-  const accountNumbersLabel = formatBankAccountNumbers(account.accountNumbers, account);
+  const registeredAccounts = resolveBankAccountNumberRows(account.accountNumbers, account);
 
   return (
     <>
@@ -55,16 +56,17 @@ export default async function BankAccountDetailPage({ params }: { params: Promis
 
         <Card>
           <CardHeader>
-            <CardTitle>Account Details</CardTitle>
+            <CardTitle>Registry Details</CardTitle>
             <CardDescription>
-              {account.bankName} · {accountNumbersLabel}
+              {account.bankName}
+              {registeredAccounts.length > 0
+                ? ` · ${registeredAccounts.length} registered account${registeredAccounts.length === 1 ? "" : "s"}`
+                : ""}
             </CardDescription>
           </CardHeader>
           <CardContent className="grid gap-4 sm:grid-cols-2">
             <Detail label="Account Name" value={account.accountName} />
             <Detail label="Bank" value={account.bankName} />
-            <Detail label="Account Numbers" value={accountNumbersLabel} />
-            <Detail label="Primary Currency" value={account.currency} />
             <Detail
               label="Usage"
               value={
@@ -78,10 +80,9 @@ export default async function BankAccountDetailPage({ params }: { params: Promis
                 </div>
               }
             />
-            <Detail label="IBAN" value={account.iban} />
+            <Detail label="Entity" value={account.entity?.name} />
             <Detail label="SWIFT / BIC" value={account.swiftCode} />
             <Detail label="Sort Code" value={account.sortCode} />
-            <Detail label="Entity" value={account.entity?.name} />
             <Detail label="Created" value={formatDate(account.createdAt)} />
             <Detail label="Last Updated" value={formatDate(account.updatedAt)} />
             {account.notes ? (
@@ -89,6 +90,18 @@ export default async function BankAccountDetailPage({ params }: { params: Promis
                 <Detail label="Notes" value={account.notes} />
               </div>
             ) : null}
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle>Registered Accounts</CardTitle>
+            <CardDescription>
+              Each line is a separate account at this bank. Account number, currency, and IBAN are listed individually.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <BankAccountNumbersList accounts={registeredAccounts} />
           </CardContent>
         </Card>
 

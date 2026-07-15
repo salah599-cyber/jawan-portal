@@ -911,6 +911,7 @@ model BankAccountNumber {
   bankAccount   BankAccount @relation(fields: [bankAccountId], references: [id], onDelete: Cascade)
   accountNumber String
   currency      String      @default("OMR")
+  iban          String?
   label         String?
   sortOrder     Int         @default(0)
   createdAt     DateTime    @default(now())
