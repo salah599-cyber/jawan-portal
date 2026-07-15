@@ -6,7 +6,7 @@ import type {
   StatementAccountCandidate,
   StatementParsePreview,
 } from "@/lib/cash/statements/types";
-import { cashBankAccountFilter } from "@/lib/permissions/scoped-queries";
+import { cashPositionBankAccountFilter } from "@/lib/permissions/scoped-queries";
 import type { UserContext } from "@/lib/permissions/types";
 
 function serializeParsedForJson(parsed: ParsedBankStatement) {
@@ -66,7 +66,7 @@ export async function listStatementAccountCandidates(
   ctx: UserContext,
 ): Promise<StatementAccountCandidate[]> {
   const accounts = await db.bankAccount.findMany({
-    where: cashBankAccountFilter(ctx),
+    where: cashPositionBankAccountFilter(ctx),
     select: {
       id: true,
       accountName: true,

@@ -16,6 +16,7 @@ export async function getCashCalendarItems(ctx: UserContext): Promise<CalendarIt
   const accounts = await db.bankAccount.findMany({
     where: {
       ...cashBankAccountFilter(ctx),
+      includeInCashPosition: true,
       OR: [{ balanceAsOf: null }, { balanceAsOf: { lt: cutoff } }],
     },
     select: {

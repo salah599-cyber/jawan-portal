@@ -3,7 +3,7 @@ import { formatBankAccountNumbers } from "@/lib/bank/account-numbers";
 import { ensureCashManagementSchema } from "@/lib/db/ensure-cash-management-schema";
 import { isStaleBalance, toNumber } from "@/lib/cash/helpers";
 import type { StatementAccountPrefill, StatementImportRow } from "@/lib/cash/statements/types";
-import { cashBankAccountFilter } from "@/lib/permissions/scoped-queries";
+import { cashPositionBankAccountFilter } from "@/lib/permissions/scoped-queries";
 import { convertToOmr } from "@/lib/reports/helpers";
 import type { UserContext } from "@/lib/permissions/types";
 
@@ -110,7 +110,7 @@ export async function getCashSummary(ctx: UserContext): Promise<CashSummary> {
   await ensureReady();
 
   const accounts = await db.bankAccount.findMany({
-    where: cashBankAccountFilter(ctx),
+    where: cashPositionBankAccountFilter(ctx),
     include: {
       entity: { select: { name: true } },
       accountNumbers: { orderBy: { sortOrder: "asc" } },
@@ -129,16 +129,12 @@ export async function getCashSummary(ctx: UserContext): Promise<CashSummary> {
   let lastUpdated: Date | null = null;
 
   for (const row of accountRows) {
-    const omr = row.includeInCashPosition ? (row.balanceOmr ?? 0) : 0;
-    if (row.includeInCashPosition) {
-      totalOmr += omr;
-      if (row.isStale) staleCount += 1;
-      if (row.balanceAsOf && (!lastUpdated || row.balanceAsOf > lastUpdated)) {
-        lastUpdated = row.balanceAsOf;
-      }
+    const omr = row.balanceOmr ?? 0;
+    totalOmr += omr;
+    if (row.isStale) staleCount += 1;
+    if (row.balanceAsOf && (!lastUpdated || row.balanceAsOf > lastUpdated)) {
+      lastUpdated = row.balanceAsOf;
     }
-
-    if (!row.includeInCashPosition) continue;
 
     const bankEntry = byBank.get(row.bankName) ?? {
       label: row.bankName,
@@ -173,7 +169,7 @@ export async function getCashSummary(ctx: UserContext): Promise<CashSummary> {
 
   return {
     totalOmr,
-    accountCount: accountRows.filter((row) => row.includeInCashPosition).length,
+    accountCount: accountRows.length,
     staleCount,
     lastUpdated,
     byBank: sortBreakdown([...byBank.values()]),
@@ -187,7 +183,7 @@ export async function getCashAccount(accountId: string, ctx: UserContext) {
   await ensureReady();
 
   const account = await db.bankAccount.findFirst({
-    where: { id: accountId, ...cashBankAccountFilter(ctx) },
+    where: { id: accountId, ...cashPositionBankAccountFilter(ctx) },
     include: {
       entity: true,
       accountNumbers: { orderBy: { sortOrder: "asc" } },
@@ -205,7 +201,7 @@ export async function getCashBalanceHistory(
   await ensureReady();
 
   const account = await db.bankAccount.findFirst({
-    where: { id: accountId, ...cashBankAccountFilter(ctx) },
+    where: { id: accountId, ...cashPositionBankAccountFilter(ctx) },
     select: { id: true },
   });
   if (!account) return [];
@@ -240,7 +236,7 @@ export async function getCashStatementImports(
   await ensureReady();
 
   const limit = options.limit ?? 20;
-  const accountFilter = cashBankAccountFilter(ctx);
+  const accountFilter = cashPositionBankAccountFilter(ctx);
   const accessibleAccounts = await db.bankAccount.findMany({
     where: accountFilter,
     select: {
@@ -340,7 +336,7 @@ export async function listCashAccountCandidates(ctx: UserContext) {
   await ensureReady();
 
   return db.bankAccount.findMany({
-    where: cashBankAccountFilter(ctx),
+    where: cashPositionBankAccountFilter(ctx),
     select: {
       id: true,
       accountName: true,
@@ -360,7 +356,7 @@ export async function listCashAccountCandidates(ctx: UserContext) {
 
 export async function listCashEntities(ctx: UserContext) {
   await ensureReady();
-  const filter = cashBankAccountFilter(ctx);
+  const filter = cashPositionBankAccountFilter(ctx);
 
   const entityIds = await db.bankAccount.findMany({
     where: { ...filter, entityId: { not: null } },
