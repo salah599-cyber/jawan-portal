@@ -16,6 +16,7 @@ const TRANSFER_LETTERS_SCHEMA_STATEMENTS = [
     "sourceBankName" TEXT NOT NULL,
     "sourceBranch" TEXT,
     "sourceAccountNumber" TEXT NOT NULL,
+    "beneficiaryBankAccountId" TEXT,
     "beneficiaryBankName" TEXT NOT NULL,
     "beneficiaryName" TEXT NOT NULL,
     "beneficiaryAccountNumber" TEXT,
@@ -51,6 +52,18 @@ const TRANSFER_LETTERS_SCHEMA_STATEMENTS = [
     ALTER TABLE "TransferLetter" ADD CONSTRAINT "TransferLetter_createdById_fkey"
       FOREIGN KEY ("createdById") REFERENCES "User"("id") ON DELETE SET NULL ON UPDATE CASCADE;
   EXCEPTION WHEN duplicate_object THEN NULL; END $$`,
+  `DO $$ BEGIN
+    ALTER TABLE "TransferLetter" ADD CONSTRAINT "TransferLetter_beneficiaryBankAccountId_fkey"
+      FOREIGN KEY ("beneficiaryBankAccountId") REFERENCES "BankAccount"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+  EXCEPTION WHEN duplicate_object THEN NULL; END $$`,
+];
+
+const TRANSFER_LETTERS_MIGRATION_STATEMENTS = [
+  `ALTER TABLE "TransferLetter" ADD COLUMN IF NOT EXISTS "beneficiaryBankAccountId" TEXT`,
+  `DO $$ BEGIN
+    ALTER TABLE "TransferLetter" ADD CONSTRAINT "TransferLetter_beneficiaryBankAccountId_fkey"
+      FOREIGN KEY ("beneficiaryBankAccountId") REFERENCES "BankAccount"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+  EXCEPTION WHEN duplicate_object THEN NULL; END $$`,
 ];
 
 function isIgnorable(message) {
@@ -73,6 +86,20 @@ async function tableExists(client, tableName) {
   return Boolean(result.rows[0]?.exists);
 }
 
+async function columnExists(client, tableName, columnName) {
+  const result = await client.query(
+    `SELECT EXISTS (
+      SELECT 1
+      FROM information_schema.columns
+      WHERE table_schema = 'public'
+        AND table_name = $1
+        AND column_name = $2
+    )`,
+    [tableName, columnName],
+  );
+  return Boolean(result.rows[0]?.exists);
+}
+
 async function main() {
   const connectionString =
     process.env.POSTGRES_URL_NON_POOLING ||
@@ -90,26 +117,40 @@ async function main() {
   await client.connect();
 
   try {
-    if (await tableExists(client, "TransferLetter")) {
-      console.log("TransferLetter table already exists — skipping.");
+    if (!(await tableExists(client, "TransferLetter"))) {
+      for (const statement of TRANSFER_LETTERS_SCHEMA_STATEMENTS) {
+        try {
+          await client.query(statement);
+        } catch (error) {
+          const message = error instanceof Error ? error.message : String(error);
+          if (isIgnorable(message)) continue;
+          throw error;
+        }
+      }
+
+      if (!(await tableExists(client, "TransferLetter"))) {
+        throw new Error("TransferLetter table still missing after sync.");
+      }
+
+      console.log("Transfer letters schema sync complete.");
       return;
     }
 
-    for (const statement of TRANSFER_LETTERS_SCHEMA_STATEMENTS) {
-      try {
-        await client.query(statement);
-      } catch (error) {
-        const message = error instanceof Error ? error.message : String(error);
-        if (isIgnorable(message)) continue;
-        throw error;
+    if (!(await columnExists(client, "TransferLetter", "beneficiaryBankAccountId"))) {
+      for (const statement of TRANSFER_LETTERS_MIGRATION_STATEMENTS) {
+        try {
+          await client.query(statement);
+        } catch (error) {
+          const message = error instanceof Error ? error.message : String(error);
+          if (isIgnorable(message)) continue;
+          throw error;
+        }
       }
+      console.log("Transfer letters beneficiary account migration complete.");
+      return;
     }
 
-    if (!(await tableExists(client, "TransferLetter"))) {
-      throw new Error("TransferLetter table still missing after sync.");
-    }
-
-    console.log("Transfer letters schema sync complete.");
+    console.log("TransferLetter table already exists — skipping.");
   } finally {
     await client.end();
   }

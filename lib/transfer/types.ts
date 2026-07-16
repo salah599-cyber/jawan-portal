@@ -9,6 +9,8 @@ export type TransferLetterFormData = {
   sourceBankName: string;
   sourceBranch: string;
   sourceAccountNumber: string;
+  beneficiaryMode: "bank" | "manual";
+  beneficiaryBankAccountId: string;
   beneficiaryBankName: string;
   beneficiaryName: string;
   beneficiaryAccountNumber: string;
@@ -29,9 +31,17 @@ export type TransferLetterBankOption = {
   accountName: string;
   bankName: string;
   accountNumber: string;
+  iban: string | null;
+  sortCode: string | null;
+  swiftCode: string | null;
   entityId: string | null;
   currency: string;
   notes: string | null;
+  accountNumbers: {
+    accountNumber: string;
+    iban: string | null;
+    currency: string;
+  }[];
 };
 
 export function emptyTransferLetterForm(
@@ -47,6 +57,8 @@ export function emptyTransferLetterForm(
     sourceBankName: overrides.sourceBankName ?? "",
     sourceBranch: overrides.sourceBranch ?? "",
     sourceAccountNumber: overrides.sourceAccountNumber ?? "",
+    beneficiaryMode: overrides.beneficiaryMode ?? "manual",
+    beneficiaryBankAccountId: overrides.beneficiaryBankAccountId ?? "",
     beneficiaryBankName: overrides.beneficiaryBankName ?? "",
     beneficiaryName: overrides.beneficiaryName ?? "",
     beneficiaryAccountNumber: overrides.beneficiaryAccountNumber ?? "",

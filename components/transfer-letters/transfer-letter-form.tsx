@@ -17,6 +17,10 @@ import { PrintTransferLetterButton } from "@/components/transfer-letters/print-t
 import { CurrencySelect } from "@/components/transfer-letters/currency-select";
 import { BankDivisionSelect } from "@/components/transfer-letters/bank-division-select";
 import {
+  bankAccountToBeneficiaryFields,
+  bankAccountToSourceFields,
+} from "@/lib/transfer/bank-account-fields";
+import {
   emptyTransferLetterForm,
   type TransferLetterBankOption,
   type TransferLetterFormData,
@@ -65,10 +69,7 @@ export function TransferLetterForm({
       ...base,
       sourceMode: "bank",
       sourceBankAccountId: account.id,
-      sourceBankName: account.bankName,
-      sourceBranch: account.notes ?? "",
-      sourceAccountNumber: account.accountNumber,
-      currency: account.currency || base.currency,
+      ...bankAccountToSourceFields(account),
       entityId: account.entityId ?? base.entityId,
     };
   });
@@ -100,14 +101,31 @@ export function TransferLetterForm({
     const account = bankAccounts.find((a) => a.id === bankAccountId);
     if (!account) return;
 
+    const sourceFields = bankAccountToSourceFields(account);
     setForm((current) => ({
       ...current,
       sourceMode: "bank",
       sourceBankAccountId: account.id,
-      sourceBankName: account.bankName,
-      sourceBranch: account.notes ?? "",
-      sourceAccountNumber: account.accountNumber,
-      currency: account.currency || current.currency,
+      ...sourceFields,
+      currency: sourceFields.currency || current.currency,
+    }));
+  }
+
+  function handleBeneficiaryBankAccountChange(bankAccountId: string) {
+    if (bankAccountId === "manual") {
+      updateField("beneficiaryMode", "manual");
+      updateField("beneficiaryBankAccountId", "");
+      return;
+    }
+
+    const account = bankAccounts.find((a) => a.id === bankAccountId);
+    if (!account) return;
+
+    setForm((current) => ({
+      ...current,
+      beneficiaryMode: "bank",
+      beneficiaryBankAccountId: account.id,
+      ...bankAccountToBeneficiaryFields(account),
     }));
   }
 
@@ -119,6 +137,8 @@ export function TransferLetterForm({
     formData.set("entityId", form.entityId);
     formData.set("sourceMode", form.sourceMode);
     formData.set("sourceBankAccountId", form.sourceBankAccountId);
+    formData.set("beneficiaryMode", form.beneficiaryMode);
+    formData.set("beneficiaryBankAccountId", form.beneficiaryBankAccountId);
     formData.set("currency", form.currency);
     if (form.chargesOnBeneficiary) {
       formData.set("chargesOnBeneficiary", "true");
@@ -237,6 +257,26 @@ export function TransferLetterForm({
 
             <div className="md:col-span-2">
               <h3 className="mb-3 text-sm font-medium">Beneficiary (credit to)</h3>
+            </div>
+
+            <div className="space-y-2 md:col-span-2">
+              <Label>Beneficiary Account</Label>
+              <Select
+                value={form.beneficiaryMode === "manual" ? "manual" : form.beneficiaryBankAccountId || "manual"}
+                onValueChange={handleBeneficiaryBankAccountChange}
+              >
+                <SelectTrigger><SelectValue placeholder="Select bank account" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="manual">Enter manually</SelectItem>
+                  {bankAccounts.map((account) => (
+                    <SelectItem key={account.id} value={account.id}>
+                      {account.bankName} — {account.accountName} ({account.accountNumber})
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <input type="hidden" name="beneficiaryMode" value={form.beneficiaryMode} />
+              <input type="hidden" name="beneficiaryBankAccountId" value={form.beneficiaryBankAccountId} />
             </div>
 
             <div className="space-y-2">

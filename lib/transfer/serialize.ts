@@ -12,6 +12,8 @@ export function transferLetterToFormData(letter: TransferLetter): TransferLetter
     sourceBankName: letter.sourceBankName,
     sourceBranch: letter.sourceBranch ?? "",
     sourceAccountNumber: letter.sourceAccountNumber,
+    beneficiaryMode: letter.beneficiaryBankAccountId ? "bank" : "manual",
+    beneficiaryBankAccountId: letter.beneficiaryBankAccountId ?? "",
     beneficiaryBankName: letter.beneficiaryBankName,
     beneficiaryName: letter.beneficiaryName,
     beneficiaryAccountNumber: letter.beneficiaryAccountNumber ?? "",

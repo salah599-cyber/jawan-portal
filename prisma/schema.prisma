@@ -905,6 +905,7 @@ model BankAccount {
   isExitSuspense         Boolean             @default(false)
   cheques                Cheque[]
   transferLetters        TransferLetter[]
+  beneficiaryTransferLetters TransferLetter[] @relation("TransferLetterBeneficiary")
   balanceEntries BankBalanceEntry[]
   statementImports CashStatementImport[]
   accountNumbers   BankAccountNumber[]
@@ -1115,6 +1116,8 @@ model TransferLetter {
   sourceBankName           String
   sourceBranch             String?
   sourceAccountNumber      String
+  beneficiaryBankAccountId String?
+  beneficiaryBankAccount   BankAccount?       @relation("TransferLetterBeneficiary", fields: [beneficiaryBankAccountId], references: [id], onDelete: SetNull)
   beneficiaryBankName      String
   beneficiaryName          String
   beneficiaryAccountNumber String?

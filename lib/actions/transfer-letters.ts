@@ -23,6 +23,9 @@ const transferLetterInclude = {
   sourceBankAccount: {
     select: { id: true, accountName: true, bankName: true, accountNumber: true },
   },
+  beneficiaryBankAccount: {
+    select: { id: true, accountName: true, bankName: true, accountNumber: true },
+  },
   createdBy: { select: { id: true, firstName: true, lastName: true, email: true } },
 } as const;
 
@@ -61,6 +64,9 @@ function readTransferLetterFormData(formData: FormData) {
     formData.get("sourceAccountNumber") ?? "",
   );
 
+  const beneficiaryMode = String(formData.get("beneficiaryMode") ?? "manual");
+  const beneficiaryBankAccountIdRaw = String(formData.get("beneficiaryBankAccountId") ?? "").trim();
+
   const beneficiaryBankName = parseOrThrow(
     zRequiredString("Beneficiary bank"),
     formData.get("beneficiaryBankName") ?? "",
@@ -81,6 +87,8 @@ function readTransferLetterFormData(formData: FormData) {
     sourceBankName: sourceBankName.trim(),
     sourceBranch: String(formData.get("sourceBranch") ?? "").trim() || null,
     sourceAccountNumber: sourceAccountNumber.trim(),
+    beneficiaryBankAccountId:
+      beneficiaryMode === "bank" && beneficiaryBankAccountIdRaw ? beneficiaryBankAccountIdRaw : null,
     beneficiaryBankName: beneficiaryBankName.trim(),
     beneficiaryName: beneficiaryName.trim(),
     beneficiaryAccountNumber: String(formData.get("beneficiaryAccountNumber") ?? "").trim() || null,
@@ -131,9 +139,20 @@ export async function listTransferLetterBankAccountOptions() {
       accountName: true,
       bankName: true,
       accountNumber: true,
+      iban: true,
+      sortCode: true,
+      swiftCode: true,
       entityId: true,
       currency: true,
       notes: true,
+      accountNumbers: {
+        orderBy: { sortOrder: "asc" },
+        select: {
+          accountNumber: true,
+          iban: true,
+          currency: true,
+        },
+      },
     },
     orderBy: [{ bankName: "asc" }, { accountName: "asc" }],
   });
