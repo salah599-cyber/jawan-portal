@@ -96,6 +96,7 @@ function readTransferLetterFormData(formData: FormData) {
     beneficiarySortCode: String(formData.get("beneficiarySortCode") ?? "").trim() || null,
     beneficiarySwiftCode: String(formData.get("beneficiarySwiftCode") ?? "").trim() || null,
     purpose: String(formData.get("purpose") ?? "").trim() || null,
+    notes: String(formData.get("notes") ?? "").trim() || null,
     mobileNo: String(formData.get("mobileNo") ?? "").trim() || null,
     email: String(formData.get("email") ?? "").trim() || null,
     specialInstructions: String(formData.get("specialInstructions") ?? "").trim() || null,

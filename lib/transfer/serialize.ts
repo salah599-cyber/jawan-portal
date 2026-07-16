@@ -25,6 +25,7 @@ export function transferLetterToFormData(letter: TransferLetter): TransferLetter
     amount: letter.amount.toString(),
     currency: letter.currency,
     purpose: letter.purpose ?? "",
+    notes: letter.notes ?? "",
     mobileNo: letter.mobileNo ?? "",
     email: letter.email ?? "",
     specialInstructions: letter.specialInstructions ?? "",

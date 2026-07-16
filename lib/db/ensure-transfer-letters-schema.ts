@@ -78,7 +78,11 @@ async function applyTransferLettersSchema() {
       return;
     }
 
-    if (!(await columnExists(client, "TransferLetter", "beneficiaryBankAccountId"))) {
+    const needsMigration =
+      !(await columnExists(client, "TransferLetter", "beneficiaryBankAccountId")) ||
+      !(await columnExists(client, "TransferLetter", "notes"));
+
+    if (needsMigration) {
       await runStatements(client, TRANSFER_LETTERS_MIGRATION_STATEMENTS);
     }
   } finally {

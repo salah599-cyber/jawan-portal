@@ -1128,6 +1128,7 @@ model TransferLetter {
   currency                 String
   amountInWords            String
   purpose                  String?
+  notes                    String?
   mobileNo                 String?
   email                    String?
   specialInstructions      String?
