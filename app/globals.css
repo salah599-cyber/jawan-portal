@@ -128,3 +128,15 @@
     @apply font-sans;
   }
 }
+
+@media print {
+  [data-sidebar="sidebar"],
+  [data-slot="sidebar"],
+  header {
+    display: none !important;
+  }
+
+  main {
+    padding: 0 !important;
+  }
+}

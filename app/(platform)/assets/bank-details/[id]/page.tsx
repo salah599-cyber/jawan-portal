@@ -35,12 +35,17 @@ export default async function BankAccountDetailPage({ params }: { params: Promis
     <>
       <PlatformHeader title={account.accountName} />
       <main className="flex flex-1 flex-col gap-4 p-4 md:p-6">
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           <Button variant="outline" size="sm" asChild>
             <Link href="/assets/bank-details">Back to Bank Details</Link>
           </Button>
           {showActions ? (
             <>
+              <Button variant="outline" size="sm" asChild>
+                <Link href={"/transfer-letters/new?sourceBankAccountId=" + account.id}>
+                  Create Transfer Letter
+                </Link>
+              </Button>
               <EditLinkButton href={"/assets/bank-details/" + account.id + "/edit"} />
               <DeleteEntryButton
                 itemId={account.id}
