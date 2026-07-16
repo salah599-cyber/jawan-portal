@@ -10,6 +10,7 @@ import { RowActions } from "@/components/platform/row-actions";
 import { deleteTransferLetter, type listTransferLetters } from "@/lib/actions/transfer-letters";
 import { TRANSFER_LETTER_TYPE_LABELS } from "@/lib/labels";
 import { formatMoney, formatDate } from "@/lib/format";
+import { formatTransferLetterSerialNumber } from "@/lib/transfer/format-serial-number";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 
@@ -25,6 +26,7 @@ export function TransferLettersTable({
   const getSearchText = useCallback(
     (letter: TransferLetter) =>
       [
+        letter.serialNumber != null ? formatTransferLetterSerialNumber(letter.serialNumber) : "",
         letter.beneficiaryName,
         letter.beneficiaryBankName,
         letter.sourceBankName,
@@ -53,6 +55,7 @@ export function TransferLettersTable({
         <Table>
           <TableHeader>
             <TableRow>
+              <TableHead>Ref</TableHead>
               <TableHead>Date</TableHead>
               <TableHead>Type</TableHead>
               <TableHead>Beneficiary</TableHead>
@@ -65,8 +68,13 @@ export function TransferLettersTable({
           <TableBody>
             {paged.map((letter) => (
               <TableRow key={letter.id}>
-                <TableCell>
+                <TableCell className="font-mono text-sm">
                   <Link href={"/transfer-letters/" + letter.id} className="font-medium hover:underline">
+                    {formatTransferLetterSerialNumber(letter.serialNumber)}
+                  </Link>
+                </TableCell>
+                <TableCell>
+                  <Link href={"/transfer-letters/" + letter.id} className="hover:underline">
                     {formatDate(letter.letterDate)}
                   </Link>
                 </TableCell>

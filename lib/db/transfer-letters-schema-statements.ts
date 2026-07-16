@@ -2,6 +2,7 @@ export const TRANSFER_LETTERS_SCHEMA_STATEMENTS = [
   `CREATE TYPE "TransferLetterType" AS ENUM ('LOCAL', 'INTERNATIONAL', 'UK')`,
   `CREATE TABLE IF NOT EXISTS "TransferLetter" (
     "id" TEXT NOT NULL,
+    "serialNumber" SERIAL NOT NULL,
     "type" "TransferLetterType" NOT NULL,
     "letterDate" TIMESTAMP(3) NOT NULL,
     "entityId" TEXT NOT NULL,
@@ -32,6 +33,7 @@ export const TRANSFER_LETTERS_SCHEMA_STATEMENTS = [
     CONSTRAINT "TransferLetter_pkey" PRIMARY KEY ("id")
   )`,
   `CREATE INDEX IF NOT EXISTS "TransferLetter_entityId_letterDate_idx" ON "TransferLetter" ("entityId", "letterDate")`,
+  `CREATE UNIQUE INDEX IF NOT EXISTS "TransferLetter_serialNumber_key" ON "TransferLetter" ("serialNumber")`,
   `CREATE INDEX IF NOT EXISTS "TransferLetter_type_idx" ON "TransferLetter" ("type")`,
   `CREATE INDEX IF NOT EXISTS "TransferLetter_deletedAt_idx" ON "TransferLetter" ("deletedAt")`,
   `DO $$ BEGIN
@@ -55,6 +57,33 @@ export const TRANSFER_LETTERS_SCHEMA_STATEMENTS = [
 export const TRANSFER_LETTERS_MIGRATION_STATEMENTS = [
   `ALTER TABLE "TransferLetter" ADD COLUMN IF NOT EXISTS "notes" TEXT`,
   `ALTER TABLE "TransferLetter" ADD COLUMN IF NOT EXISTS "beneficiaryBankAccountId" TEXT`,
+  `ALTER TABLE "TransferLetter" ADD COLUMN IF NOT EXISTS "serialNumber" INTEGER`,
+  `WITH numbered AS (
+    SELECT id, ROW_NUMBER() OVER (ORDER BY "createdAt" ASC, id ASC) AS rn
+    FROM "TransferLetter"
+    WHERE "serialNumber" IS NULL
+  )
+  UPDATE "TransferLetter" t
+  SET "serialNumber" = n.rn
+  FROM numbered n
+  WHERE t.id = n.id`,
+  `CREATE SEQUENCE IF NOT EXISTS "TransferLetter_serialNumber_seq"`,
+  `DO $$ DECLARE
+    max_serial INTEGER;
+    has_rows BOOLEAN;
+  BEGIN
+    SELECT COALESCE(MAX("serialNumber"), 0) INTO max_serial FROM "TransferLetter";
+    SELECT EXISTS(SELECT 1 FROM "TransferLetter" LIMIT 1) INTO has_rows;
+    IF has_rows THEN
+      PERFORM setval('"TransferLetter_serialNumber_seq"', max_serial, true);
+    ELSE
+      PERFORM setval('"TransferLetter_serialNumber_seq"', 1, false);
+    END IF;
+  END $$`,
+  `ALTER TABLE "TransferLetter" ALTER COLUMN "serialNumber" SET DEFAULT nextval('"TransferLetter_serialNumber_seq"')`,
+  `ALTER SEQUENCE "TransferLetter_serialNumber_seq" OWNED BY "TransferLetter"."serialNumber"`,
+  `ALTER TABLE "TransferLetter" ALTER COLUMN "serialNumber" SET NOT NULL`,
+  `CREATE UNIQUE INDEX IF NOT EXISTS "TransferLetter_serialNumber_key" ON "TransferLetter" ("serialNumber")`,
   `DO $$ BEGIN
     ALTER TABLE "TransferLetter" ADD CONSTRAINT "TransferLetter_beneficiaryBankAccountId_fkey"
       FOREIGN KEY ("beneficiaryBankAccountId") REFERENCES "BankAccount"("id") ON DELETE SET NULL ON UPDATE CASCADE;

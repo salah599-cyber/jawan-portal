@@ -111,7 +111,7 @@ export async function listTransferLetters() {
   return db.transferLetter.findMany({
     where: { deletedAt: null, ...transferLetterEntityFilter(ctx) },
     include: transferLetterInclude,
-    orderBy: [{ letterDate: "desc" }, { createdAt: "desc" }],
+    orderBy: [{ letterDate: "desc" }, { serialNumber: "desc" }],
   });
 }
 
@@ -183,7 +183,12 @@ export async function createTransferLetter(formData: FormData) {
     action: "TRANSFER_LETTER_CREATED",
     resource: "TransferLetter",
     resourceId: letter.id,
-    metadata: { type: letter.type, amount: letter.amount.toString(), currency: letter.currency },
+    metadata: {
+      type: letter.type,
+      amount: letter.amount.toString(),
+      currency: letter.currency,
+      serialNumber: letter.serialNumber,
+    },
   });
 
   revalidatePath("/transfer-letters");

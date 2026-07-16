@@ -1107,6 +1107,7 @@ model ChequeDocument {
 
 model TransferLetter {
   id                       String             @id @default(cuid())
+  serialNumber             Int                @unique @default(autoincrement())
   type                     TransferLetterType
   letterDate               DateTime
   entityId                 String

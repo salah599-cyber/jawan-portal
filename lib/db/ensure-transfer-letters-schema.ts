@@ -80,7 +80,8 @@ async function applyTransferLettersSchema() {
 
     const needsMigration =
       !(await columnExists(client, "TransferLetter", "beneficiaryBankAccountId")) ||
-      !(await columnExists(client, "TransferLetter", "notes"));
+      !(await columnExists(client, "TransferLetter", "notes")) ||
+      !(await columnExists(client, "TransferLetter", "serialNumber"));
 
     if (needsMigration) {
       await runStatements(client, TRANSFER_LETTERS_MIGRATION_STATEMENTS);
