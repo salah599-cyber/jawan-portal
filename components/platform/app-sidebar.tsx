@@ -27,6 +27,7 @@ import {
   Scroll,
   BookUser,
   DoorOpen,
+  Send,
   type LucideIcon,
 } from "lucide-react";
 import {
@@ -69,6 +70,7 @@ const platformNav: NavItem[] = [
   { href: "/companies", label: "Companies", icon: Factory },
   { href: "/loans", label: "Loans", icon: HandCoins },
   { href: "/cheques", label: "Cheques", icon: Banknote },
+  { href: "/transfer-letters", label: "Transfer Letters", icon: Send },
   { href: "/cash", label: "Cash Management", icon: Wallet },
   { href: "/proposals", label: "Proposals", icon: Lightbulb },
   { href: "/assets/bank-details", label: "Bank Details", icon: Landmark },

@@ -223,6 +223,12 @@ enum ChequeDocumentType {
   OTHER
 }
 
+enum TransferLetterType {
+  LOCAL
+  INTERNATIONAL
+  UK
+}
+
 enum PaymentFrequency {
   MONTHLY
   QUARTERLY
@@ -327,6 +333,7 @@ model User {
   createdTasks        Task[]                   @relation("TaskCreator")
   completedTasks      Task[]                   @relation("TaskCompleter")
   familyMember        FamilyMember?            @relation("FamilyMemberUser")
+  transferLetters     TransferLetter[]
   createdAt           DateTime                 @default(now())
   updatedAt           DateTime                 @updatedAt
 }
@@ -385,6 +392,7 @@ model Entity {
   vehicles     Vehicle[]
   registeredCompanies RegisteredCompany[]
   cheques      Cheque[]
+  transferLetters TransferLetter[]
   investmentProposals InvestmentProposal[]
   peCompanies         PeCompany[]
   lpCommitments       LpCommitment[]
@@ -896,6 +904,7 @@ model BankAccount {
   includeInCashPosition  Boolean             @default(true)
   isExitSuspense         Boolean             @default(false)
   cheques                Cheque[]
+  transferLetters        TransferLetter[]
   balanceEntries BankBalanceEntry[]
   statementImports CashStatementImport[]
   accountNumbers   BankAccountNumber[]
@@ -1093,6 +1102,42 @@ model ChequeDocument {
   createdAt    DateTime           @default(now())
 
   @@index([chequeId, documentType])
+}
+
+model TransferLetter {
+  id                       String             @id @default(cuid())
+  type                     TransferLetterType
+  letterDate               DateTime
+  entityId                 String
+  entity                   Entity             @relation(fields: [entityId], references: [id])
+  sourceBankAccountId      String?
+  sourceBankAccount        BankAccount?       @relation(fields: [sourceBankAccountId], references: [id], onDelete: SetNull)
+  sourceBankName           String
+  sourceBranch             String?
+  sourceAccountNumber      String
+  beneficiaryBankName      String
+  beneficiaryName          String
+  beneficiaryAccountNumber String?
+  beneficiaryIban          String?
+  beneficiarySortCode      String?
+  beneficiarySwiftCode     String?
+  amount                   Decimal            @db.Decimal(18, 2)
+  currency                 String
+  amountInWords            String
+  purpose                  String?
+  mobileNo                 String?
+  email                    String?
+  specialInstructions      String?
+  chargesOnBeneficiary     Boolean            @default(false)
+  createdById              String?
+  createdBy                User?              @relation(fields: [createdById], references: [id], onDelete: SetNull)
+  deletedAt                DateTime?
+  createdAt                DateTime           @default(now())
+  updatedAt                DateTime           @updatedAt
+
+  @@index([entityId, letterDate])
+  @@index([type])
+  @@index([deletedAt])
 }
 
 model AssetValuation {

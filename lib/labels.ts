@@ -218,6 +218,12 @@ export const CHEQUE_DOCUMENT_TYPE_LABELS: Record<string, string> = {
   OTHER: "Other",
 };
 
+export const TRANSFER_LETTER_TYPE_LABELS: Record<string, string> = {
+  LOCAL: "Local Transfer",
+  INTERNATIONAL: "International Transfer",
+  UK: "UK Transfer",
+};
+
 export const PROPOSAL_STATUS_LABELS: Record<string, string> = {
   DRAFT: "Draft",
   PENDING: "Pending Approval",
