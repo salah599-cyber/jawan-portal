@@ -9,12 +9,13 @@ import {
 import { TRANSFER_LETTER_TYPE_LABELS } from "@/lib/labels";
 import {
   amountHasValue,
-  defaultCurrencyForType,
   formatAmountLine,
   getMaxDecimalPlaces,
 } from "@/lib/transfer/amount-in-words";
 import { TransferLetterPreview } from "@/components/transfer-letters/transfer-letter-preview";
 import { PrintTransferLetterButton } from "@/components/transfer-letters/print-transfer-letter-button";
+import { CurrencySelect } from "@/components/transfer-letters/currency-select";
+import { BankDivisionSelect } from "@/components/transfer-letters/bank-division-select";
 import {
   emptyTransferLetterForm,
   type TransferLetterBankOption,
@@ -85,7 +86,6 @@ export function TransferLetterForm({
     setForm((current) => ({
       ...current,
       type,
-      currency: defaultCurrencyForType(type),
       chargesOnBeneficiary: type === "UK",
     }));
   }
@@ -219,16 +219,10 @@ export function TransferLetterForm({
               />
             </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="sourceBranch">Branch / Division</Label>
-              <Input
-                id="sourceBranch"
-                name="sourceBranch"
-                placeholder="e.g. Private Banking / Corporate"
-                value={form.sourceBranch}
-                onChange={(e) => updateField("sourceBranch", e.target.value)}
-              />
-            </div>
+            <BankDivisionSelect
+              value={form.sourceBranch}
+              onValueChange={(value) => updateField("sourceBranch", value)}
+            />
 
             <div className="space-y-2 md:col-span-2">
               <Label htmlFor="sourceAccountNumber">Our Account Number (debit)</Label>
@@ -324,16 +318,10 @@ export function TransferLetterForm({
               />
             </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="currency">Currency</Label>
-              <Input
-                id="currency"
-                name="currency"
-                required
-                value={form.currency}
-                onChange={(e) => updateField("currency", e.target.value.toUpperCase())}
-              />
-            </div>
+            <CurrencySelect
+              value={form.currency}
+              onValueChange={(value) => updateField("currency", value)}
+            />
 
             {amountPreview ? (
               <div className="md:col-span-2 rounded-md border bg-muted/40 p-3 text-sm">
