@@ -76,7 +76,7 @@ function readTransferLetterFormData(formData: FormData) {
     letterDate,
     amount,
     currency,
-    amountInWords: buildAmountInWords(Number(amount), currency, type),
+    amountInWords: buildAmountInWords(amount, currency, type),
     sourceBankAccountId: sourceMode === "bank" && sourceBankAccountIdRaw ? sourceBankAccountIdRaw : null,
     sourceBankName: sourceBankName.trim(),
     sourceBranch: String(formData.get("sourceBranch") ?? "").trim() || null,

@@ -7,7 +7,12 @@ import {
   updateTransferLetter,
 } from "@/lib/actions/transfer-letters";
 import { TRANSFER_LETTER_TYPE_LABELS } from "@/lib/labels";
-import { defaultCurrencyForType, formatAmountLine } from "@/lib/transfer/amount-in-words";
+import {
+  amountHasValue,
+  defaultCurrencyForType,
+  formatAmountLine,
+  getMaxDecimalPlaces,
+} from "@/lib/transfer/amount-in-words";
 import { TransferLetterPreview } from "@/components/transfer-letters/transfer-letter-preview";
 import { PrintTransferLetterButton } from "@/components/transfer-letters/print-transfer-letter-button";
 import {
@@ -132,11 +137,10 @@ export function TransferLetterForm({
     });
   }
 
-  const amount = Number.parseFloat(form.amount);
-  const amountPreview =
-    Number.isFinite(amount) && amount > 0
-      ? formatAmountLine(amount, form.currency, form.type)
-      : null;
+  const amountPreview = amountHasValue(form.amount, form.currency)
+    ? formatAmountLine(form.amount, form.currency, form.type)
+    : null;
+  const amountStep = getMaxDecimalPlaces(form.currency) === 3 ? "0.001" : "0.01";
 
   return (
     <div className="grid gap-6 xl:grid-cols-2">
@@ -312,8 +316,8 @@ export function TransferLetterForm({
                 id="amount"
                 name="amount"
                 type="number"
-                min="0.01"
-                step="0.01"
+                min="0.001"
+                step={amountStep}
                 required
                 value={form.amount}
                 onChange={(e) => updateField("amount", e.target.value)}
