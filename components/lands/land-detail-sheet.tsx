@@ -4,7 +4,7 @@ import { useEffect, useState, useTransition } from "react";
 import Link from "next/link";
 import { getLand } from "@/lib/actions/lands";
 import { getFileAccessForUser } from "@/lib/actions/file-download-requests";
-import { collectLandFileRefs } from "@/lib/files/download-access";
+import { collectLandFileRefs } from "@/lib/files/download-types";
 import type { FileAccessContext } from "@/lib/files/download-types";
 import { formatLandLocation } from "@/lib/lands/location";
 import { LandDetailContent, type LandDetailData } from "@/components/lands/land-detail-content";

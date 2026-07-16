@@ -3,10 +3,10 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { decideFileDownloadRequest } from "@/lib/actions/file-download-requests";
-import { formatRequesterName } from "@/lib/files/download-access";
 import {
   FILE_DOWNLOAD_REQUEST_STATUS_LABELS,
   FILE_KIND_LABELS,
+  formatRequesterName,
   type FileDownloadRequestStatus,
 } from "@/lib/files/download-types";
 import type { FileKind } from "@/lib/files/href";

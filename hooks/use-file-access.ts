@@ -6,44 +6,36 @@ import type { FileAccessContext } from "@/lib/files/download-types";
 import type { FileKind } from "@/lib/files/href";
 
 export function useFileAccess(files: Array<{ kind: FileKind; fileId: string }>) {
-  const [fileAccess, setFileAccess] = useState<FileAccessContext | null>(null);
   const filesKey = files.map((file) => `${file.kind}:${file.fileId}`).join("|");
+  const [state, setState] = useState<{ key: string; access: FileAccessContext } | null>(null);
 
   useEffect(() => {
     let cancelled = false;
-    setFileAccess(null);
 
-    if (files.length === 0) {
-      void getFileAccessForUser([])
-        .then((access) => {
-          if (!cancelled) setFileAccess(access);
-        })
-        .catch((error) => {
-          console.error("Failed to load file access:", error);
-          if (!cancelled) {
-            setFileAccess({ isSuperAdmin: false, downloadRequestStatuses: {} });
-          }
-        });
-      return () => {
-        cancelled = true;
-      };
-    }
-
-    void getFileAccessForUser(files)
+    void getFileAccessForUser(files.length === 0 ? [] : files)
       .then((access) => {
-        if (!cancelled) setFileAccess(access);
+        if (!cancelled) {
+          setState({ key: filesKey, access });
+        }
       })
       .catch((error) => {
         console.error("Failed to load file access:", error);
         if (!cancelled) {
-          setFileAccess({ isSuperAdmin: false, downloadRequestStatuses: {} });
+          setState({
+            key: filesKey,
+            access: { isSuperAdmin: false, downloadRequestStatuses: {} },
+          });
         }
       });
 
     return () => {
       cancelled = true;
     };
-  }, [filesKey]);
+  }, [files, filesKey]);
 
-  return fileAccess;
+  if (!state || state.key !== filesKey) {
+    return null;
+  }
+
+  return state.access;
 }

@@ -13,6 +13,30 @@ export function fileRequestKey(kind: FileKind, fileId: string): string {
   return `${kind}:${fileId}`;
 }
 
+export type FileRef = { kind: FileKind; fileId: string };
+
+export function collectLandFileRefs(land: {
+  documents: Array<{ id: string }>;
+  sale?: { documents: Array<{ id: string }> } | null;
+}): FileRef[] {
+  const refs: FileRef[] = land.documents.map((doc) => ({ kind: "land", fileId: doc.id }));
+  if (land.sale) {
+    for (const doc of land.sale.documents) {
+      refs.push({ kind: "land-sale", fileId: doc.id });
+    }
+  }
+  return refs;
+}
+
+export function formatRequesterName(user: {
+  firstName: string | null;
+  lastName: string | null;
+  email: string;
+}): string {
+  const name = [user.firstName, user.lastName].filter(Boolean).join(" ").trim();
+  return name || user.email;
+}
+
 export function validateDownloadRequestReason(reason: string): string {
   const trimmed = reason.trim();
   if (trimmed.length < MIN_DOWNLOAD_REQUEST_REASON_LENGTH) {

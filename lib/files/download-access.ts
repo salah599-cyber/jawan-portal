@@ -1,3 +1,5 @@
+import "server-only";
+
 import { db } from "@/lib/db";
 import { ensureFileDownloadRequestSchema } from "@/lib/db/ensure-file-download-request-schema";
 import { isSuperAdmin } from "@/lib/permissions/access";
@@ -7,22 +9,10 @@ import {
   fileRequestKey,
   type FileAccessContext,
   type FileDownloadRequestStatus,
+  type FileRef,
 } from "@/lib/files/download-types";
 
-type FileRef = { kind: FileKind; fileId: string };
-
-export function collectLandFileRefs(land: {
-  documents: Array<{ id: string }>;
-  sale?: { documents: Array<{ id: string }> } | null;
-}): FileRef[] {
-  const refs: FileRef[] = land.documents.map((doc) => ({ kind: "land", fileId: doc.id }));
-  if (land.sale) {
-    for (const doc of land.sale.documents) {
-      refs.push({ kind: "land-sale", fileId: doc.id });
-    }
-  }
-  return refs;
-}
+export type { FileRef };
 
 export async function getLatestDownloadRequest(
   userId: string,
@@ -106,6 +96,7 @@ export async function countPendingDownloadRequests(): Promise<number> {
 }
 
 export async function listPendingDownloadRequests() {
+  await ensureFileDownloadRequestSchema();
   return db.fileDownloadRequest.findMany({
     where: { status: "PENDING" },
     include: {
@@ -118,6 +109,7 @@ export async function listPendingDownloadRequests() {
 }
 
 export async function listRecentDownloadRequests(limit = 50) {
+  await ensureFileDownloadRequestSchema();
   return db.fileDownloadRequest.findMany({
     include: {
       requestedBy: {
@@ -130,13 +122,4 @@ export async function listRecentDownloadRequests(limit = 50) {
     orderBy: { createdAt: "desc" },
     take: limit,
   });
-}
-
-export function formatRequesterName(user: {
-  firstName: string | null;
-  lastName: string | null;
-  email: string;
-}): string {
-  const name = [user.firstName, user.lastName].filter(Boolean).join(" ").trim();
-  return name || user.email;
 }

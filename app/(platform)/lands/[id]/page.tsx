@@ -5,7 +5,8 @@ import { DeleteEntryButton } from "@/components/platform/delete-entry-button";
 import { EditLinkButton } from "@/components/platform/edit-link-button";
 import { LandDetailContent } from "@/components/lands/land-detail-content";
 import { getLand, deleteLand } from "@/lib/actions/lands";
-import { buildFileAccessContext, collectLandFileRefs } from "@/lib/files/download-access";
+import { buildFileAccessContext } from "@/lib/files/download-access";
+import { collectLandFileRefs } from "@/lib/files/download-types";
 import { canWrite, requireModuleAccess } from "@/lib/permissions/access";
 import { Button } from "@/components/ui/button";
 
