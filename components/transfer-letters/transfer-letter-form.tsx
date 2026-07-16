@@ -42,6 +42,7 @@ type TransferLetterFormProps = {
   bankAccounts: TransferLetterBankOption[];
   initialData?: TransferLetterFormData;
   letterId?: string;
+  serialNumber?: number | null;
   preselectedBankAccountId?: string;
 };
 
@@ -97,6 +98,7 @@ export function TransferLetterForm({
   bankAccounts,
   initialData,
   letterId,
+  serialNumber,
   preselectedBankAccountId,
 }: TransferLetterFormProps) {
   const router = useRouter();
@@ -511,7 +513,7 @@ export function TransferLetterForm({
           <PrintTransferLetterButton />
         </CardHeader>
         <CardContent className="rounded-md border bg-white p-6 shadow-sm print:border-0 print:p-0 print:shadow-none">
-          <TransferLetterPreview data={form} />
+          <TransferLetterPreview data={form} serialNumber={serialNumber} />
         </CardContent>
       </Card>
     </div>

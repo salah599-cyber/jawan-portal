@@ -9,6 +9,7 @@ import { deleteTransferLetter, getTransferLetter } from "@/lib/actions/transfer-
 import { canWrite, requireModuleAccess } from "@/lib/permissions/access";
 import { TRANSFER_LETTER_TYPE_LABELS } from "@/lib/labels";
 import { formatMoney, formatDate } from "@/lib/format";
+import { formatTransferLetterSerialNumber } from "@/lib/transfer/format-serial-number";
 import { transferLetterToFormData } from "@/lib/transfer/serialize";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -29,7 +30,7 @@ export default async function TransferLetterDetailPage({
 
   return (
     <>
-      <PlatformHeader title="Transfer Letter" />
+      <PlatformHeader title={"Transfer Letter " + formatTransferLetterSerialNumber(letter.serialNumber)} />
       <main className="flex flex-1 flex-col gap-4 p-4 md:p-6">
         <div className="flex flex-wrap items-center gap-2 print:hidden">
           <Button variant="outline" size="sm" asChild>
@@ -60,10 +61,11 @@ export default async function TransferLetterDetailPage({
               </Badge>
             </CardTitle>
             <CardDescription>
-              {formatDate(letter.letterDate)} · {letter.entity.name} · {formatMoney(letter.amount, letter.currency)}
+              {formatTransferLetterSerialNumber(letter.serialNumber)} · {formatDate(letter.letterDate)} · {letter.entity.name} · {formatMoney(letter.amount, letter.currency)}
             </CardDescription>
           </CardHeader>
           <CardContent className="grid gap-4 sm:grid-cols-2">
+            <Detail label="Reference" value={formatTransferLetterSerialNumber(letter.serialNumber)} />
             <Detail label="Source Bank" value={letter.sourceBankName} />
             <Detail label="Branch" value={letter.sourceBranch} />
             <Detail label="Debit Account" value={letter.sourceAccountNumber} />
@@ -89,7 +91,7 @@ export default async function TransferLetterDetailPage({
             <CardDescription>Print-ready transfer letter</CardDescription>
           </CardHeader>
           <CardContent className="rounded-md border bg-white p-6 shadow-sm print:border-0 print:p-0 print:shadow-none">
-            <TransferLetterPreview data={formData} />
+            <TransferLetterPreview data={formData} serialNumber={letter.serialNumber} />
           </CardContent>
         </Card>
       </main>

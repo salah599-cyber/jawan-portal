@@ -35,6 +35,7 @@ export default async function EditTransferLetterPage({
           bankAccounts={bankAccounts}
           initialData={transferLetterToFormData(letter)}
           letterId={letter.id}
+          serialNumber={letter.serialNumber}
         />
       </main>
     </>

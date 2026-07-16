@@ -3,10 +3,12 @@
 import type { TransferLetterType } from "@/lib/generated/prisma/client";
 import { amountHasValue, formatAmountLine } from "@/lib/transfer/amount-in-words";
 import { formatTransferLetterDate } from "@/lib/transfer/format-letter-date";
+import { formatTransferLetterSerialNumber } from "@/lib/transfer/format-serial-number";
 import type { TransferLetterFormData } from "@/lib/transfer/types";
 
 type TransferLetterPreviewProps = {
   data: TransferLetterFormData;
+  serialNumber?: number | null;
 };
 
 function StackedField({ label, value }: { label: string; value?: string | null }) {
@@ -35,7 +37,7 @@ function InlineField({ label, value }: { label: string; value?: string | null })
   return <p>{label}</p>;
 }
 
-export function TransferLetterPreview({ data }: TransferLetterPreviewProps) {
+export function TransferLetterPreview({ data, serialNumber }: TransferLetterPreviewProps) {
   const type = data.type as TransferLetterType;
   const letterDate = data.letterDate ? formatTransferLetterDate(data.letterDate, type) : "";
   const debitAccountNumber = data.sourceAccountNumber.trim() || "____________________";
@@ -47,7 +49,12 @@ export function TransferLetterPreview({ data }: TransferLetterPreviewProps) {
       id="transfer-letter-preview"
       className="mx-auto max-w-2xl font-serif text-[15px] leading-snug text-foreground print:max-w-none print:text-[14pt]"
     >
-      {letterDate ? <p className="mb-4">{letterDate}</p> : null}
+      <div className="mb-4 flex items-start justify-between gap-4">
+        {letterDate ? <p>{letterDate}</p> : <span />}
+        {serialNumber != null ? (
+          <p className="shrink-0 text-right">Ref: {formatTransferLetterSerialNumber(serialNumber)}</p>
+        ) : null}
+      </div>
 
       <div className="mb-4">
         <p>The Manager</p>
