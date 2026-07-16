@@ -5,6 +5,7 @@ import { listDocuments } from "@/lib/data/documents";
 import { listDocumentCategories } from "@/lib/data/document-categories";
 import { listEntities } from "@/lib/data/entities";
 import { canWrite, getModulePermission, requireModuleAccess } from "@/lib/permissions/access";
+import { buildFileAccessContext } from "@/lib/files/download-access";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 
 export default async function DocumentsPage() {
@@ -20,6 +21,11 @@ export default async function DocumentsPage() {
     level === "FILTERED"
       ? allCategories.filter((category) => ctx.documentCategories.includes(category.id))
       : allCategories;
+
+  const fileAccess = await buildFileAccessContext(
+    ctx,
+    documents.map((doc) => ({ kind: "document" as const, fileId: doc.id })),
+  );
 
   return (
     <>
@@ -40,7 +46,7 @@ export default async function DocumentsPage() {
             <CardDescription>Secure storage for KYC, legal, and corporate documents.</CardDescription>
           </CardHeader>
           <CardContent>
-            <DocumentsTable documents={documents} showUpload={showUpload} />
+            <DocumentsTable documents={documents} showUpload={showUpload} fileAccess={fileAccess} />
           </CardContent>
         </Card>
       </main>

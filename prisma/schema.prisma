@@ -312,6 +312,13 @@ enum AssetExitDocumentType {
   OTHER
 }
 
+enum FileDownloadRequestStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  DOWNLOADED
+}
+
 model User {
   id                  String                   @id @default(cuid())
   clerkId             String                   @unique
@@ -334,8 +341,31 @@ model User {
   completedTasks      Task[]                   @relation("TaskCompleter")
   familyMember        FamilyMember?            @relation("FamilyMemberUser")
   transferLetters     TransferLetter[]
+  fileDownloadRequests       FileDownloadRequest[] @relation("FileDownloadRequester")
+  reviewedFileDownloadRequests FileDownloadRequest[] @relation("FileDownloadReviewer")
   createdAt           DateTime                 @default(now())
   updatedAt           DateTime                 @updatedAt
+}
+
+model FileDownloadRequest {
+  id            String                    @id @default(cuid())
+  kind          String
+  fileId        String
+  fileName      String
+  reason        String
+  status        FileDownloadRequestStatus @default(PENDING)
+  requestedById String
+  requestedBy   User                      @relation("FileDownloadRequester", fields: [requestedById], references: [id], onDelete: Cascade)
+  reviewedById  String?
+  reviewedBy    User?                     @relation("FileDownloadReviewer", fields: [reviewedById], references: [id], onDelete: SetNull)
+  reviewComment String?
+  reviewedAt    DateTime?
+  downloadedAt  DateTime?
+  createdAt     DateTime                  @default(now())
+  updatedAt     DateTime                  @updatedAt
+
+  @@index([status, createdAt])
+  @@index([requestedById, kind, fileId])
 }
 
 model PendingUserInvite {

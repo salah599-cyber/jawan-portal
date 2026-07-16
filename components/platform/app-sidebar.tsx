@@ -28,6 +28,7 @@ import {
   BookUser,
   DoorOpen,
   Send,
+  Download,
   type LucideIcon,
 } from "lucide-react";
 import {
@@ -101,6 +102,7 @@ const platformNav: NavItem[] = [
 
 const adminNav = [
   { href: "/admin/users", label: "Users", icon: Users },
+  { href: "/admin/download-requests", label: "Download Requests", icon: Download },
   { href: "/admin/audit-log", label: "Audit Log", icon: ScrollText },
 ];
 
@@ -142,6 +144,7 @@ function childIcon(icon?: "file" | "shield" | "users" | "scroll") {
 
 export function AppSidebar({
   showAdmin = false,
+  pendingDownloadRequests = 0,
   showReports = true,
   showCalendar = true,
   showDocumentsVault = true,
@@ -151,6 +154,7 @@ export function AppSidebar({
   showContacts = false,
 }: {
   showAdmin?: boolean;
+  pendingDownloadRequests?: number;
   showReports?: boolean;
   showCalendar?: boolean;
   showDocumentsVault?: boolean;
@@ -252,6 +256,11 @@ export function AppSidebar({
                       <Link href={item.href}>
                         <item.icon />
                         <span>{item.label}</span>
+                        {item.href === "/admin/download-requests" && pendingDownloadRequests > 0 ? (
+                          <span className="ml-auto rounded-full bg-primary px-2 py-0.5 text-xs text-primary-foreground">
+                            {pendingDownloadRequests}
+                          </span>
+                        ) : null}
                       </Link>
                     </SidebarMenuButton>
                   </SidebarMenuItem>

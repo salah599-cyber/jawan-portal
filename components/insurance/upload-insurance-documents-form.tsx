@@ -4,8 +4,8 @@ import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { uploadInsuranceDocuments, deleteInsuranceDocument } from "@/lib/actions/insurance";
 import { DeleteEntryButton } from "@/components/platform/delete-entry-button";
+import { FileActionsWithAccess } from "@/components/platform/file-actions-with-access";
 import { INSURANCE_DOCUMENT_TYPE_LABELS } from "@/lib/labels";
-import { fileHref } from "@/lib/files/href";
 import { formatDate } from "@/lib/format";
 import type { SerializedInsurancePolicy } from "@/lib/insurance/serialize";
 import { Button } from "@/components/ui/button";
@@ -44,6 +44,8 @@ export function UploadInsuranceDocumentsForm({
       }
     });
   }
+
+  const fileRefs = policy.documents.map((doc) => ({ kind: "insurance" as const, fileId: doc.id }));
 
   return (
     <div className="space-y-4">
@@ -112,9 +114,13 @@ export function UploadInsuranceDocumentsForm({
                     <TableCell>{formatDate(doc.createdAt)}</TableCell>
                     <TableCell>
                       <div className="flex items-center gap-1">
-                        <Button variant="outline" size="sm" asChild>
-                          <a href={fileHref("insurance", doc.id)} target="_blank" rel="noopener noreferrer">Open</a>
-                        </Button>
+                        <FileActionsWithAccess
+                          kind="insurance"
+                          fileId={doc.id}
+                          fileName={doc.fileName}
+                          files={fileRefs}
+                          compact
+                        />
                         {canEdit ? (
                           <DeleteEntryButton
                             itemId={doc.id}

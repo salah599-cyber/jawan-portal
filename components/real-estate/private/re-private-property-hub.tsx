@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { fileHref } from "@/lib/files/href";
+import { FileActionsWithAccess } from "@/components/platform/file-actions-with-access";
 import { useState, useTransition } from "react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
@@ -62,6 +62,7 @@ export function RePrivatePropertyHub({
   const validTab = TAB_ITEMS.some((item) => item.value === defaultTab) ? defaultTab : "overview";
   const [tab, setTab] = useState(validTab);
   const detail = property.detail;
+  const fileRefs = property.documents.map((doc) => ({ kind: "re-property" as const, fileId: doc.id }));
 
   return (
     <Tabs value={tab} onValueChange={setTab} className="w-full">
@@ -204,11 +205,13 @@ export function RePrivatePropertyHub({
               </p>
             </div>
             <div className="flex gap-2">
-              <Button variant="outline" size="sm" asChild>
-                <a href={fileHref("re-property", doc.id)} target="_blank" rel="noreferrer">
-                  View
-                </a>
-              </Button>
+              <FileActionsWithAccess
+                kind="re-property"
+                fileId={doc.id}
+                fileName={doc.fileName}
+                files={fileRefs}
+                compact
+              />
               {canEdit ? (
                 <DeleteButton
                   label="Delete"

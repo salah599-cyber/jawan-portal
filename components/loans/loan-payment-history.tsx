@@ -1,9 +1,12 @@
+"use client";
+
 import { DeleteEntryButton } from "@/components/platform/delete-entry-button";
+import { FileActions } from "@/components/platform/file-actions";
 import { deleteLoanPayment, deleteLoanPaymentDocument } from "@/lib/actions/loan-payments";
-import { fileHref } from "@/lib/files/href";
+import type { FileAccessContext } from "@/lib/files/download-types";
+import { fileRequestKey } from "@/lib/files/download-types";
 import { LOAN_PAYMENT_METHOD_LABELS } from "@/lib/labels";
 import { formatMoney, formatDate } from "@/lib/format";
-import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   Table,
@@ -38,11 +41,13 @@ export function LoanPaymentHistory({
   currency,
   principalAmount,
   showActions = false,
+  fileAccess,
 }: {
   payments: LoanPaymentRow[];
   currency: string;
   principalAmount: { toString(): string };
   showActions?: boolean;
+  fileAccess: FileAccessContext;
 }) {
   const totalPaid = payments.reduce((sum, p) => sum + parseFloat(p.amount.toString()), 0);
 
@@ -96,11 +101,17 @@ export function LoanPaymentHistory({
                       <div className="flex flex-col gap-1">
                         {payment.documents.map((doc) => (
                           <div key={doc.id} className="flex items-center gap-1">
-                            <Button variant="link" className="h-auto p-0 text-xs" asChild>
-                              <a href={fileHref("loan-payment", doc.id)} target="_blank" rel="noopener noreferrer">
-                                {doc.label ?? doc.fileName}
-                              </a>
-                            </Button>
+                            <span className="text-xs">{doc.label ?? doc.fileName}</span>
+                            <FileActions
+                              kind="loan-payment"
+                              fileId={doc.id}
+                              fileName={doc.label ?? doc.fileName}
+                              isSuperAdmin={fileAccess.isSuperAdmin}
+                              requestStatus={
+                                fileAccess.downloadRequestStatuses[fileRequestKey("loan-payment", doc.id)]
+                              }
+                              compact
+                            />
                             {showActions ? (
                               <DeleteEntryButton
                                 itemId={doc.id}

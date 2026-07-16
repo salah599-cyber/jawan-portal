@@ -7,7 +7,9 @@ import { ProposalApproverPanel } from "@/components/proposals/proposal-approver-
 import { ProposalCommentThread } from "@/components/proposals/proposal-comment-thread";
 import { ProposalStatusBadge } from "@/components/proposals/proposal-status-badge";
 import { deleteProposal, getProposal } from "@/lib/actions/proposals";
-import { fileHref } from "@/lib/files/href";
+import { FileActions } from "@/components/platform/file-actions";
+import { buildFileAccessContext } from "@/lib/files/download-access";
+import { fileRequestKey } from "@/lib/files/download-types";
 import { canSubmitProposal } from "@/lib/proposals/submit-access";
 import { formatUserName } from "@/lib/proposals/users";
 import { requireModuleAccess, requireUserContext } from "@/lib/permissions/access";
@@ -31,6 +33,10 @@ export default async function ProposalDetailPage({ params }: { params: Promise<{
   const deck = proposal.documents.find((d) => d.documentType === "DECK");
   const canComment =
     isSubmitter || proposal.approvers.some((a) => a.userId === ctx.id) || canSubmitProposal(ctx);
+  const fileAccess = await buildFileAccessContext(
+    ctx,
+    deck ? [{ kind: "proposal" as const, fileId: deck.id }] : [],
+  );
 
   return (
     <>
@@ -106,9 +112,14 @@ export default async function ProposalDetailPage({ params }: { params: Promise<{
                   <p className="font-medium">{deck.fileName}</p>
                   <p className="text-sm text-muted-foreground">Uploaded {formatDate(deck.createdAt)}</p>
                 </div>
-                <Button variant="outline" size="sm" asChild>
-                  <a href={fileHref("proposal", deck.id)} target="_blank" rel="noopener noreferrer">Open Deck</a>
-                </Button>
+                <FileActions
+                  kind="proposal"
+                  fileId={deck.id}
+                  fileName={deck.fileName}
+                  isSuperAdmin={fileAccess.isSuperAdmin}
+                  requestStatus={fileAccess.downloadRequestStatuses[fileRequestKey("proposal", deck.id)]}
+                  compact
+                />
               </div>
             ) : (
               <p className="text-sm text-muted-foreground">No deck uploaded yet.</p>

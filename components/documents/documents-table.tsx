@@ -7,7 +7,9 @@ import { TableSearchInput } from "@/components/platform/table-search-input";
 import { TablePagination } from "@/components/platform/table-pagination";
 import { RowActions } from "@/components/platform/row-actions";
 import { deleteDocument } from "@/lib/actions/documents";
-import { fileHref } from "@/lib/files/href";
+import { FileActions, FileNameDisplay } from "@/components/platform/file-actions";
+import type { FileAccessContext } from "@/lib/files/download-types";
+import { fileRequestKey } from "@/lib/files/download-types";
 import { DOCUMENT_STATUS_LABELS } from "@/lib/labels";
 import { formatDate } from "@/lib/format";
 import { Badge } from "@/components/ui/badge";
@@ -25,6 +27,7 @@ import {
 type DocumentRow = {
   id: string;
   name: string;
+  fileName: string;
   status: string;
   category: { name: string };
   entity: { name: string } | null;
@@ -47,7 +50,15 @@ function expiryState(expiryDate: Date | string | null): "expired" | "expiring" |
   return null;
 }
 
-export function DocumentsTable({ documents, showUpload }: { documents: DocumentRow[]; showUpload: boolean }) {
+export function DocumentsTable({
+  documents,
+  showUpload,
+  fileAccess,
+}: {
+  documents: DocumentRow[];
+  showUpload: boolean;
+  fileAccess: FileAccessContext;
+}) {
   const [expiryFilter, setExpiryFilter] = useState<ExpiryFilter>("all");
 
   const expiryFiltered = useMemo(() => {
@@ -120,6 +131,7 @@ export function DocumentsTable({ documents, showUpload }: { documents: DocumentR
               <TableHead>Entity</TableHead>
               <TableHead>Expiry</TableHead>
               <TableHead>Uploaded</TableHead>
+              <TableHead className="min-w-[180px]">File</TableHead>
               {showUpload ? <TableHead className="w-[60px]">Actions</TableHead> : null}
             </TableRow>
           </TableHeader>
@@ -127,14 +139,12 @@ export function DocumentsTable({ documents, showUpload }: { documents: DocumentR
             {paged.map((doc) => (
               <TableRow key={doc.id}>
                 <TableCell className="font-medium">
-                  <a
-                    href={fileHref("document", doc.id)}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="hover:underline"
-                  >
-                    {doc.name}
-                  </a>
+                  <FileNameDisplay
+                    fileName={doc.name}
+                    kind="document"
+                    fileId={doc.id}
+                    isSuperAdmin={fileAccess.isSuperAdmin}
+                  />
                 </TableCell>
                 <TableCell>{doc.category.name}</TableCell>
                 <TableCell>
@@ -152,6 +162,16 @@ export function DocumentsTable({ documents, showUpload }: { documents: DocumentR
                   {formatDate(doc.expiryDate)}
                 </TableCell>
                 <TableCell>{formatDate(doc.createdAt)}</TableCell>
+                <TableCell>
+                  <FileActions
+                    kind="document"
+                    fileId={doc.id}
+                    fileName={doc.fileName || doc.name}
+                    isSuperAdmin={fileAccess.isSuperAdmin}
+                    requestStatus={fileAccess.downloadRequestStatuses[fileRequestKey("document", doc.id)]}
+                    compact
+                  />
+                </TableCell>
                 {showUpload ? (
                   <TableCell>
                     <RowActions

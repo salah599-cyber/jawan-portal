@@ -5,6 +5,7 @@ import { DeleteEntryButton } from "@/components/platform/delete-entry-button";
 import { EditLinkButton } from "@/components/platform/edit-link-button";
 import { LandDetailContent } from "@/components/lands/land-detail-content";
 import { getLand, deleteLand } from "@/lib/actions/lands";
+import { buildFileAccessContext, collectLandFileRefs } from "@/lib/files/download-access";
 import { canWrite, requireModuleAccess } from "@/lib/permissions/access";
 import { Button } from "@/components/ui/button";
 
@@ -15,6 +16,7 @@ export default async function LandDetailPage({ params }: { params: Promise<{ id:
   if (!land) notFound();
 
   const showActions = canWrite(ctx, "LANDS");
+  const fileAccess = await buildFileAccessContext(ctx, collectLandFileRefs(land));
 
   return (
     <>
@@ -39,7 +41,7 @@ export default async function LandDetailPage({ params }: { params: Promise<{ id:
           ) : null}
         </div>
 
-        <LandDetailContent land={land} showActions={showActions} />
+        <LandDetailContent land={land} showActions={showActions} fileAccess={fileAccess} />
       </main>
     </>
   );

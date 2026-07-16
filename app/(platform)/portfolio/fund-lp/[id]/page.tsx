@@ -11,6 +11,7 @@ import {
   LP_COMMITMENT_STATUS_LABELS,
   LP_FUND_STRATEGY_LABELS,
 } from "@/lib/lp/constants";
+import { buildFileAccessContext } from "@/lib/files/download-access";
 import { canWrite, requireModuleAccess } from "@/lib/permissions/access";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -30,6 +31,10 @@ export default async function FundLpCommitmentDetailPage({
 
   const serialized = serializeLpCommitment(commitment);
   const canEdit = canWrite(ctx, "FUND_LP");
+  const fileAccess = await buildFileAccessContext(
+    ctx,
+    commitment.documents.map((doc) => ({ kind: "lp-fund" as const, fileId: doc.id })),
+  );
 
   return (
     <>
@@ -77,7 +82,7 @@ export default async function FundLpCommitmentDetailPage({
           </span>
         </div>
 
-        <LpCommitmentHub commitment={serialized} canEdit={canEdit} defaultTab={tab ?? "overview"} />
+        <LpCommitmentHub commitment={serialized} canEdit={canEdit} defaultTab={tab ?? "overview"} fileAccess={fileAccess} />
       </main>
     </>
   );

@@ -5,7 +5,9 @@ import { DeleteEntryButton } from "@/components/platform/delete-entry-button";
 import { EditLinkButton } from "@/components/platform/edit-link-button";
 import { UploadExpenseAttachmentsForm } from "@/components/expenses/upload-expense-attachments-form";
 import { getExpense, deleteExpense, deleteExpenseAttachment } from "@/lib/actions/expenses";
-import { fileHref } from "@/lib/files/href";
+import { FileActions } from "@/components/platform/file-actions";
+import { buildFileAccessContext } from "@/lib/files/download-access";
+import { fileRequestKey } from "@/lib/files/download-types";
 import { canWrite, requireModuleAccess } from "@/lib/permissions/access";
 import { EXPENSE_ATTACHMENT_TYPE_LABELS, EXPENSE_STATUS_LABELS } from "@/lib/labels";
 import { formatMoney, formatDate } from "@/lib/format";
@@ -26,6 +28,10 @@ export default async function ExpenseDetailPage({ params }: { params: Promise<{ 
     CHEQUE_COPY: expense.attachments.filter((a) => a.attachmentType === "CHEQUE_COPY"),
     OTHER: expense.attachments.filter((a) => a.attachmentType === "OTHER"),
   };
+  const fileAccess = await buildFileAccessContext(
+    ctx,
+    expense.attachments.map((doc) => ({ kind: "expense" as const, fileId: doc.id })),
+  );
 
   return (
     <>
@@ -89,11 +95,14 @@ export default async function ExpenseDetailPage({ params }: { params: Promise<{ 
                           {doc.fileName} - {formatDate(doc.createdAt)}
                         </p>
                       </div>
-                      <Button variant="outline" size="sm" asChild>
-                        <a href={fileHref("expense", doc.id)} target="_blank" rel="noopener noreferrer">
-                          Open
-                        </a>
-                      </Button>
+                      <FileActions
+                        kind="expense"
+                        fileId={doc.id}
+                        fileName={doc.label ?? doc.fileName}
+                        isSuperAdmin={fileAccess.isSuperAdmin}
+                        requestStatus={fileAccess.downloadRequestStatuses[fileRequestKey("expense", doc.id)]}
+                        compact
+                      />
                       {showUpload ? (
                         <DeleteEntryButton
                           itemId={doc.id}

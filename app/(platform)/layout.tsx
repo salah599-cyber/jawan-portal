@@ -6,6 +6,7 @@ import { InactivityLogout } from "@/components/auth/inactivity-logout";
 import { syncClerkUser } from "@/lib/auth/sync-user";
 import { db } from "@/lib/db";
 import { getCurrentUserContext, isSuperAdmin, canAccess } from "@/lib/permissions/access";
+import { countPendingDownloadRequests } from "@/lib/files/download-access";
 
 export default async function PlatformLayout({ children }: { children: React.ReactNode }) {
   await syncClerkUser();
@@ -28,6 +29,7 @@ export default async function PlatformLayout({ children }: { children: React.Rea
   }
 
   const showAdmin = isSuperAdmin(ctx);
+  const pendingDownloadRequests = showAdmin ? await countPendingDownloadRequests() : 0;
   const showReports = canAccess(ctx, "REPORTS");
   const showCalendar = canAccess(ctx, "CALENDAR");
   const showDocumentsVault = canAccess(ctx, "DOCUMENTS");
@@ -41,6 +43,7 @@ export default async function PlatformLayout({ children }: { children: React.Rea
       <InactivityLogout />
       <AppSidebar
         showAdmin={showAdmin}
+        pendingDownloadRequests={pendingDownloadRequests}
         showReports={showReports}
         showCalendar={showCalendar}
         showDocumentsVault={showDocumentsVault}

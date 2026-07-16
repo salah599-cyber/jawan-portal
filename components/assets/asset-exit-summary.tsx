@@ -1,7 +1,9 @@
+"use client";
+
 import Link from "next/link";
 import { DeleteEntryButton } from "@/components/platform/delete-entry-button";
+import { FileActionsWithAccess } from "@/components/platform/file-actions-with-access";
 import { deleteAssetExitDocument } from "@/lib/actions/asset-exits";
-import { fileHref } from "@/lib/files/href";
 import { EXIT_SETTLEMENT_STATUS_LABELS, ASSET_EXIT_DOCUMENT_TYPE_LABELS, EXIT_TYPE_LABELS } from "@/lib/labels";
 import { formatMoney, formatDate } from "@/lib/format";
 import { formatRoiPct, roiTone } from "@/lib/portfolio/exit-metrics";
@@ -46,6 +48,7 @@ export function AssetExitSummary({
   showActions?: boolean;
   canAssignProceeds?: boolean;
 }) {
+  const fileRefs = exit.documents.map((doc) => ({ kind: "asset-exit" as const, fileId: doc.id }));
   const docsByType = {
     SALE_AGREEMENT: exit.documents.filter((d) => d.documentType === "SALE_AGREEMENT"),
     TRANSFER_DEED: exit.documents.filter((d) => d.documentType === "TRANSFER_DEED"),
@@ -144,9 +147,13 @@ export function AssetExitSummary({
                       <p className="text-muted-foreground">{formatDate(doc.createdAt)}</p>
                     </div>
                     <div className="flex shrink-0 gap-1">
-                      <Button variant="outline" size="sm" asChild>
-                        <a href={fileHref("asset-exit", doc.id)} target="_blank" rel="noopener noreferrer">Open</a>
-                      </Button>
+                      <FileActionsWithAccess
+                        kind="asset-exit"
+                        fileId={doc.id}
+                        fileName={doc.label ?? doc.fileName}
+                        files={fileRefs}
+                        compact
+                      />
                       {showActions ? (
                         <DeleteEntryButton
                           itemId={doc.id}

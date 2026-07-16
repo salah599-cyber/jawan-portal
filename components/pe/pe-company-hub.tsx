@@ -13,6 +13,7 @@ import { PeContactsTab } from "@/components/pe/pe-contacts-tab";
 import { PeGovernanceTab } from "@/components/pe/pe-governance-tab";
 import { PeMonitoringTab } from "@/components/pe/pe-monitoring-tab";
 import { PeDocumentsTab } from "@/components/pe/pe-documents-tab";
+import type { FileAccessContext } from "@/lib/files/download-types";
 
 const TAB_ITEMS = [
   { value: "overview", label: "Overview" },
@@ -31,10 +32,12 @@ export function PeCompanyHub({
   company,
   canEdit,
   defaultTab = "overview",
+  fileAccess,
 }: {
   company: SerializedPeCompany;
   canEdit: boolean;
   defaultTab?: string;
+  fileAccess: FileAccessContext;
 }) {
   const [tab, setTab] = useState(defaultTab);
 
@@ -76,7 +79,7 @@ export function PeCompanyHub({
         <PeMonitoringTab company={company} canEdit={canEdit} />
       </TabsContent>
       <TabsContent value="documents" className="mt-4">
-        <PeDocumentsTab company={company} canEdit={canEdit} />
+        <PeDocumentsTab company={company} canEdit={canEdit} fileAccess={fileAccess} />
       </TabsContent>
     </Tabs>
   );

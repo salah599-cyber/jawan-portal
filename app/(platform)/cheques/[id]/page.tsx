@@ -5,7 +5,9 @@ import { DeleteEntryButton } from "@/components/platform/delete-entry-button";
 import { EditLinkButton } from "@/components/platform/edit-link-button";
 import { UploadChequeDocumentsForm } from "@/components/cheques/upload-cheque-documents-form";
 import { getCheque, deleteCheque, deleteChequeDocument } from "@/lib/actions/cheques";
-import { fileHref } from "@/lib/files/href";
+import { FileActions } from "@/components/platform/file-actions";
+import { buildFileAccessContext } from "@/lib/files/download-access";
+import { fileRequestKey } from "@/lib/files/download-types";
 import { canWrite, requireModuleAccess } from "@/lib/permissions/access";
 import {
   CHEQUE_DIRECTION_LABELS,
@@ -30,6 +32,10 @@ export default async function ChequeDetailPage({ params }: { params: Promise<{ i
     BANK_CONFIRMATION: cheque.documents.filter((d) => d.documentType === "BANK_CONFIRMATION"),
     OTHER: cheque.documents.filter((d) => d.documentType === "OTHER"),
   };
+  const fileAccess = await buildFileAccessContext(
+    ctx,
+    cheque.documents.map((doc) => ({ kind: "cheque" as const, fileId: doc.id })),
+  );
 
   const bankDisplay = cheque.bankAccount
     ? cheque.bankAccount.bankName + " · " + cheque.bankAccount.accountName + " (" + cheque.bankAccount.accountNumber + ")"
@@ -108,11 +114,14 @@ export default async function ChequeDetailPage({ params }: { params: Promise<{ i
                           {doc.fileName} - {formatDate(doc.createdAt)}
                         </p>
                       </div>
-                      <Button variant="outline" size="sm" asChild>
-                        <a href={fileHref("cheque", doc.id)} target="_blank" rel="noopener noreferrer">
-                          Open
-                        </a>
-                      </Button>
+                      <FileActions
+                        kind="cheque"
+                        fileId={doc.id}
+                        fileName={doc.label ?? doc.fileName}
+                        isSuperAdmin={fileAccess.isSuperAdmin}
+                        requestStatus={fileAccess.downloadRequestStatuses[fileRequestKey("cheque", doc.id)]}
+                        compact
+                      />
                       {showWrite ? (
                         <DeleteEntryButton
                           itemId={doc.id}

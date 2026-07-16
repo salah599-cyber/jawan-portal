@@ -8,11 +8,11 @@ import {
   updateSuccessionDocumentStatus,
 } from "@/lib/actions/succession";
 import { DeleteEntryButton } from "@/components/platform/delete-entry-button";
+import { FileActionsWithAccess } from "@/components/platform/file-actions-with-access";
 import {
   SUCCESSION_DOCUMENT_STATUS_LABELS,
   SUCCESSION_DOCUMENT_TYPE_LABELS,
 } from "@/lib/labels";
-import { fileHref } from "@/lib/files/href";
 import { formatDate } from "@/lib/format";
 import type { SerializedSuccessionPlan } from "@/lib/succession/serialize";
 import { Button } from "@/components/ui/button";
@@ -67,6 +67,10 @@ export function UploadSuccessionDocumentsForm({
       router.refresh();
     });
   }
+
+  const fileRefs = plan.documents
+    .filter((doc) => doc.fileUrl)
+    .map((doc) => ({ kind: "succession" as const, fileId: doc.id }));
 
   return (
     <div className="space-y-4">
@@ -165,9 +169,13 @@ export function UploadSuccessionDocumentsForm({
                     <TableCell>
                       <div className="flex items-center gap-1">
                         {doc.fileUrl ? (
-                          <Button variant="outline" size="sm" asChild>
-                            <a href={fileHref("succession", doc.id)} target="_blank" rel="noopener noreferrer">Open</a>
-                          </Button>
+                          <FileActionsWithAccess
+                            kind="succession"
+                            fileId={doc.id}
+                            fileName={doc.fileName ?? "document"}
+                            files={fileRefs}
+                            compact
+                          />
                         ) : null}
                         {doc.fileUrl ? (
                           <DeleteEntryButton

@@ -5,6 +5,7 @@ import { RePropertyHub } from "@/components/real-estate/re-property-hub";
 import { ReAlertsBanner } from "@/components/real-estate/re-alerts-banner";
 import { getProperty } from "@/lib/data/real-estate";
 import { serializeReProperty } from "@/lib/real-estate/serialize";
+import { buildFileAccessContext } from "@/lib/files/download-access";
 import { canWrite, requireModuleAccess } from "@/lib/permissions/access";
 import {
   RE_OWNERSHIP_STATUS_LABELS,
@@ -33,6 +34,10 @@ export default async function PropertyDetailPage({
 
   const serialized = serializeReProperty(property);
   const canEdit = canWrite(ctx, "REAL_ESTATE");
+  const fileAccess = await buildFileAccessContext(
+    ctx,
+    property.documents.map((doc) => ({ kind: "re-property" as const, fileId: doc.id })),
+  );
   const location = [property.area, property.wilayat, property.governorate]
     .filter(Boolean)
     .join(", ");
@@ -88,7 +93,7 @@ export default async function PropertyDetailPage({
 
         {property.alerts.length > 0 ? <ReAlertsBanner alerts={property.alerts} /> : null}
 
-        <RePropertyHub property={serialized} canEdit={canEdit} defaultTab={tab} />
+        <RePropertyHub property={serialized} canEdit={canEdit} defaultTab={tab} fileAccess={fileAccess} />
       </main>
     </>
   );

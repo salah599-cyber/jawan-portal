@@ -7,8 +7,8 @@ import {
   deleteFamilyMemberDocument,
 } from "@/lib/actions/family-members";
 import { DeleteEntryButton } from "@/components/platform/delete-entry-button";
+import { FileActionsWithAccess } from "@/components/platform/file-actions-with-access";
 import { FAMILY_MEMBER_DOCUMENT_TYPE_LABELS } from "@/lib/labels";
-import { fileHref } from "@/lib/files/href";
 import { formatDate } from "@/lib/format";
 import type { SerializedFamilyMember } from "@/lib/family/serialize";
 import { Button } from "@/components/ui/button";
@@ -47,6 +47,8 @@ export function UploadFamilyMemberDocumentsForm({
       }
     });
   }
+
+  const fileRefs = member.documents.map((doc) => ({ kind: "family-member" as const, fileId: doc.id }));
 
   return (
     <div className="space-y-4">
@@ -115,9 +117,13 @@ export function UploadFamilyMemberDocumentsForm({
                     {canEdit ? (
                       <TableCell>
                         <div className="flex items-center gap-1">
-                          <Button variant="outline" size="sm" asChild>
-                            <a href={fileHref("family-member", doc.id)} target="_blank" rel="noopener noreferrer">Open</a>
-                          </Button>
+                          <FileActionsWithAccess
+                            kind="family-member"
+                            fileId={doc.id}
+                            fileName={doc.fileName}
+                            files={fileRefs}
+                            compact
+                          />
                           <DeleteEntryButton
                             itemId={doc.id}
                             itemLabel={doc.fileName}

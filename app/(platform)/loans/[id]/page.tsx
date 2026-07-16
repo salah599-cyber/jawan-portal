@@ -7,7 +7,9 @@ import { UploadLoanDocumentsForm } from "@/components/loans/upload-loan-document
 import { RecordLoanPaymentForm } from "@/components/loans/record-loan-payment-form";
 import { LoanPaymentHistory } from "@/components/loans/loan-payment-history";
 import { getLoan, deleteLoan, deleteLoanDocument } from "@/lib/actions/loans";
-import { fileHref } from "@/lib/files/href";
+import { FileActions } from "@/components/platform/file-actions";
+import { buildFileAccessContext } from "@/lib/files/download-access";
+import { fileRequestKey } from "@/lib/files/download-types";
 import { canWrite, requireModuleAccess } from "@/lib/permissions/access";
 import {
   INTEREST_CALCULATION_METHOD_LABELS,
@@ -37,6 +39,13 @@ export default async function LoanDetailPage({ params }: { params: Promise<{ id:
     STATEMENT: loan.documents.filter((d) => d.documentType === "STATEMENT"),
     OTHER: loan.documents.filter((d) => d.documentType === "OTHER"),
   };
+  const fileRefs = [
+    ...loan.documents.map((doc) => ({ kind: "loan" as const, fileId: doc.id })),
+    ...loan.payments.flatMap((payment) =>
+      payment.documents.map((doc) => ({ kind: "loan-payment" as const, fileId: doc.id })),
+    ),
+  ];
+  const fileAccess = await buildFileAccessContext(ctx, fileRefs);
 
   return (
     <>
@@ -141,6 +150,7 @@ export default async function LoanDetailPage({ params }: { params: Promise<{ id:
           currency={loan.currency}
           principalAmount={loan.amount}
           showActions={showUpload}
+          fileAccess={fileAccess}
         />
 
         <Card>
@@ -175,11 +185,14 @@ export default async function LoanDetailPage({ params }: { params: Promise<{ id:
                           {doc.fileName} - {formatDate(doc.createdAt)}
                         </p>
                       </div>
-                      <Button variant="outline" size="sm" asChild>
-                        <a href={fileHref("loan", doc.id)} target="_blank" rel="noopener noreferrer">
-                          Open
-                        </a>
-                      </Button>
+                      <FileActions
+                        kind="loan"
+                        fileId={doc.id}
+                        fileName={doc.label ?? doc.fileName}
+                        isSuperAdmin={fileAccess.isSuperAdmin}
+                        requestStatus={fileAccess.downloadRequestStatuses[fileRequestKey("loan", doc.id)]}
+                        compact
+                      />
                       {showUpload ? (
                         <DeleteEntryButton
                           itemId={doc.id}

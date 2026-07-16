@@ -2,6 +2,7 @@ import { db } from "@/lib/db";
 import { ensureRealEstateSchema } from "@/lib/db/ensure-real-estate-schema";
 import { ensureDefaultEntity, listEntities } from "@/lib/data/entities";
 import { rePropertyEntityFilter } from "@/lib/permissions/scoped-queries";
+import { isSuperAdmin } from "@/lib/permissions/access";
 import type { UserContext } from "@/lib/permissions/types";
 import type {
   RePortfolioTrack,
@@ -321,9 +322,10 @@ export async function listProperties(
       overdueRentOmr: metrics?.overdueRentOmr ?? 0,
       grossYieldPct: metrics?.grossYieldPct ?? null,
       currentValuationOmr: toNumber(property.currentValuationOmr) || null,
-      primaryPhotoHref: property.documents[0]
-        ? fileHref("re-property", property.documents[0].id)
-        : undefined,
+      primaryPhotoHref:
+        isSuperAdmin(ctx) && property.documents[0]
+          ? fileHref("re-property", property.documents[0].id)
+          : undefined,
       entityName: property.entity.name,
     };
   });

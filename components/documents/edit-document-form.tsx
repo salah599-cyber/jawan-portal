@@ -3,7 +3,7 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { updateDocument, type UpdateDocumentInput } from "@/lib/actions/documents";
-import { fileHref } from "@/lib/files/href";
+import { FileActionsWithAccess } from "@/components/platform/file-actions-with-access";
 import { formatDateInput } from "@/lib/format";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -72,11 +72,15 @@ export function EditDocumentForm({
     <Card>
       <CardHeader>
         <CardTitle>Edit Document</CardTitle>
-        <CardDescription>
-          File: {document.fileName} —{" "}
-          <a href={fileHref("document", document.id)} target="_blank" rel="noopener noreferrer" className="underline">
-            Open file
-          </a>
+        <CardDescription className="flex flex-wrap items-center gap-2">
+          <span>File: {document.fileName}</span>
+          <FileActionsWithAccess
+            kind="document"
+            fileId={document.id}
+            fileName={document.fileName}
+            files={[{ kind: "document", fileId: document.id }]}
+            compact
+          />
         </CardDescription>
       </CardHeader>
       <CardContent>

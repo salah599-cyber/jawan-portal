@@ -4,8 +4,10 @@ import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { uploadLpDocuments, deleteLpDocument } from "@/lib/actions/lp-fund";
 import { DeleteEntryButton } from "@/components/platform/delete-entry-button";
+import { FileActions } from "@/components/platform/file-actions";
 import { LP_DOCUMENT_TYPE_LABELS } from "@/lib/lp/constants";
-import { fileHref } from "@/lib/files/href";
+import type { FileAccessContext } from "@/lib/files/download-types";
+import { fileRequestKey } from "@/lib/files/download-types";
 import { formatDate } from "@/lib/format";
 import type { SerializedLpCommitment } from "@/lib/lp/serialize";
 import { Button } from "@/components/ui/button";
@@ -18,9 +20,11 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 export function LpDocumentsTab({
   commitment,
   canEdit,
+  fileAccess,
 }: {
   commitment: SerializedLpCommitment;
   canEdit: boolean;
+  fileAccess: FileAccessContext;
 }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
@@ -114,9 +118,14 @@ export function LpDocumentsTab({
                     <TableCell>{formatDate(doc.createdAt)}</TableCell>
                     <TableCell>
                       <div className="flex items-center gap-1">
-                        <Button variant="outline" size="sm" asChild>
-                          <a href={fileHref("lp-fund", doc.id)} target="_blank" rel="noopener noreferrer">Open</a>
-                        </Button>
+                        <FileActions
+                          kind="lp-fund"
+                          fileId={doc.id}
+                          fileName={doc.fileName}
+                          isSuperAdmin={fileAccess.isSuperAdmin}
+                          requestStatus={fileAccess.downloadRequestStatuses[fileRequestKey("lp-fund", doc.id)]}
+                          compact
+                        />
                         {canEdit ? (
                           <DeleteEntryButton
                             itemId={doc.id}

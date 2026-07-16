@@ -7,7 +7,10 @@ import { RecordLandSaleForm } from "@/components/lands/record-land-sale-form";
 import { AssetExitSummary } from "@/components/assets/asset-exit-summary";
 import { UploadLandSaleDocumentsForm } from "@/components/lands/upload-land-sale-documents-form";
 import { deleteLandDocument, deleteLandSaleDocument } from "@/lib/actions/lands";
-import { fileHref, type FileKind } from "@/lib/files/href";
+import { FileActions } from "@/components/platform/file-actions";
+import type { FileAccessContext } from "@/lib/files/download-types";
+import { fileRequestKey } from "@/lib/files/download-types";
+import { type FileKind } from "@/lib/files/href";
 import {
   ASSET_STATUS_LABELS,
   LAND_LOCATION_TYPE_LABELS,
@@ -115,10 +118,12 @@ export function LandDetailContent({
   land,
   showActions = false,
   compact = false,
+  fileAccess,
 }: {
   land: LandDetailData;
   showActions?: boolean;
   compact?: boolean;
+  fileAccess: FileAccessContext;
 }) {
   const international = isInternationalLand(land);
   const docLabels = getLandDocumentTypeLabels(international);
@@ -274,6 +279,7 @@ export function LandDetailContent({
           documents={docsByType[type]}
           showActions={showActions}
           deleteAction={deleteLandDocument}
+          fileAccess={fileAccess}
         />
       ))}
 
@@ -286,6 +292,7 @@ export function LandDetailContent({
               documents={saleDocsByType[type]}
               showActions={showActions}
               deleteAction={deleteLandSaleDocument}
+              fileAccess={fileAccess}
             />
           ))
         : null}
@@ -314,12 +321,14 @@ function DocumentSection({
   documents,
   showActions,
   deleteAction,
+  fileAccess,
 }: {
   kind: FileKind;
   title: string;
   documents: LandDetailData["documents"];
   showActions: boolean;
   deleteAction: (id: string) => Promise<void>;
+  fileAccess: FileAccessContext;
 }) {
   return (
     <Card>
@@ -343,16 +352,14 @@ function DocumentSection({
                   </p>
                 </div>
                 <div className="flex shrink-0 items-center gap-1">
-                  <Button variant="outline" size="sm" asChild>
-                    <a href={fileHref(kind, doc.id)} target="_blank" rel="noopener noreferrer">
-                      Open
-                    </a>
-                  </Button>
-                  <Button variant="outline" size="sm" asChild>
-                    <a href={fileHref(kind, doc.id)} download={doc.fileName}>
-                      Download
-                    </a>
-                  </Button>
+                  <FileActions
+                    kind={kind}
+                    fileId={doc.id}
+                    fileName={doc.label ?? doc.fileName}
+                    isSuperAdmin={fileAccess.isSuperAdmin}
+                    requestStatus={fileAccess.downloadRequestStatuses[fileRequestKey(kind, doc.id)]}
+                    compact
+                  />
                   {showActions ? (
                     <DeleteEntryButton
                       itemId={doc.id}

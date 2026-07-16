@@ -4,8 +4,10 @@ import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { uploadPropertyDocuments, deletePropertyDocument } from "@/lib/actions/real-estate";
 import { DeleteEntryButton } from "@/components/platform/delete-entry-button";
+import { FileActions } from "@/components/platform/file-actions";
 import { RE_PROPERTY_DOCUMENT_TYPE_LABELS } from "@/lib/labels";
-import { fileHref } from "@/lib/files/href";
+import type { FileAccessContext } from "@/lib/files/download-types";
+import { fileRequestKey } from "@/lib/files/download-types";
 import { formatDate } from "@/lib/format";
 import type { SerializedReProperty } from "@/lib/real-estate/serialize";
 import { Button } from "@/components/ui/button";
@@ -18,9 +20,11 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 export function ReDocumentsTab({
   property,
   canEdit,
+  fileAccess,
 }: {
   property: SerializedReProperty;
   canEdit: boolean;
+  fileAccess: FileAccessContext;
 }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
@@ -142,9 +146,14 @@ export function ReDocumentsTab({
                     <TableCell>{formatDate(doc.createdAt)}</TableCell>
                     <TableCell>
                       <div className="flex items-center gap-1">
-                        <Button variant="outline" size="sm" asChild>
-                          <a href={fileHref("re-property", doc.id)} target="_blank" rel="noopener noreferrer">Open</a>
-                        </Button>
+                        <FileActions
+                          kind="re-property"
+                          fileId={doc.id}
+                          fileName={doc.fileName}
+                          isSuperAdmin={fileAccess.isSuperAdmin}
+                          requestStatus={fileAccess.downloadRequestStatuses[fileRequestKey("re-property", doc.id)]}
+                          compact
+                        />
                         {canEdit ? (
                           <DeleteEntryButton
                             itemId={doc.id}
@@ -177,9 +186,14 @@ export function ReDocumentsTab({
                 {docs.map((doc) => (
                   <li key={doc.id} className="flex items-center justify-between gap-4 text-sm">
                     <span>{doc.fileName}</span>
-                    <Button variant="outline" size="sm" asChild>
-                      <a href={fileHref("re-property", doc.id)} target="_blank" rel="noopener noreferrer">Open</a>
-                    </Button>
+                    <FileActions
+                      kind="re-property"
+                      fileId={doc.id}
+                      fileName={doc.fileName}
+                      isSuperAdmin={fileAccess.isSuperAdmin}
+                      requestStatus={fileAccess.downloadRequestStatuses[fileRequestKey("re-property", doc.id)]}
+                      compact
+                    />
                   </li>
                 ))}
               </ul>

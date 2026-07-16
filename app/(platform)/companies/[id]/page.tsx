@@ -7,7 +7,10 @@ import { UploadCompanyDocumentsForm } from "@/components/companies/upload-compan
 import { AssetExitSummary } from "@/components/assets/asset-exit-summary";
 import { RecordAssetExitForm } from "@/components/assets/record-asset-exit-form";
 import { getCompany, deleteCompany, deleteCompanyDocument } from "@/lib/actions/companies";
-import { fileHref } from "@/lib/files/href";
+import { FileActions } from "@/components/platform/file-actions";
+import { buildFileAccessContext } from "@/lib/files/download-access";
+import { fileRequestKey } from "@/lib/files/download-types";
+import type { FileKind } from "@/lib/files/href";
 import { canWrite, requireModuleAccess } from "@/lib/permissions/access";
 import { ASSET_STATUS_LABELS, COMPANY_DOCUMENT_TYPE_LABELS } from "@/lib/labels";
 import { formatDate, formatDecimalInput } from "@/lib/format";
@@ -28,6 +31,16 @@ export default async function CompanyDetailPage({ params }: { params: Promise<{ 
     FINANCIALS: company.documents.filter((d) => d.documentType === "FINANCIALS"),
     OTHER: company.documents.filter((d) => d.documentType === "OTHER"),
   };
+  const fileRefs: Array<{ kind: FileKind; fileId: string }> = company.documents.map((doc) => ({
+    kind: "company",
+    fileId: doc.id,
+  }));
+  if (company.asset?.exit) {
+    for (const doc of company.asset.exit.documents) {
+      fileRefs.push({ kind: "asset-exit", fileId: doc.id });
+    }
+  }
+  const fileAccess = await buildFileAccessContext(ctx, fileRefs);
 
   return (
     <>
@@ -170,11 +183,14 @@ export default async function CompanyDetailPage({ params }: { params: Promise<{ 
                           {doc.fileName} - {formatDate(doc.createdAt)}
                         </p>
                       </div>
-                      <Button variant="outline" size="sm" asChild>
-                        <a href={fileHref("company", doc.id)} target="_blank" rel="noopener noreferrer">
-                          Open
-                        </a>
-                      </Button>
+                      <FileActions
+                        kind="company"
+                        fileId={doc.id}
+                        fileName={doc.label ?? doc.fileName}
+                        isSuperAdmin={fileAccess.isSuperAdmin}
+                        requestStatus={fileAccess.downloadRequestStatuses[fileRequestKey("company", doc.id)]}
+                        compact
+                      />
                       {showUpload ? (
                         <DeleteEntryButton
                           itemId={doc.id}

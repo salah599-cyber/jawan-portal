@@ -3,6 +3,7 @@ import { ensureRealEstateSchema } from "@/lib/db/ensure-real-estate-schema";
 import { ensureDefaultEntity } from "@/lib/data/entities";
 import { listRePortfolioEntities } from "@/lib/data/real-estate";
 import { loanEntityFilter, rePropertyEntityFilter } from "@/lib/permissions/scoped-queries";
+import { isSuperAdmin } from "@/lib/permissions/access";
 import type { UserContext } from "@/lib/permissions/types";
 import type { RePropertyStatus } from "@/lib/generated/prisma/client";
 import { toNumber } from "@/lib/real-estate/helpers";
@@ -171,9 +172,10 @@ export async function listPrivateProperties(
     ),
     staffCount: property.privateStaff.length,
     entityName: property.entity.name,
-    primaryPhotoHref: property.documents[0]
-      ? fileHref("re-property", property.documents[0].id)
-      : undefined,
+    primaryPhotoHref:
+      isSuperAdmin(ctx) && property.documents[0]
+        ? fileHref("re-property", property.documents[0].id)
+        : undefined,
     ownerDiscrepancy: hasOwnerDiscrepancy(property.privateDetail),
   }));
 }

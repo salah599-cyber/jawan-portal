@@ -9,6 +9,7 @@ import { LpDistributionsTab } from "@/components/lp/lp-distributions-tab";
 import { LpNavUpdatesTab } from "@/components/lp/lp-nav-updates-tab";
 import { LpFundDetailsTab } from "@/components/lp/lp-fund-details-tab";
 import { LpDocumentsTab } from "@/components/lp/lp-documents-tab";
+import type { FileAccessContext } from "@/lib/files/download-types";
 
 const TAB_ITEMS = [
   { value: "overview", label: "Overview" },
@@ -23,10 +24,12 @@ export function LpCommitmentHub({
   commitment,
   canEdit,
   defaultTab = "overview",
+  fileAccess,
 }: {
   commitment: SerializedLpCommitment;
   canEdit: boolean;
   defaultTab?: string;
+  fileAccess: FileAccessContext;
 }) {
   const [tab, setTab] = useState(defaultTab);
 
@@ -56,7 +59,7 @@ export function LpCommitmentHub({
         <LpFundDetailsTab commitment={commitment} />
       </TabsContent>
       <TabsContent value="documents" className="mt-4">
-        <LpDocumentsTab commitment={commitment} canEdit={canEdit} />
+        <LpDocumentsTab commitment={commitment} canEdit={canEdit} fileAccess={fileAccess} />
       </TabsContent>
     </Tabs>
   );

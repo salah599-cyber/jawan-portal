@@ -11,6 +11,7 @@ import { ReMaintenanceTab } from "@/components/real-estate/re-maintenance-tab";
 import { ReUtilitiesTab } from "@/components/real-estate/re-utilities-tab";
 import { ReFinancialsTab } from "@/components/real-estate/re-financials-tab";
 import { ReDocumentsTab } from "@/components/real-estate/re-documents-tab";
+import type { FileAccessContext } from "@/lib/files/download-types";
 
 const TAB_ITEMS = [
   { value: "overview", label: "Overview" },
@@ -27,10 +28,12 @@ export function RePropertyHub({
   property,
   canEdit,
   defaultTab = "overview",
+  fileAccess,
 }: {
   property: SerializedReProperty;
   canEdit: boolean;
   defaultTab?: string;
+  fileAccess: FileAccessContext;
 }) {
   const validTab = TAB_ITEMS.some((item) => item.value === defaultTab) ? defaultTab : "overview";
   const [tab, setTab] = useState(validTab);
@@ -67,7 +70,7 @@ export function RePropertyHub({
         <ReFinancialsTab property={property} canEdit={canEdit} />
       </TabsContent>
       <TabsContent value="documents" className="mt-4">
-        <ReDocumentsTab property={property} canEdit={canEdit} />
+        <ReDocumentsTab property={property} canEdit={canEdit} fileAccess={fileAccess} />
       </TabsContent>
     </Tabs>
   );

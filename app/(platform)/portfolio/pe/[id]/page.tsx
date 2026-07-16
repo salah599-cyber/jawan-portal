@@ -7,6 +7,7 @@ import { PeCompanyHub } from "@/components/pe/pe-company-hub";
 import { deletePeCompany } from "@/lib/actions/pe-portfolio";
 import { getPeCompany } from "@/lib/data/pe-portfolio";
 import { serializePeCompany } from "@/lib/pe/serialize";
+import { buildFileAccessContext } from "@/lib/files/download-access";
 import { canWrite, requireModuleAccess } from "@/lib/permissions/access";
 import { PE_STAGE_LABELS, PE_STATUS_LABELS } from "@/lib/labels";
 import { Badge } from "@/components/ui/badge";
@@ -27,6 +28,10 @@ export default async function PeCompanyDetailPage({
 
   const serialized = serializePeCompany(company);
   const canEdit = canWrite(ctx, "PRIVATE_EQUITY");
+  const fileAccess = await buildFileAccessContext(
+    ctx,
+    company.documents.map((doc) => ({ kind: "pe-company" as const, fileId: doc.id })),
+  );
 
   return (
     <>
@@ -64,7 +69,7 @@ export default async function PeCompanyDetailPage({
           <span className="text-sm text-muted-foreground">{company.entity.name} · {company.reportingCurrency}</span>
         </div>
 
-        <PeCompanyHub company={serialized} canEdit={canEdit} defaultTab={tab ?? "overview"} />
+        <PeCompanyHub company={serialized} canEdit={canEdit} defaultTab={tab ?? "overview"} fileAccess={fileAccess} />
       </main>
     </>
   );

@@ -4,8 +4,10 @@ import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { uploadPeDocuments, deletePeDocument } from "@/lib/actions/pe-portfolio";
 import { DeleteEntryButton } from "@/components/platform/delete-entry-button";
+import { FileActions } from "@/components/platform/file-actions";
 import { PE_DOCUMENT_TYPE_LABELS } from "@/lib/labels";
-import { fileHref } from "@/lib/files/href";
+import type { FileAccessContext } from "@/lib/files/download-types";
+import { fileRequestKey } from "@/lib/files/download-types";
 import { formatDate } from "@/lib/format";
 import type { SerializedPeCompany } from "@/lib/pe/serialize";
 import { Button } from "@/components/ui/button";
@@ -18,9 +20,11 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 export function PeDocumentsTab({
   company,
   canEdit,
+  fileAccess,
 }: {
   company: SerializedPeCompany;
   canEdit: boolean;
+  fileAccess: FileAccessContext;
 }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
@@ -119,9 +123,14 @@ export function PeDocumentsTab({
                     <TableCell>{formatDate(doc.createdAt)}</TableCell>
                     <TableCell>
                       <div className="flex items-center gap-1">
-                        <Button variant="outline" size="sm" asChild>
-                          <a href={fileHref("pe-company", doc.id)} target="_blank" rel="noopener noreferrer">Open</a>
-                        </Button>
+                        <FileActions
+                          kind="pe-company"
+                          fileId={doc.id}
+                          fileName={doc.fileName}
+                          isSuperAdmin={fileAccess.isSuperAdmin}
+                          requestStatus={fileAccess.downloadRequestStatuses[fileRequestKey("pe-company", doc.id)]}
+                          compact
+                        />
                         {canEdit ? (
                           <DeleteEntryButton
                             itemId={doc.id}
@@ -154,9 +163,14 @@ export function PeDocumentsTab({
                 {docs.map((doc) => (
                   <li key={doc.id} className="flex items-center justify-between gap-4 text-sm">
                     <span>{doc.fileName}</span>
-                    <Button variant="outline" size="sm" asChild>
-                      <a href={fileHref("pe-company", doc.id)} target="_blank" rel="noopener noreferrer">Open</a>
-                    </Button>
+                    <FileActions
+                      kind="pe-company"
+                      fileId={doc.id}
+                      fileName={doc.fileName}
+                      isSuperAdmin={fileAccess.isSuperAdmin}
+                      requestStatus={fileAccess.downloadRequestStatuses[fileRequestKey("pe-company", doc.id)]}
+                      compact
+                    />
                   </li>
                 ))}
               </ul>
