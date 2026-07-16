@@ -148,9 +148,11 @@ export async function listTransferLetterBankAccountOptions() {
       accountNumbers: {
         orderBy: { sortOrder: "asc" },
         select: {
+          id: true,
           accountNumber: true,
           iban: true,
           currency: true,
+          label: true,
         },
       },
     },

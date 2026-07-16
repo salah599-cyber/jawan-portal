@@ -17,8 +17,11 @@ import { PrintTransferLetterButton } from "@/components/transfer-letters/print-t
 import { CurrencySelect } from "@/components/transfer-letters/currency-select";
 import { BankDivisionSelect } from "@/components/transfer-letters/bank-division-select";
 import {
-  bankAccountToBeneficiaryFields,
-  bankAccountToSourceFields,
+  bankAccountPickToBeneficiaryFields,
+  bankAccountPickToSourceFields,
+  findBankAccountPickOption,
+  flattenBankAccountPickOptions,
+  formatBankAccountPickLabel,
 } from "@/lib/transfer/bank-account-fields";
 import {
   emptyTransferLetterForm,
@@ -42,6 +45,53 @@ type TransferLetterFormProps = {
   preselectedBankAccountId?: string;
 };
 
+function buildInitialForm(
+  bankAccounts: TransferLetterBankOption[],
+  entities: EntityOption[],
+  initialData?: TransferLetterFormData,
+  preselectedBankAccountId?: string,
+): TransferLetterFormData {
+  const accountPickOptions = flattenBankAccountPickOptions(bankAccounts);
+  const base = initialData ?? emptyTransferLetterForm({
+    entityId: entities[0]?.id ?? "",
+  });
+
+  if (initialData) {
+    const sourcePick = findBankAccountPickOption(accountPickOptions, {
+      bankAccountId: initialData.sourceBankAccountId,
+      accountNumber: initialData.sourceAccountNumber,
+    });
+    const beneficiaryPick = findBankAccountPickOption(accountPickOptions, {
+      bankAccountId: initialData.beneficiaryBankAccountId,
+      accountNumber: initialData.beneficiaryAccountNumber,
+    });
+
+    return {
+      ...initialData,
+      sourcePickId: sourcePick?.pickId ?? "",
+      beneficiaryPickId: beneficiaryPick?.pickId ?? "",
+    };
+  }
+
+  if (!preselectedBankAccountId) return base;
+
+  const sourcePick = findBankAccountPickOption(accountPickOptions, {
+    bankAccountId: preselectedBankAccountId,
+  });
+  if (!sourcePick) {
+    return { ...base, sourceBankAccountId: preselectedBankAccountId, sourceMode: "bank" };
+  }
+
+  return {
+    ...base,
+    sourceMode: "bank",
+    sourceBankAccountId: sourcePick.bankAccountId,
+    sourcePickId: sourcePick.pickId,
+    ...bankAccountPickToSourceFields(sourcePick),
+    entityId: sourcePick.entityId ?? base.entityId,
+  };
+}
+
 export function TransferLetterForm({
   entities,
   bankAccounts,
@@ -53,30 +103,18 @@ export function TransferLetterForm({
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
 
-  const [form, setForm] = useState<TransferLetterFormData>(() => {
-    const base = initialData ?? emptyTransferLetterForm({
-      entityId: entities[0]?.id ?? "",
-    });
+  const [form, setForm] = useState<TransferLetterFormData>(() =>
+    buildInitialForm(bankAccounts, entities, initialData, preselectedBankAccountId),
+  );
 
-    if (!preselectedBankAccountId || initialData) return base;
+  const accountPickOptions = useMemo(
+    () => flattenBankAccountPickOptions(bankAccounts),
+    [bankAccounts],
+  );
 
-    const account = bankAccounts.find((a) => a.id === preselectedBankAccountId);
-    if (!account) {
-      return { ...base, sourceBankAccountId: preselectedBankAccountId, sourceMode: "bank" };
-    }
-
-    return {
-      ...base,
-      sourceMode: "bank",
-      sourceBankAccountId: account.id,
-      ...bankAccountToSourceFields(account),
-      entityId: account.entityId ?? base.entityId,
-    };
-  });
-
-  const entityBankAccounts = useMemo(
-    () => bankAccounts.filter((a) => !a.entityId || a.entityId === form.entityId),
-    [bankAccounts, form.entityId],
+  const entityAccountPickOptions = useMemo(
+    () => accountPickOptions.filter((option) => !option.entityId || option.entityId === form.entityId),
+    [accountPickOptions, form.entityId],
   );
 
   function updateField<K extends keyof TransferLetterFormData>(key: K, value: TransferLetterFormData[K]) {
@@ -91,41 +129,51 @@ export function TransferLetterForm({
     }));
   }
 
-  function handleBankAccountChange(bankAccountId: string) {
-    if (bankAccountId === "manual") {
-      updateField("sourceMode", "manual");
-      updateField("sourceBankAccountId", "");
+  function handleSourcePickChange(pickId: string) {
+    if (pickId === "manual") {
+      setForm((current) => ({
+        ...current,
+        sourceMode: "manual",
+        sourceBankAccountId: "",
+        sourcePickId: "",
+      }));
       return;
     }
 
-    const account = bankAccounts.find((a) => a.id === bankAccountId);
-    if (!account) return;
+    const option = accountPickOptions.find((item) => item.pickId === pickId);
+    if (!option) return;
 
-    const sourceFields = bankAccountToSourceFields(account);
+    const sourceFields = bankAccountPickToSourceFields(option);
     setForm((current) => ({
       ...current,
       sourceMode: "bank",
-      sourceBankAccountId: account.id,
+      sourceBankAccountId: option.bankAccountId,
+      sourcePickId: option.pickId,
       ...sourceFields,
       currency: sourceFields.currency || current.currency,
     }));
   }
 
-  function handleBeneficiaryBankAccountChange(bankAccountId: string) {
-    if (bankAccountId === "manual") {
-      updateField("beneficiaryMode", "manual");
-      updateField("beneficiaryBankAccountId", "");
+  function handleBeneficiaryPickChange(pickId: string) {
+    if (pickId === "manual") {
+      setForm((current) => ({
+        ...current,
+        beneficiaryMode: "manual",
+        beneficiaryBankAccountId: "",
+        beneficiaryPickId: "",
+      }));
       return;
     }
 
-    const account = bankAccounts.find((a) => a.id === bankAccountId);
-    if (!account) return;
+    const option = accountPickOptions.find((item) => item.pickId === pickId);
+    if (!option) return;
 
     setForm((current) => ({
       ...current,
       beneficiaryMode: "bank",
-      beneficiaryBankAccountId: account.id,
-      ...bankAccountToBeneficiaryFields(account),
+      beneficiaryBankAccountId: option.bankAccountId,
+      beneficiaryPickId: option.pickId,
+      ...bankAccountPickToBeneficiaryFields(option),
     }));
   }
 
@@ -211,15 +259,15 @@ export function TransferLetterForm({
             <div className="space-y-2 md:col-span-2">
               <Label>Source Account (debit from)</Label>
               <Select
-                value={form.sourceMode === "manual" ? "manual" : form.sourceBankAccountId || "manual"}
-                onValueChange={handleBankAccountChange}
+                value={form.sourceMode === "manual" ? "manual" : form.sourcePickId || "manual"}
+                onValueChange={handleSourcePickChange}
               >
                 <SelectTrigger><SelectValue placeholder="Select bank account" /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="manual">Enter manually</SelectItem>
-                  {entityBankAccounts.map((account) => (
-                    <SelectItem key={account.id} value={account.id}>
-                      {account.bankName} — {account.accountName} ({account.accountNumber})
+                  {entityAccountPickOptions.map((option) => (
+                    <SelectItem key={option.pickId} value={option.pickId}>
+                      {formatBankAccountPickLabel(option)}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -262,15 +310,15 @@ export function TransferLetterForm({
             <div className="space-y-2 md:col-span-2">
               <Label>Beneficiary Account</Label>
               <Select
-                value={form.beneficiaryMode === "manual" ? "manual" : form.beneficiaryBankAccountId || "manual"}
-                onValueChange={handleBeneficiaryBankAccountChange}
+                value={form.beneficiaryMode === "manual" ? "manual" : form.beneficiaryPickId || "manual"}
+                onValueChange={handleBeneficiaryPickChange}
               >
                 <SelectTrigger><SelectValue placeholder="Select bank account" /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="manual">Enter manually</SelectItem>
-                  {bankAccounts.map((account) => (
-                    <SelectItem key={account.id} value={account.id}>
-                      {account.bankName} — {account.accountName} ({account.accountNumber})
+                  {accountPickOptions.map((option) => (
+                    <SelectItem key={option.pickId} value={option.pickId}>
+                      {formatBankAccountPickLabel(option)}
                     </SelectItem>
                   ))}
                 </SelectContent>
