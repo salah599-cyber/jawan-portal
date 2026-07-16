@@ -9,6 +9,7 @@ export const TRANSFER_LETTERS_SCHEMA_STATEMENTS = [
     "sourceBankName" TEXT NOT NULL,
     "sourceBranch" TEXT,
     "sourceAccountNumber" TEXT NOT NULL,
+    "beneficiaryBankAccountId" TEXT,
     "beneficiaryBankName" TEXT NOT NULL,
     "beneficiaryName" TEXT NOT NULL,
     "beneficiaryAccountNumber" TEXT,
@@ -43,5 +44,17 @@ export const TRANSFER_LETTERS_SCHEMA_STATEMENTS = [
   `DO $$ BEGIN
     ALTER TABLE "TransferLetter" ADD CONSTRAINT "TransferLetter_createdById_fkey"
       FOREIGN KEY ("createdById") REFERENCES "User"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+  EXCEPTION WHEN duplicate_object THEN NULL; END $$`,
+  `DO $$ BEGIN
+    ALTER TABLE "TransferLetter" ADD CONSTRAINT "TransferLetter_beneficiaryBankAccountId_fkey"
+      FOREIGN KEY ("beneficiaryBankAccountId") REFERENCES "BankAccount"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+  EXCEPTION WHEN duplicate_object THEN NULL; END $$`,
+];
+
+export const TRANSFER_LETTERS_MIGRATION_STATEMENTS = [
+  `ALTER TABLE "TransferLetter" ADD COLUMN IF NOT EXISTS "beneficiaryBankAccountId" TEXT`,
+  `DO $$ BEGIN
+    ALTER TABLE "TransferLetter" ADD CONSTRAINT "TransferLetter_beneficiaryBankAccountId_fkey"
+      FOREIGN KEY ("beneficiaryBankAccountId") REFERENCES "BankAccount"("id") ON DELETE SET NULL ON UPDATE CASCADE;
   EXCEPTION WHEN duplicate_object THEN NULL; END $$`,
 ];

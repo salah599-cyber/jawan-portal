@@ -1,5 +1,5 @@
 import { Client } from "pg";
-import { TRANSFER_LETTERS_SCHEMA_STATEMENTS } from "@/lib/db/transfer-letters-schema-statements";
+import { TRANSFER_LETTERS_MIGRATION_STATEMENTS, TRANSFER_LETTERS_SCHEMA_STATEMENTS } from "@/lib/db/transfer-letters-schema-statements";
 
 let ensurePromise: Promise<void> | null = null;
 
@@ -45,6 +45,20 @@ async function runStatements(client: Client, statements: string[]) {
   }
 }
 
+async function columnExists(client: Client, tableName: string, columnName: string) {
+  const result = await client.query(
+    `SELECT EXISTS (
+      SELECT 1
+      FROM information_schema.columns
+      WHERE table_schema = 'public'
+        AND table_name = $1
+        AND column_name = $2
+    )`,
+    [tableName, columnName],
+  );
+  return Boolean(result.rows[0]?.exists);
+}
+
 async function applyTransferLettersSchema() {
   const connectionString = getDatabaseUrl();
   if (!connectionString) return;
@@ -53,13 +67,19 @@ async function applyTransferLettersSchema() {
   await client.connect();
 
   try {
-    if (await tableExists(client, "TransferLetter")) return;
-    await runStatements(client, TRANSFER_LETTERS_SCHEMA_STATEMENTS);
+    const hasTable = await tableExists(client, "TransferLetter");
+    if (!hasTable) {
+      await runStatements(client, TRANSFER_LETTERS_SCHEMA_STATEMENTS);
+      if (!(await tableExists(client, "TransferLetter"))) {
+        throw new Error(
+          "Transfer letters schema sync finished but TransferLetter table is still missing.",
+        );
+      }
+      return;
+    }
 
-    if (!(await tableExists(client, "TransferLetter"))) {
-      throw new Error(
-        "Transfer letters schema sync finished but TransferLetter table is still missing.",
-      );
+    if (!(await columnExists(client, "TransferLetter", "beneficiaryBankAccountId"))) {
+      await runStatements(client, TRANSFER_LETTERS_MIGRATION_STATEMENTS);
     }
   } finally {
     await client.end();
