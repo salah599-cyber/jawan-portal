@@ -54,7 +54,7 @@ export function emptyTransferLetterForm(
     beneficiarySortCode: overrides.beneficiarySortCode ?? "",
     beneficiarySwiftCode: overrides.beneficiarySwiftCode ?? "",
     amount: overrides.amount ?? "",
-    currency: overrides.currency ?? (type === "UK" ? "GBP" : type === "INTERNATIONAL" ? "AED" : "OMR"),
+    currency: overrides.currency ?? "OMR",
     purpose: overrides.purpose ?? "",
     mobileNo: overrides.mobileNo ?? "",
     email: overrides.email ?? "",

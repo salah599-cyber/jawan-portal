@@ -1,13 +1,12 @@
 "use client";
 
 import type { TransferLetterType } from "@/lib/generated/prisma/client";
-import { amountHasValue, formatAmountLine, maskAccountNumber } from "@/lib/transfer/amount-in-words";
+import { amountHasValue, formatAmountLine } from "@/lib/transfer/amount-in-words";
 import { formatTransferLetterDate } from "@/lib/transfer/format-letter-date";
 import type { TransferLetterFormData } from "@/lib/transfer/types";
 
 type TransferLetterPreviewProps = {
   data: TransferLetterFormData;
-  showFullSourceAccount?: boolean;
 };
 
 function StackedField({ label, value }: { label: string; value?: string | null }) {
@@ -26,10 +25,10 @@ function InlineField({ label, value }: { label: string; value?: string | null })
   return <p>{label}</p>;
 }
 
-export function TransferLetterPreview({ data, showFullSourceAccount = false }: TransferLetterPreviewProps) {
+export function TransferLetterPreview({ data }: TransferLetterPreviewProps) {
   const type = data.type as TransferLetterType;
   const letterDate = data.letterDate ? formatTransferLetterDate(data.letterDate, type) : "";
-  const sourceLine = showFullSourceAccount ? data.sourceAccountNumber : maskAccountNumber(data.sourceAccountNumber);
+  const debitAccountNumber = data.sourceAccountNumber.trim() || "____________________";
   const hasAmount = amountHasValue(data.amount, data.currency);
   const amountLine = hasAmount ? formatAmountLine(data.amount, data.currency, type) : null;
 
@@ -90,7 +89,7 @@ export function TransferLetterPreview({ data, showFullSourceAccount = false }: T
       </div>
 
       <p className="mb-4">
-        You may debit the above amount to our Account No. {sourceLine} with you, under advice to us.
+        You may debit the above amount to our Account No. {debitAccountNumber} with you, under advice to us.
       </p>
 
       {type === "INTERNATIONAL" ? (
