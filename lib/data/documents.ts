@@ -6,7 +6,7 @@ export async function listDocuments(ctx: UserContext) {
   return db.document.findMany({
     where: documentFilter(ctx),
     include: { entity: true, category: true },
-    orderBy: { updatedAt: "desc" },
+    orderBy: { name: "asc" },
   });
 }
 
