@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { db } from "@/lib/db";
 import { logAudit } from "@/lib/audit/log";
+import { ensureFileDownloadRequestSchema } from "@/lib/db/ensure-file-download-request-schema";
 import { getLatestDownloadRequest } from "@/lib/files/download-access";
 import { validateDownloadRequestReason } from "@/lib/files/download-types";
 import type { FileKind } from "@/lib/files/href";
@@ -37,6 +38,7 @@ export async function createFileDownloadRequest(input: {
   }
 
   const reason = validateDownloadRequestReason(input.reason);
+  await ensureFileDownloadRequestSchema();
   const resource = await resolveFileResource(input.kind, input.fileId, ctx);
   if (!resource) {
     throw new Error("File not found.");

@@ -14,17 +14,31 @@ export function useFileAccess(files: Array<{ kind: FileKind; fileId: string }>) 
     setFileAccess(null);
 
     if (files.length === 0) {
-      void getFileAccessForUser([]).then((access) => {
-        if (!cancelled) setFileAccess(access);
-      });
+      void getFileAccessForUser([])
+        .then((access) => {
+          if (!cancelled) setFileAccess(access);
+        })
+        .catch((error) => {
+          console.error("Failed to load file access:", error);
+          if (!cancelled) {
+            setFileAccess({ isSuperAdmin: false, downloadRequestStatuses: {} });
+          }
+        });
       return () => {
         cancelled = true;
       };
     }
 
-    void getFileAccessForUser(files).then((access) => {
-      if (!cancelled) setFileAccess(access);
-    });
+    void getFileAccessForUser(files)
+      .then((access) => {
+        if (!cancelled) setFileAccess(access);
+      })
+      .catch((error) => {
+        console.error("Failed to load file access:", error);
+        if (!cancelled) {
+          setFileAccess({ isSuperAdmin: false, downloadRequestStatuses: {} });
+        }
+      });
 
     return () => {
       cancelled = true;

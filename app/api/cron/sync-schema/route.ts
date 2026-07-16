@@ -29,6 +29,7 @@ export async function GET(request: Request) {
       "sync-exit-roi-schema.cjs",
       "sync-exit-settlement-schema.cjs",
       "sync-transfer-letters-schema.cjs",
+      "sync-file-download-request-schema.cjs",
     ].map((name) => path.join(process.cwd(), "scripts", name));
 
     const results = await Promise.all(

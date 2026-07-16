@@ -1,9 +1,6 @@
-/**
- * Idempotently applies FileDownloadRequest tables to an existing production database.
- */
-require("./load-env.cjs");
+import { Client } from "pg";
 
-const { Client } = require("pg");
+let ensurePromise: Promise<void> | null = null;
 
 const FILE_DOWNLOAD_REQUEST_SCHEMA_STATEMENTS = [
   `DO $$ BEGIN
@@ -42,7 +39,17 @@ const FILE_DOWNLOAD_REQUEST_SCHEMA_STATEMENTS = [
   END $$`,
 ];
 
-function isIgnorable(message) {
+function getDatabaseUrl() {
+  return (
+    process.env.POSTGRES_URL_NON_POOLING ||
+    process.env.POSTGRES_URL ||
+    process.env.DATABASE_URL_UNPOOLED ||
+    process.env.DATABASE_URL ||
+    process.env.POSTGRES_PRISMA_URL
+  );
+}
+
+function isIgnorableSchemaError(message: string) {
   return (
     message.includes("already exists") ||
     message.includes("duplicate_object") ||
@@ -51,7 +58,7 @@ function isIgnorable(message) {
   );
 }
 
-async function tableExists(client, tableName) {
+async function tableExists(client: Client, tableName: string) {
   const result = await client.query(
     `SELECT EXISTS (
       SELECT 1 FROM pg_tables
@@ -62,49 +69,37 @@ async function tableExists(client, tableName) {
   return Boolean(result.rows[0]?.exists);
 }
 
-async function main() {
-  const connectionString =
-    process.env.POSTGRES_URL_NON_POOLING ||
-    process.env.POSTGRES_URL ||
-    process.env.DATABASE_URL_UNPOOLED ||
-    process.env.DATABASE_URL ||
-    process.env.POSTGRES_PRISMA_URL;
-
-  if (!connectionString) {
-    console.error("No database URL configured.");
-    process.exit(1);
-  }
+async function runEnsure() {
+  const connectionString = getDatabaseUrl();
+  if (!connectionString) return;
 
   const client = new Client({ connectionString });
   await client.connect();
 
   try {
-    if (await tableExists(client, "FileDownloadRequest")) {
-      console.log("FileDownloadRequest table already exists — skipping.");
-      return;
-    }
+    if (await tableExists(client, "FileDownloadRequest")) return;
 
     for (const statement of FILE_DOWNLOAD_REQUEST_SCHEMA_STATEMENTS) {
       try {
         await client.query(statement);
       } catch (error) {
         const message = error instanceof Error ? error.message : String(error);
-        if (isIgnorable(message)) continue;
+        if (isIgnorableSchemaError(message)) continue;
         throw error;
       }
     }
-
-    if (!(await tableExists(client, "FileDownloadRequest"))) {
-      throw new Error("FileDownloadRequest table still missing after sync.");
-    }
-
-    console.log("File download request schema sync complete.");
   } finally {
     await client.end();
   }
 }
 
-main().catch((error) => {
-  console.error("File download request schema sync failed:", error);
-  process.exit(1);
-});
+export async function ensureFileDownloadRequestSchema() {
+  if (!ensurePromise) {
+    ensurePromise = runEnsure().catch((error) => {
+      ensurePromise = null;
+      console.error("File download request schema ensure failed:", error);
+    });
+  }
+
+  await ensurePromise;
+}

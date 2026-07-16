@@ -1,4 +1,5 @@
 import { db } from "@/lib/db";
+import { ensureFileDownloadRequestSchema } from "@/lib/db/ensure-file-download-request-schema";
 import { isSuperAdmin } from "@/lib/permissions/access";
 import type { UserContext } from "@/lib/permissions/types";
 import type { FileKind } from "@/lib/files/href";
@@ -56,24 +57,30 @@ export async function getDownloadRequestStatusMap(
 ): Promise<Record<string, FileDownloadRequestStatus>> {
   if (files.length === 0) return {};
 
-  const uniqueKeys = new Set(files.map((file) => fileRequestKey(file.kind, file.fileId)));
-  const requests = await db.fileDownloadRequest.findMany({
-    where: {
-      requestedById: userId,
-      OR: files.map((file) => ({ kind: file.kind, fileId: file.fileId })),
-    },
-    orderBy: { createdAt: "desc" },
-    select: { kind: true, fileId: true, status: true },
-  });
+  try {
+    await ensureFileDownloadRequestSchema();
+    const uniqueKeys = new Set(files.map((file) => fileRequestKey(file.kind, file.fileId)));
+    const requests = await db.fileDownloadRequest.findMany({
+      where: {
+        requestedById: userId,
+        OR: files.map((file) => ({ kind: file.kind, fileId: file.fileId })),
+      },
+      orderBy: { createdAt: "desc" },
+      select: { kind: true, fileId: true, status: true },
+    });
 
-  const statuses: Record<string, FileDownloadRequestStatus> = {};
-  for (const request of requests) {
-    const key = fileRequestKey(request.kind as FileKind, request.fileId);
-    if (!uniqueKeys.has(key) || statuses[key]) continue;
-    statuses[key] = request.status as FileDownloadRequestStatus;
+    const statuses: Record<string, FileDownloadRequestStatus> = {};
+    for (const request of requests) {
+      const key = fileRequestKey(request.kind as FileKind, request.fileId);
+      if (!uniqueKeys.has(key) || statuses[key]) continue;
+      statuses[key] = request.status as FileDownloadRequestStatus;
+    }
+
+    return statuses;
+  } catch (error) {
+    console.error("Failed to load download request statuses:", error);
+    return {};
   }
-
-  return statuses;
 }
 
 export async function buildFileAccessContext(
@@ -89,7 +96,13 @@ export async function buildFileAccessContext(
 }
 
 export async function countPendingDownloadRequests(): Promise<number> {
-  return db.fileDownloadRequest.count({ where: { status: "PENDING" } });
+  try {
+    await ensureFileDownloadRequestSchema();
+    return await db.fileDownloadRequest.count({ where: { status: "PENDING" } });
+  } catch (error) {
+    console.error("Failed to count pending download requests:", error);
+    return 0;
+  }
 }
 
 export async function listPendingDownloadRequests() {
