@@ -1,7 +1,7 @@
 "use client";
 
 import type { TransferLetterType } from "@/lib/generated/prisma/client";
-import { formatAmountLine, maskAccountNumber } from "@/lib/transfer/amount-in-words";
+import { amountHasValue, formatAmountLine, maskAccountNumber } from "@/lib/transfer/amount-in-words";
 import { formatTransferLetterDate } from "@/lib/transfer/format-letter-date";
 import type { TransferLetterFormData } from "@/lib/transfer/types";
 
@@ -27,12 +27,11 @@ function InlineField({ label, value }: { label: string; value?: string | null })
 }
 
 export function TransferLetterPreview({ data, showFullSourceAccount = false }: TransferLetterPreviewProps) {
-  const amount = Number.parseFloat(data.amount);
-  const hasAmount = Number.isFinite(amount) && amount > 0;
   const type = data.type as TransferLetterType;
   const letterDate = data.letterDate ? formatTransferLetterDate(data.letterDate, type) : "";
   const sourceLine = showFullSourceAccount ? data.sourceAccountNumber : maskAccountNumber(data.sourceAccountNumber);
-  const amountLine = hasAmount ? formatAmountLine(amount, data.currency, type) : null;
+  const hasAmount = amountHasValue(data.amount, data.currency);
+  const amountLine = hasAmount ? formatAmountLine(data.amount, data.currency, type) : null;
 
   return (
     <article

@@ -27,6 +27,63 @@ const TENS = ["", "", "Twenty", "Thirty", "Forty", "Fifty", "Sixty", "Seventy", 
 
 const SCALES = ["", "Thousand", "Million", "Billion"];
 
+export type ParsedAmount = {
+  whole: number;
+  fraction: number;
+  fractionDenominator: 100 | 1000;
+  maxDecimalPlaces: number;
+};
+
+export function getMaxDecimalPlaces(currency: string): number {
+  return currency.toUpperCase() === "OMR" ? 3 : 2;
+}
+
+export function getFractionDenominator(currency: string): 100 | 1000 {
+  return currency.toUpperCase() === "OMR" ? 1000 : 100;
+}
+
+export function parseAmountParts(amount: number | string, currency: string): ParsedAmount {
+  const maxDecimalPlaces = getMaxDecimalPlaces(currency);
+  const fractionDenominator = getFractionDenominator(currency);
+
+  const raw =
+    typeof amount === "string"
+      ? amount.trim()
+      : Number.isFinite(amount)
+        ? amount.toString()
+        : "";
+
+  if (!raw) {
+    return { whole: 0, fraction: 0, fractionDenominator, maxDecimalPlaces };
+  }
+
+  const normalized = raw.replace(/,/g, "");
+  const match = normalized.match(/^(\d+)(?:\.(\d+))?$/);
+  if (!match) {
+    const numeric = Number.parseFloat(normalized);
+    if (!Number.isFinite(numeric) || numeric < 0) {
+      return { whole: 0, fraction: 0, fractionDenominator, maxDecimalPlaces };
+    }
+    const whole = Math.floor(numeric);
+    const fractionFloat = numeric - whole;
+    const fraction = Math.round(fractionFloat * fractionDenominator);
+    return { whole, fraction, fractionDenominator, maxDecimalPlaces };
+  }
+
+  const whole = Number.parseInt(match[1] ?? "0", 10);
+  const fractionDigits = (match[2] ?? "").slice(0, maxDecimalPlaces);
+  const fraction = fractionDigits
+    ? Number.parseInt(fractionDigits.padEnd(maxDecimalPlaces, "0"), 10)
+    : 0;
+
+  return { whole, fraction, fractionDenominator, maxDecimalPlaces };
+}
+
+export function amountHasValue(amount: number | string, currency: string): boolean {
+  const { whole, fraction } = parseAmountParts(amount, currency);
+  return whole > 0 || fraction > 0;
+}
+
 function chunkToWords(n: number): string {
   if (n === 0) return "";
   if (n < 20) return ONES[n]!;
@@ -66,42 +123,99 @@ export function numberToEnglishWords(value: number): string {
   return parts.join(" ").replace(/\s+/g, " ").trim();
 }
 
-export function formatAmountNumber(amount: number, currency: string, type: TransferLetterType): string {
-  const safeAmount = Number.isFinite(amount) ? amount : 0;
-  if (type === "UK") {
-    return `${currency} ${Math.round(safeAmount)}`;
-  }
-  const formatted = new Intl.NumberFormat("en-US", {
-    maximumFractionDigits: 0,
-    minimumFractionDigits: 0,
-  }).format(Math.round(safeAmount));
-  return `${currency} ${formatted}`;
+function toSentenceCase(words: string): string {
+  if (!words) return "";
+  return words
+    .split(" ")
+    .map((word, index) => (index === 0 ? word : word.toLowerCase()))
+    .join(" ");
 }
 
-export function formatAmountWords(amount: number, currency: string, type: TransferLetterType): string {
-  const safeAmount = Number.isFinite(amount) ? Math.round(amount) : 0;
-  const words = numberToEnglishWords(safeAmount);
+function formatWordsWithFraction(whole: number, fraction: number, denominator: 100 | 1000): string {
+  const wholeWords = toSentenceCase(numberToEnglishWords(whole));
+  if (fraction === 0) return wholeWords;
+  return `${wholeWords} & ${fraction}/${denominator}`;
+}
+
+export function formatAmountNumber(
+  amount: number | string,
+  currency: string,
+  type: TransferLetterType,
+): string {
+  const { whole, fraction, maxDecimalPlaces } = parseAmountParts(amount, currency);
+
+  if (fraction === 0) {
+    if (type === "UK") {
+      return `${currency} ${whole}`;
+    }
+    return `${currency} ${new Intl.NumberFormat("en-US", {
+      maximumFractionDigits: 0,
+      minimumFractionDigits: 0,
+    }).format(whole)}`;
+  }
 
   if (type === "UK") {
-    const currencyLabel = currency === "GBP" ? "Pound Sterling" : currency;
-    return `${currencyLabel} ${words} Only`;
+    const fractionFormatted = String(fraction).padStart(maxDecimalPlaces, "0");
+    return `${currency} ${whole}.${fractionFormatted}`;
+  }
+
+  const wholeFormatted = new Intl.NumberFormat("en-US", {
+    maximumFractionDigits: 0,
+    minimumFractionDigits: 0,
+  }).format(whole);
+  const fractionFormatted = String(fraction).padStart(maxDecimalPlaces, "0");
+
+  return `${currency} ${wholeFormatted}.${fractionFormatted}`;
+}
+
+export function formatAmountWords(
+  amount: number | string,
+  currency: string,
+  type: TransferLetterType,
+): string {
+  const { whole, fraction, fractionDenominator } = parseAmountParts(amount, currency);
+  const hasFraction = fraction > 0;
+
+  if (type === "UK") {
+    const currencyLabel = currency.toUpperCase() === "GBP" ? "Pound Sterling" : currency;
+    if (hasFraction) {
+      return `${currencyLabel} ${formatWordsWithFraction(whole, fraction, fractionDenominator)}`;
+    }
+    return `${currencyLabel} ${numberToEnglishWords(whole)} Only`;
   }
 
   if (type === "INTERNATIONAL") {
-    const lowerWords = words.replace(/\bThousand\b/g, "thousand").replace(/\bMillion\b/g, "million");
+    if (hasFraction) {
+      return `${currency}: ${formatWordsWithFraction(whole, fraction, fractionDenominator)}`;
+    }
+    const lowerWords = numberToEnglishWords(whole)
+      .replace(/\bThousand\b/g, "thousand")
+      .replace(/\bMillion\b/g, "million");
     return `${currency}: ${lowerWords} Only`;
   }
 
-  return `${currency} ${words} Only`;
+  if (hasFraction) {
+    return `${currency} ${formatWordsWithFraction(whole, fraction, fractionDenominator)}`;
+  }
+
+  return `${currency} ${numberToEnglishWords(whole)} Only`;
 }
 
-export function formatAmountLine(amount: number, currency: string, type: TransferLetterType): string {
+export function formatAmountLine(
+  amount: number | string,
+  currency: string,
+  type: TransferLetterType,
+): string {
   const numberPart = formatAmountNumber(amount, currency, type);
   const wordsPart = formatAmountWords(amount, currency, type);
   return `${numberPart} (${wordsPart})`;
 }
 
-export function buildAmountInWords(amount: number, currency: string, type: TransferLetterType): string {
+export function buildAmountInWords(
+  amount: number | string,
+  currency: string,
+  type: TransferLetterType,
+): string {
   return formatAmountWords(amount, currency, type);
 }
 
