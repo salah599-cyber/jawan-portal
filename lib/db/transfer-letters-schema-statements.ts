@@ -20,6 +20,7 @@ export const TRANSFER_LETTERS_SCHEMA_STATEMENTS = [
     "currency" TEXT NOT NULL,
     "amountInWords" TEXT NOT NULL,
     "purpose" TEXT,
+    "notes" TEXT,
     "mobileNo" TEXT,
     "email" TEXT,
     "specialInstructions" TEXT,
@@ -52,6 +53,7 @@ export const TRANSFER_LETTERS_SCHEMA_STATEMENTS = [
 ];
 
 export const TRANSFER_LETTERS_MIGRATION_STATEMENTS = [
+  `ALTER TABLE "TransferLetter" ADD COLUMN IF NOT EXISTS "notes" TEXT`,
   `ALTER TABLE "TransferLetter" ADD COLUMN IF NOT EXISTS "beneficiaryBankAccountId" TEXT`,
   `DO $$ BEGIN
     ALTER TABLE "TransferLetter" ADD CONSTRAINT "TransferLetter_beneficiaryBankAccountId_fkey"

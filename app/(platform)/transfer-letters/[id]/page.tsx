@@ -70,6 +70,7 @@ export default async function TransferLetterDetailPage({
             <Detail label="Beneficiary Bank" value={letter.beneficiaryBankName} />
             <Detail label="Amount in Words" value={letter.amountInWords} />
             <Detail label="Purpose" value={letter.purpose} />
+            <Detail label="Notes" value={letter.notes} />
             <Detail label="Mobile" value={letter.mobileNo} />
             <Detail label="Email" value={letter.email} />
             {letter.createdBy ? (

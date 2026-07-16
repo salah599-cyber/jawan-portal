@@ -22,6 +22,7 @@ export type TransferLetterFormData = {
   amount: string;
   currency: string;
   purpose: string;
+  notes: string;
   mobileNo: string;
   email: string;
   specialInstructions: string;
@@ -90,6 +91,7 @@ export function emptyTransferLetterForm(
     amount: overrides.amount ?? "",
     currency: overrides.currency ?? "OMR",
     purpose: overrides.purpose ?? "",
+    notes: overrides.notes ?? "",
     mobileNo: overrides.mobileNo ?? "",
     email: overrides.email ?? "",
     specialInstructions: overrides.specialInstructions ?? "",

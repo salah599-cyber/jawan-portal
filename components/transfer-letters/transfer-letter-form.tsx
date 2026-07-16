@@ -419,12 +419,24 @@ export function TransferLetterForm({
             ) : null}
 
             <div className="space-y-2 md:col-span-2">
-              <Label htmlFor="purpose">Purpose</Label>
+              <Label htmlFor="purpose">Purpose (optional)</Label>
               <Input
                 id="purpose"
                 name="purpose"
                 value={form.purpose}
                 onChange={(e) => updateField("purpose", e.target.value)}
+              />
+            </div>
+
+            <div className="space-y-2 md:col-span-2">
+              <Label htmlFor="notes">Notes (optional)</Label>
+              <Textarea
+                id="notes"
+                name="notes"
+                rows={2}
+                placeholder="Appears below the debit authorization line in the letter"
+                value={form.notes}
+                onChange={(e) => updateField("notes", e.target.value)}
               />
             </div>
 

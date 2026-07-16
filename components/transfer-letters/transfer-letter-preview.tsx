@@ -18,6 +18,16 @@ function StackedField({ label, value }: { label: string; value?: string | null }
   );
 }
 
+function OptionalStackedField({ label, value }: { label: string; value?: string | null }) {
+  if (!value?.trim()) return null;
+  return (
+    <div>
+      <p>{label}</p>
+      <p>{value}</p>
+    </div>
+  );
+}
+
 function InlineField({ label, value }: { label: string; value?: string | null }) {
   if (value?.trim()) {
     return <p>{label} {value}</p>;
@@ -57,7 +67,7 @@ export function TransferLetterPreview({ data }: TransferLetterPreviewProps) {
             <StackedField label="For credit of" value={data.beneficiaryName} />
             <StackedField label="Account NO" value={data.beneficiaryAccountNumber} />
             <StackedField label="IBAN" value={data.beneficiaryIban} />
-            <StackedField label="Purpose" value={data.purpose} />
+            <OptionalStackedField label="Purpose" value={data.purpose} />
             <StackedField label="Mobile No" value={data.mobileNo} />
             <StackedField label="Email" value={data.email} />
           </>
@@ -68,7 +78,7 @@ export function TransferLetterPreview({ data }: TransferLetterPreviewProps) {
             <StackedField label="For credit of" value={data.beneficiaryName} />
             <StackedField label="IBAN" value={data.beneficiaryIban} />
             <StackedField label="Account NO" value={data.beneficiaryAccountNumber} />
-            <StackedField label="Purpose" value={data.purpose} />
+            <OptionalStackedField label="Purpose" value={data.purpose} />
             <StackedField label="Mobile No" value={data.mobileNo} />
             <StackedField label="Email" value={data.email} />
           </>
@@ -81,7 +91,7 @@ export function TransferLetterPreview({ data }: TransferLetterPreviewProps) {
             <StackedField label="Sort Code" value={data.beneficiarySortCode} />
             <StackedField label="Swift/BIC" value={data.beneficiarySwiftCode} />
             <StackedField label="Account NO" value={data.beneficiaryAccountNumber} />
-            <StackedField label="Purpose" value={data.purpose} />
+            <OptionalStackedField label="Purpose" value={data.purpose} />
             <InlineField label="Mobile No" value={data.mobileNo} />
             <InlineField label="Email" value={data.email} />
           </>
@@ -92,10 +102,16 @@ export function TransferLetterPreview({ data }: TransferLetterPreviewProps) {
         You may debit the above amount to our Account No. {debitAccountNumber} with you, under advice to us.
       </p>
 
+      {data.notes?.trim() ? <p className="mb-4 whitespace-pre-wrap">{data.notes}</p> : null}
+
       {type === "INTERNATIONAL" ? (
         <div className="mb-4">
-          <p>Special Instruction/Memo:</p>
-          {data.specialInstructions?.trim() ? <p>{data.specialInstructions}</p> : null}
+          {data.specialInstructions?.trim() ? (
+            <>
+              <p>Special Instruction/Memo:</p>
+              <p>{data.specialInstructions}</p>
+            </>
+          ) : null}
         </div>
       ) : null}
 

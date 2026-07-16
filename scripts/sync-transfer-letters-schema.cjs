@@ -27,6 +27,7 @@ const TRANSFER_LETTERS_SCHEMA_STATEMENTS = [
     "currency" TEXT NOT NULL,
     "amountInWords" TEXT NOT NULL,
     "purpose" TEXT,
+    "notes" TEXT,
     "mobileNo" TEXT,
     "email" TEXT,
     "specialInstructions" TEXT,
@@ -59,6 +60,7 @@ const TRANSFER_LETTERS_SCHEMA_STATEMENTS = [
 ];
 
 const TRANSFER_LETTERS_MIGRATION_STATEMENTS = [
+  `ALTER TABLE "TransferLetter" ADD COLUMN IF NOT EXISTS "notes" TEXT`,
   `ALTER TABLE "TransferLetter" ADD COLUMN IF NOT EXISTS "beneficiaryBankAccountId" TEXT`,
   `DO $$ BEGIN
     ALTER TABLE "TransferLetter" ADD CONSTRAINT "TransferLetter_beneficiaryBankAccountId_fkey"
@@ -136,7 +138,11 @@ async function main() {
       return;
     }
 
-    if (!(await columnExists(client, "TransferLetter", "beneficiaryBankAccountId"))) {
+    const needsMigration =
+      !(await columnExists(client, "TransferLetter", "beneficiaryBankAccountId")) ||
+      !(await columnExists(client, "TransferLetter", "notes"));
+
+    if (needsMigration) {
       for (const statement of TRANSFER_LETTERS_MIGRATION_STATEMENTS) {
         try {
           await client.query(statement);
@@ -146,7 +152,7 @@ async function main() {
           throw error;
         }
       }
-      console.log("Transfer letters beneficiary account migration complete.");
+      console.log("Transfer letters schema migration complete.");
       return;
     }
 
