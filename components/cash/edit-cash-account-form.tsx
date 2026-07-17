@@ -12,6 +12,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { EntitySelect, type EntityOption } from "@/components/platform/entity-select";
 import { BankAccountUsageField } from "@/components/bank/bank-account-usage-field";
+import { BankAccountTransferLetterSourceField } from "@/components/bank/bank-account-transfer-letter-source-field";
 
 type CashAccountRecord = {
   id: string;
@@ -25,6 +26,7 @@ type CashAccountRecord = {
   entityId: string | null;
   notes: string | null;
   includeInCashPosition: boolean;
+  includeInTransferLetterSource: boolean;
   accountNumbers?: Array<{
     accountNumber: string;
     currency: string;
@@ -45,6 +47,9 @@ export function EditCashAccountForm({
   const [error, setError] = useState<string | null>(null);
   const [entityId, setEntityId] = useState(account.entityId ?? "none");
   const [includeInCashPosition, setIncludeInCashPosition] = useState(account.includeInCashPosition);
+  const [includeInTransferLetterSource, setIncludeInTransferLetterSource] = useState(
+    account.includeInTransferLetterSource,
+  );
   const [accounts, setAccounts] = useState<BankAccountNumberInput[]>(
     accountNumbersFromLegacy(account.accountNumber, account.currency, account.accountNumbers, account.iban),
   );
@@ -65,6 +70,7 @@ export function EditCashAccountForm({
           entityId: entityId === "none" ? undefined : entityId,
           notes: String(form.get("notes") ?? ""),
           includeInCashPosition,
+          includeInTransferLetterSource,
         });
         router.push("/cash/" + account.id);
         router.refresh();
@@ -105,6 +111,10 @@ export function EditCashAccountForm({
           <BankAccountUsageField
             value={includeInCashPosition}
             onChange={setIncludeInCashPosition}
+          />
+          <BankAccountTransferLetterSourceField
+            value={includeInTransferLetterSource}
+            onChange={setIncludeInTransferLetterSource}
           />
           <div className="space-y-2 md:col-span-2">
             <Label htmlFor="notes">Account Notes</Label>

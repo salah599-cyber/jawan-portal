@@ -82,6 +82,11 @@ export default async function BankAccountDetailPage({ params }: { params: Promis
                       ? "This account balance is included in cash position and net worth."
                       : "This account is stored for reference only and is excluded from cash position."}
                   </p>
+                  <p className="text-xs text-muted-foreground">
+                    {account.includeInTransferLetterSource
+                      ? "This account is available in the transfer letter source account dropdown."
+                      : "This account is excluded from the transfer letter source dropdown but can still be used as a beneficiary."}
+                  </p>
                 </div>
               }
             />

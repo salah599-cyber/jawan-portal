@@ -931,8 +931,9 @@ model BankAccount {
   currentBalance Decimal?            @db.Decimal(18, 3)
   balanceAsOf    DateTime?
   isActive               Boolean             @default(true)
-  includeInCashPosition  Boolean             @default(true)
-  isExitSuspense         Boolean             @default(false)
+  includeInCashPosition          Boolean             @default(true)
+  includeInTransferLetterSource  Boolean             @default(true)
+  isExitSuspense                 Boolean             @default(false)
   cheques                Cheque[]
   transferLetters        TransferLetter[]
   beneficiaryTransferLetters TransferLetter[] @relation("TransferLetterBeneficiary")

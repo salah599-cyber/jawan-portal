@@ -25,6 +25,7 @@ export type CreateBankAccountInput = {
   entityId?: string;
   notes?: string;
   includeInCashPosition?: boolean;
+  includeInTransferLetterSource?: boolean;
 };
 
 const bankAccountInclude = {
@@ -110,6 +111,7 @@ export async function createBankAccount(input: CreateBankAccountInput) {
       notes: input.notes?.trim() || undefined,
       isActive: true,
       includeInCashPosition: input.includeInCashPosition ?? false,
+      includeInTransferLetterSource: input.includeInTransferLetterSource ?? false,
       accountNumbers: {
         create: accounts.map((row, index) => ({
           accountNumber: row.accountNumber,
@@ -132,6 +134,7 @@ export async function createBankAccount(input: CreateBankAccountInput) {
       accountName: account.accountName,
       bankName: account.bankName,
       includeInCashPosition: account.includeInCashPosition,
+      includeInTransferLetterSource: account.includeInTransferLetterSource,
     },
   });
 
@@ -141,6 +144,8 @@ export async function createBankAccount(input: CreateBankAccountInput) {
 
   revalidatePath("/assets/bank-details");
   revalidatePath("/assets/bank-details/" + account.id);
+  revalidatePath("/transfer-letters");
+  revalidatePath("/transfer-letters/new");
   return account;
 }
 
@@ -220,6 +225,7 @@ export async function updateBankAccount(id: string, input: CreateBankAccountInpu
   const accounts = requireBankAccountNumbers(input);
   const legacy = toLegacyBankAccountFields(accounts);
   const includeInCashPosition = input.includeInCashPosition ?? false;
+  const includeInTransferLetterSource = input.includeInTransferLetterSource ?? false;
   const usageChanged = account.includeInCashPosition !== includeInCashPosition;
 
   await db.bankAccount.update({
@@ -235,6 +241,7 @@ export async function updateBankAccount(id: string, input: CreateBankAccountInpu
       entityId: input.entityId || undefined,
       notes: input.notes?.trim() || undefined,
       includeInCashPosition,
+      includeInTransferLetterSource,
     },
   });
 
@@ -254,6 +261,7 @@ export async function updateBankAccount(id: string, input: CreateBankAccountInpu
     metadata: {
       accountName: refreshed.accountName,
       includeInCashPosition: refreshed.includeInCashPosition,
+      includeInTransferLetterSource: refreshed.includeInTransferLetterSource,
     },
   });
 
@@ -264,5 +272,7 @@ export async function updateBankAccount(id: string, input: CreateBankAccountInpu
   revalidatePath("/assets/bank-details");
   revalidatePath("/assets/bank-details/" + id);
   revalidatePath("/assets/bank-details/" + id + "/edit");
+  revalidatePath("/transfer-letters");
+  revalidatePath("/transfer-letters/new");
   return refreshed;
 }

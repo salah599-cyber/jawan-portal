@@ -24,6 +24,7 @@ export type CashAccountInput = {
   entityId?: string;
   notes?: string;
   includeInCashPosition?: boolean;
+  includeInTransferLetterSource?: boolean;
   statementImportId?: string;
 };
 
@@ -102,6 +103,7 @@ export async function createCashAccount(input: CashAccountInput) {
       notes: input.notes?.trim() || undefined,
       isActive: true,
       includeInCashPosition: input.includeInCashPosition ?? true,
+      includeInTransferLetterSource: input.includeInTransferLetterSource ?? false,
       accountNumbers: {
         create: accounts.map((row, index) => ({
           accountNumber: row.accountNumber,
@@ -163,6 +165,7 @@ export async function updateCashAccount(id: string, input: CashAccountInput) {
   const accounts = requireBankAccountNumbers(input);
   const legacy = toLegacyBankAccountFields(accounts);
   const includeInCashPosition = input.includeInCashPosition ?? true;
+  const includeInTransferLetterSource = input.includeInTransferLetterSource ?? false;
   const usageChanged = account.includeInCashPosition !== includeInCashPosition;
 
   const updated = await db.bankAccount.update({
@@ -178,6 +181,7 @@ export async function updateCashAccount(id: string, input: CashAccountInput) {
       entityId: input.entityId || undefined,
       notes: input.notes?.trim() || undefined,
       includeInCashPosition,
+      includeInTransferLetterSource,
     },
   });
 

@@ -40,6 +40,7 @@ export type TransferLetterBankOption = {
   entityId: string | null;
   currency: string;
   notes: string | null;
+  includeInTransferLetterSource: boolean;
   accountNumbers: {
     id: string;
     accountNumber: string;
@@ -63,6 +64,7 @@ export type TransferLetterAccountPickOption = {
   notes: string | null;
   entityId: string | null;
   label: string | null;
+  includeInTransferLetterSource: boolean;
 };
 
 export function emptyTransferLetterForm(

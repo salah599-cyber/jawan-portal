@@ -146,6 +146,7 @@ export async function listTransferLetterBankAccountOptions() {
       entityId: true,
       currency: true,
       notes: true,
+      includeInTransferLetterSource: true,
       accountNumbers: {
         orderBy: { sortOrder: "asc" },
         select: {

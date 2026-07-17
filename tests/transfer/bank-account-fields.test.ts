@@ -19,6 +19,7 @@ describe("flattenBankAccountPickOptions", () => {
         entityId: "entity-1",
         currency: "OMR",
         notes: "Private Banking",
+        includeInTransferLetterSource: true,
         accountNumbers: [
           { id: "num-1", accountNumber: "111", iban: "OM11", currency: "OMR", label: "Current" },
           { id: "num-2", accountNumber: "222", iban: "OM22", currency: "OMR", label: "Savings" },
@@ -30,6 +31,30 @@ describe("flattenBankAccountPickOptions", () => {
     const options = flattenBankAccountPickOptions(accounts);
     expect(options).toHaveLength(3);
     expect(options.map((option) => option.accountNumber)).toEqual(["111", "222", "333"]);
+    expect(options.every((option) => option.includeInTransferLetterSource)).toBe(true);
     expect(formatBankAccountPickLabel(options[1]!)).toContain("Savings");
+  });
+
+  it("copies includeInTransferLetterSource onto flattened pick options", () => {
+    const accounts: TransferLetterBankOption[] = [
+      {
+        id: "bank-1",
+        accountName: "Beneficiary Only",
+        bankName: "HSBC",
+        accountNumber: "999",
+        iban: null,
+        sortCode: null,
+        swiftCode: null,
+        entityId: null,
+        currency: "OMR",
+        notes: null,
+        includeInTransferLetterSource: false,
+        accountNumbers: [],
+      },
+    ];
+
+    const options = flattenBankAccountPickOptions(accounts);
+    expect(options).toHaveLength(1);
+    expect(options[0]?.includeInTransferLetterSource).toBe(false);
   });
 });
