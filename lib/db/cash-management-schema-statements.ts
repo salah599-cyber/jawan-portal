@@ -16,6 +16,7 @@ export const CASH_MANAGEMENT_SCHEMA_STATEMENTS = [
   `CREATE INDEX IF NOT EXISTS "BankBalanceEntry_bankAccountId_balanceDate_idx" ON "BankBalanceEntry"("bankAccountId", "balanceDate")`,
   `ALTER TABLE "BankAccount" ADD COLUMN IF NOT EXISTS "includeInCashPosition" BOOLEAN NOT NULL DEFAULT true`,
   `ALTER TABLE "BankAccount" ADD COLUMN IF NOT EXISTS "includeInTransferLetterSource" BOOLEAN NOT NULL DEFAULT true`,
+  `ALTER TABLE "BankAccountNumber" ADD COLUMN IF NOT EXISTS "includeInTransferLetterSource" BOOLEAN NOT NULL DEFAULT true`,
 ];
 
 export const CASH_MANAGEMENT_MIGRATION_STATEMENTS = [

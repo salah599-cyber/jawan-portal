@@ -24,9 +24,12 @@ export type CashAccountInput = {
   entityId?: string;
   notes?: string;
   includeInCashPosition?: boolean;
-  includeInTransferLetterSource?: boolean;
   statementImportId?: string;
 };
+
+function includeInTransferLetterSourceFromAccounts(accounts: BankAccountNumberInput[]) {
+  return accounts.some((account) => account.includeInTransferLetterSource);
+}
 
 async function replaceBankAccountNumbers(bankAccountId: string, accounts: BankAccountNumberInput[]) {
   await db.bankAccountNumber.deleteMany({ where: { bankAccountId } });
@@ -40,6 +43,7 @@ async function replaceBankAccountNumbers(bankAccountId: string, accounts: BankAc
       iban: account.iban?.trim() || null,
       label: account.label?.trim() || null,
       sortOrder: index,
+      includeInTransferLetterSource: account.includeInTransferLetterSource ?? false,
     })),
   });
 }
@@ -103,7 +107,7 @@ export async function createCashAccount(input: CashAccountInput) {
       notes: input.notes?.trim() || undefined,
       isActive: true,
       includeInCashPosition: input.includeInCashPosition ?? true,
-      includeInTransferLetterSource: input.includeInTransferLetterSource ?? false,
+      includeInTransferLetterSource: includeInTransferLetterSourceFromAccounts(accounts),
       accountNumbers: {
         create: accounts.map((row, index) => ({
           accountNumber: row.accountNumber,
@@ -111,6 +115,7 @@ export async function createCashAccount(input: CashAccountInput) {
           iban: row.iban?.trim() || null,
           label: row.label?.trim() || null,
           sortOrder: index,
+          includeInTransferLetterSource: row.includeInTransferLetterSource ?? false,
         })),
       },
     },
@@ -165,7 +170,7 @@ export async function updateCashAccount(id: string, input: CashAccountInput) {
   const accounts = requireBankAccountNumbers(input);
   const legacy = toLegacyBankAccountFields(accounts);
   const includeInCashPosition = input.includeInCashPosition ?? true;
-  const includeInTransferLetterSource = input.includeInTransferLetterSource ?? account.includeInTransferLetterSource;
+  const includeInTransferLetterSource = includeInTransferLetterSourceFromAccounts(accounts);
   const usageChanged = account.includeInCashPosition !== includeInCashPosition;
 
   const updated = await db.bankAccount.update({

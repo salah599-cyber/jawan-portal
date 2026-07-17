@@ -12,7 +12,6 @@ import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { EntitySelect, type EntityOption } from "@/components/platform/entity-select";
 import { BankAccountUsageField } from "@/components/bank/bank-account-usage-field";
-import { BankAccountTransferLetterSourceField } from "@/components/bank/bank-account-transfer-letter-source-field";
 
 type BankRecord = {
   id: string;
@@ -26,12 +25,12 @@ type BankRecord = {
   entityId: string | null;
   notes: string | null;
   includeInCashPosition: boolean;
-  includeInTransferLetterSource: boolean;
   accountNumbers?: Array<{
     accountNumber: string;
     currency: string;
     iban: string | null;
     label: string | null;
+    includeInTransferLetterSource?: boolean;
   }>;
 };
 
@@ -41,9 +40,6 @@ export function EditBankForm({ account, entities }: { account: BankRecord; entit
   const [error, setError] = useState<string | null>(null);
   const [entityId, setEntityId] = useState(account.entityId ?? "none");
   const [includeInCashPosition, setIncludeInCashPosition] = useState(account.includeInCashPosition);
-  const [includeInTransferLetterSource, setIncludeInTransferLetterSource] = useState(
-    account.includeInTransferLetterSource,
-  );
   const [accounts, setAccounts] = useState<BankAccountNumberInput[]>(
     accountNumbersFromLegacy(account.accountNumber, account.currency, account.accountNumbers, account.iban),
   );
@@ -64,7 +60,6 @@ export function EditBankForm({ account, entities }: { account: BankRecord; entit
           entityId: entityId === "none" ? undefined : entityId,
           notes: String(form.get("notes") ?? ""),
           includeInCashPosition,
-          includeInTransferLetterSource,
         });
         router.push("/assets/bank-details/" + account.id);
         router.refresh();
@@ -91,10 +86,6 @@ export function EditBankForm({ account, entities }: { account: BankRecord; entit
           <BankAccountUsageField
             value={includeInCashPosition}
             onChange={setIncludeInCashPosition}
-          />
-          <BankAccountTransferLetterSourceField
-            value={includeInTransferLetterSource}
-            onChange={setIncludeInTransferLetterSource}
           />
           <div className="space-y-2 md:col-span-2"><Label htmlFor="notes">Notes</Label><Textarea id="notes" name="notes" rows={3} defaultValue={account.notes ?? ""} /></div>
           {error ? <p className="text-sm text-destructive md:col-span-2">{error}</p> : null}

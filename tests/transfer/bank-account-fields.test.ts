@@ -21,9 +21,30 @@ describe("flattenBankAccountPickOptions", () => {
         notes: "Private Banking",
         includeInTransferLetterSource: true,
         accountNumbers: [
-          { id: "num-1", accountNumber: "111", iban: "OM11", currency: "OMR", label: "Current" },
-          { id: "num-2", accountNumber: "222", iban: "OM22", currency: "OMR", label: "Savings" },
-          { id: "num-3", accountNumber: "333", iban: "OM33", currency: "USD", label: "USD" },
+          {
+            id: "num-1",
+            accountNumber: "111",
+            iban: "OM11",
+            currency: "OMR",
+            label: "Current",
+            includeInTransferLetterSource: true,
+          },
+          {
+            id: "num-2",
+            accountNumber: "222",
+            iban: "OM22",
+            currency: "OMR",
+            label: "Savings",
+            includeInTransferLetterSource: false,
+          },
+          {
+            id: "num-3",
+            accountNumber: "333",
+            iban: "OM33",
+            currency: "USD",
+            label: "USD",
+            includeInTransferLetterSource: true,
+          },
         ],
       },
     ];
@@ -31,11 +52,11 @@ describe("flattenBankAccountPickOptions", () => {
     const options = flattenBankAccountPickOptions(accounts);
     expect(options).toHaveLength(3);
     expect(options.map((option) => option.accountNumber)).toEqual(["111", "222", "333"]);
-    expect(options.every((option) => option.includeInTransferLetterSource)).toBe(true);
+    expect(options.map((option) => option.includeInTransferLetterSource)).toEqual([true, false, true]);
     expect(formatBankAccountPickLabel(options[1]!)).toContain("Savings");
   });
 
-  it("copies includeInTransferLetterSource onto flattened pick options", () => {
+  it("uses the parent flag for legacy single-account bank records", () => {
     const accounts: TransferLetterBankOption[] = [
       {
         id: "bank-1",

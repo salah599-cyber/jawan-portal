@@ -3,6 +3,7 @@ export type BankAccountNumberInput = {
   currency?: string;
   iban?: string;
   label?: string;
+  includeInTransferLetterSource?: boolean;
 };
 
 export type BankAccountNumberRecord = {
@@ -10,6 +11,7 @@ export type BankAccountNumberRecord = {
   currency: string;
   iban?: string | null;
   label?: string | null;
+  includeInTransferLetterSource?: boolean;
 };
 
 export type BankAccountNumberDisplay = {
@@ -17,6 +19,7 @@ export type BankAccountNumberDisplay = {
   currency: string;
   label: string | null;
   iban: string | null;
+  includeInTransferLetterSource: boolean;
 };
 
 export function normalizeBankAccountNumbers(input: {
@@ -31,6 +34,7 @@ export function normalizeBankAccountNumbers(input: {
       currency: row.currency?.trim() || "OMR",
       iban: row.iban?.trim() || undefined,
       label: row.label?.trim() || undefined,
+      includeInTransferLetterSource: row.includeInTransferLetterSource ?? false,
     }))
     .filter((row) => row.accountNumber);
 
@@ -97,6 +101,7 @@ export function accountNumbersFromLegacy(
       currency: row.currency,
       iban: row.iban ?? (index === 0 ? parentIban ?? undefined : undefined),
       label: row.label ?? undefined,
+      includeInTransferLetterSource: row.includeInTransferLetterSource ?? false,
     }));
   }
 
@@ -104,6 +109,7 @@ export function accountNumbersFromLegacy(
     accountNumber,
     currency,
     iban: parentIban ?? undefined,
+    includeInTransferLetterSource: false,
   }];
 }
 
@@ -121,6 +127,7 @@ export function resolveBankAccountNumberRows(
       currency: row.currency,
       label: row.label ?? null,
       iban: row.iban ?? (index === 0 ? fallback?.iban ?? null : null),
+      includeInTransferLetterSource: row.includeInTransferLetterSource ?? false,
     }));
   }
 
@@ -130,6 +137,7 @@ export function resolveBankAccountNumberRows(
       currency: fallback.currency ?? "OMR",
       label: null,
       iban: fallback.iban ?? null,
+      includeInTransferLetterSource: false,
     }];
   }
 
