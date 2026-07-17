@@ -71,8 +71,8 @@ describe("buildModuleAccessMap", () => {
     const ctx = withRole("EXTERNAL");
     const access = buildModuleAccessMap(ctx);
 
-    for (const module of ALL_MODULE_NAMES) {
-      expect(access[module]).toBe(canAccess(ctx, module));
+    for (const moduleName of ALL_MODULE_NAMES) {
+      expect(access[moduleName]).toBe(canAccess(ctx, moduleName));
     }
   });
 

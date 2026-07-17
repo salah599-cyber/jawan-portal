@@ -66,8 +66,8 @@ export function canWrite(ctx: UserContext, module: ModuleName): boolean {
 
 export function buildModuleAccessMap(ctx: UserContext): Record<ModuleName, boolean> {
   const access = {} as Record<ModuleName, boolean>;
-  for (const module of ALL_MODULE_NAMES) {
-    access[module] = canAccess(ctx, module);
+  for (const moduleName of ALL_MODULE_NAMES) {
+    access[moduleName] = canAccess(ctx, moduleName);
   }
   return access;
 }
