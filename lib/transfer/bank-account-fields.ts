@@ -22,7 +22,7 @@ export function flattenBankAccountPickOptions(
           notes: account.notes,
           entityId: account.entityId,
           label: row.label,
-          includeInTransferLetterSource: account.includeInTransferLetterSource,
+          includeInTransferLetterSource: row.includeInTransferLetterSource ?? account.includeInTransferLetterSource,
         });
       }
       continue;

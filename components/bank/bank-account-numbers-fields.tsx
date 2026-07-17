@@ -12,6 +12,7 @@ const emptyAccount = (): BankAccountNumberInput => ({
   currency: "OMR",
   iban: "",
   label: "",
+  includeInTransferLetterSource: false,
 });
 
 export function BankAccountNumbersFields({
@@ -23,8 +24,8 @@ export function BankAccountNumbersFields({
 }) {
   const rows = accounts.length > 0 ? accounts : [emptyAccount()];
 
-  function updateAccount(index: number, field: keyof BankAccountNumberInput, value: string) {
-    onChange(rows.map((row, i) => (i === index ? { ...row, [field]: value } : row)));
+  function updateAccount(index: number, patch: Partial<BankAccountNumberInput>) {
+    onChange(rows.map((row, i) => (i === index ? { ...row, ...patch } : row)));
   }
 
   function addAccount() {
@@ -71,7 +72,7 @@ export function BankAccountNumbersFields({
               <Label>Account Number</Label>
               <Input
                 value={account.accountNumber}
-                onChange={(e) => updateAccount(index, "accountNumber", e.target.value)}
+                onChange={(e) => updateAccount(index, { accountNumber: e.target.value })}
                 placeholder="1049-485882-001"
                 required={index === 0}
               />
@@ -80,7 +81,7 @@ export function BankAccountNumbersFields({
               <Label>Currency</Label>
               <Select
                 value={account.currency || "OMR"}
-                onValueChange={(value) => updateAccount(index, "currency", value)}
+                onValueChange={(value) => updateAccount(index, { currency: value })}
               >
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
@@ -94,7 +95,7 @@ export function BankAccountNumbersFields({
               <Label>IBAN</Label>
               <Input
                 value={account.iban ?? ""}
-                onChange={(e) => updateAccount(index, "iban", e.target.value)}
+                onChange={(e) => updateAccount(index, { iban: e.target.value })}
                 placeholder="OM00 0000 0000 0000 0000 0000 000"
               />
             </div>
@@ -102,9 +103,31 @@ export function BankAccountNumbersFields({
               <Label>Label (optional)</Label>
               <Input
                 value={account.label ?? ""}
-                onChange={(e) => updateAccount(index, "label", e.target.value)}
+                onChange={(e) => updateAccount(index, { label: e.target.value })}
                 placeholder="Current, savings, USD account…"
               />
+            </div>
+            <div className="flex items-start gap-3 md:col-span-2">
+              <input
+                type="checkbox"
+                id={`includeInTransferLetterSource-${index}`}
+                checked={account.includeInTransferLetterSource ?? false}
+                onChange={(e) =>
+                  updateAccount(index, { includeInTransferLetterSource: e.target.checked })
+                }
+                className="mt-1 size-4 rounded border border-input"
+              />
+              <div className="space-y-1">
+                <label
+                  htmlFor={`includeInTransferLetterSource-${index}`}
+                  className="text-sm font-medium"
+                >
+                  Include in transfer letter source accounts
+                </label>
+                <p className="text-xs text-muted-foreground">
+                  When enabled, this account number appears in the transfer letter source dropdown.
+                </p>
+              </div>
             </div>
           </div>
         </div>

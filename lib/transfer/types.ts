@@ -47,6 +47,7 @@ export type TransferLetterBankOption = {
     iban: string | null;
     currency: string;
     label: string | null;
+    includeInTransferLetterSource: boolean;
   }[];
 };
 

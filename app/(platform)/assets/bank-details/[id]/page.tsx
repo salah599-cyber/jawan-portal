@@ -83,9 +83,9 @@ export default async function BankAccountDetailPage({ params }: { params: Promis
                       : "This account is stored for reference only and is excluded from cash position."}
                   </p>
                   <p className="text-xs text-muted-foreground">
-                    {account.includeInTransferLetterSource
-                      ? "This account is available in the transfer letter source account dropdown."
-                      : "This account is excluded from the transfer letter source dropdown but can still be used as a beneficiary."}
+                    {registeredAccounts.some((row) => row.includeInTransferLetterSource)
+                      ? `${registeredAccounts.filter((row) => row.includeInTransferLetterSource).length} of ${registeredAccounts.length} registered account${registeredAccounts.length === 1 ? "" : "s"} available as transfer letter source accounts.`
+                      : "No registered account numbers are enabled for the transfer letter source dropdown. Edit this bank account to enable specific accounts."}
                   </p>
                 </div>
               }

@@ -157,6 +157,7 @@ export async function listTransferLetterBankAccountOptions() {
           iban: true,
           currency: true,
           label: true,
+          includeInTransferLetterSource: true,
         },
       },
     },

@@ -325,7 +325,8 @@ export function TransferLetterForm({
               {sourceAccountPickOptions.length === 0 ? (
                 <p className="text-xs text-muted-foreground">
                   No source accounts are available for this entity. Edit a bank account and enable
-                  &quot;Include in transfer letter source accounts&quot;, or enter source details manually.
+                  &quot;Include in transfer letter source accounts&quot; on specific account numbers,
+                  or enter source details manually.
                 </p>
               ) : null}
               <input type="hidden" name="sourceMode" value={form.sourceMode} />

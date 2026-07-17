@@ -105,6 +105,21 @@ async function applyCashManagementSchema() {
       ]);
     }
 
+    const hasNumberIncludeInTransferLetterSource = await columnExists(
+      client,
+      "BankAccountNumber",
+      "includeInTransferLetterSource",
+    );
+    if (!hasNumberIncludeInTransferLetterSource) {
+      await runStatements(client, [
+        `ALTER TABLE "BankAccountNumber" ADD COLUMN IF NOT EXISTS "includeInTransferLetterSource" BOOLEAN NOT NULL DEFAULT true`,
+        `UPDATE "BankAccountNumber" n
+          SET "includeInTransferLetterSource" = b."includeInTransferLetterSource"
+          FROM "BankAccount" b
+          WHERE n."bankAccountId" = b.id`,
+      ]);
+    }
+
     const hasStatementImportTable = await tableExists(client, "CashStatementImport");
     if (!hasStatementImportTable) {
       await runStatements(client, CASH_STATEMENT_IMPORT_SCHEMA_STATEMENTS);

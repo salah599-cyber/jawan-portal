@@ -29,6 +29,7 @@ export function BankAccountNumbersList({
               {account.currency}
               {account.label ? ` · ${account.label}` : ""}
               {account.iban ? ` · IBAN ${account.iban}` : ""}
+              {account.includeInTransferLetterSource ? " · Transfer source" : ""}
             </p>
           </li>
         ))}
@@ -44,6 +45,7 @@ export function BankAccountNumbersList({
           <TableHead>Account Number</TableHead>
           <TableHead>Currency</TableHead>
           <TableHead>Label</TableHead>
+          <TableHead>Transfer Source</TableHead>
           <TableHead>IBAN</TableHead>
         </TableRow>
       </TableHeader>
@@ -54,6 +56,7 @@ export function BankAccountNumbersList({
             <TableCell className="font-medium tabular-nums">{account.accountNumber}</TableCell>
             <TableCell>{account.currency}</TableCell>
             <TableCell>{account.label ?? "—"}</TableCell>
+            <TableCell>{account.includeInTransferLetterSource ? "Yes" : "No"}</TableCell>
             <TableCell className="font-mono text-xs">{account.iban ?? "—"}</TableCell>
           </TableRow>
         ))}

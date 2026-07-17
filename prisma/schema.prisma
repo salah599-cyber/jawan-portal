@@ -953,9 +953,10 @@ model BankAccountNumber {
   accountNumber String
   currency      String      @default("OMR")
   iban          String?
-  label         String?
-  sortOrder     Int         @default(0)
-  createdAt     DateTime    @default(now())
+  label                         String?
+  sortOrder                     Int         @default(0)
+  includeInTransferLetterSource Boolean     @default(true)
+  createdAt                     DateTime    @default(now())
 
   @@index([bankAccountId])
   @@index([accountNumber])
