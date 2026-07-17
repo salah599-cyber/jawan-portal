@@ -13,6 +13,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { EntitySelect, type EntityOption } from "@/components/platform/entity-select";
 import { BankAccountUsageField } from "@/components/bank/bank-account-usage-field";
+import { BankAccountTransferLetterSourceField } from "@/components/bank/bank-account-transfer-letter-source-field";
 import { formatMoney } from "@/lib/format";
 
 export function CreateCashAccountForm({
@@ -27,6 +28,7 @@ export function CreateCashAccountForm({
   const [error, setError] = useState<string | null>(null);
   const [entityId, setEntityId] = useState<string>("none");
   const [includeInCashPosition, setIncludeInCashPosition] = useState(true);
+  const [includeInTransferLetterSource, setIncludeInTransferLetterSource] = useState(false);
   const [accounts, setAccounts] = useState<BankAccountNumberInput[]>([
     {
       accountNumber: prefill?.accountNumber ?? "",
@@ -52,6 +54,7 @@ export function CreateCashAccountForm({
           entityId: entityId === "none" ? undefined : entityId,
           notes: String(form.get("notes") ?? ""),
           includeInCashPosition,
+          includeInTransferLetterSource,
           statementImportId: prefill?.importId,
         });
         router.push("/cash/" + account.id);
@@ -116,6 +119,10 @@ export function CreateCashAccountForm({
           <BankAccountUsageField
             value={includeInCashPosition}
             onChange={setIncludeInCashPosition}
+          />
+          <BankAccountTransferLetterSourceField
+            value={includeInTransferLetterSource}
+            onChange={setIncludeInTransferLetterSource}
           />
           <div className="space-y-2 md:col-span-2">
             <Label htmlFor="notes">Account Notes</Label>

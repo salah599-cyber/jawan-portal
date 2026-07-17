@@ -79,9 +79,7 @@ function buildInitialForm(
   const sourcePick = findBankAccountPickOption(accountPickOptions, {
     bankAccountId: preselectedBankAccountId,
   });
-  if (!sourcePick) {
-    return { ...base, sourceBankAccountId: preselectedBankAccountId, sourceMode: "bank" };
-  }
+  if (!sourcePick?.includeInTransferLetterSource) return base;
 
   return {
     ...base,
@@ -117,6 +115,16 @@ export function TransferLetterForm({
   const entityAccountPickOptions = useMemo(
     () => accountPickOptions.filter((option) => !option.entityId || option.entityId === form.entityId),
     [accountPickOptions, form.entityId],
+  );
+
+  const sourceAccountPickOptions = useMemo(
+    () =>
+      entityAccountPickOptions.filter(
+        (option) =>
+          option.includeInTransferLetterSource ||
+          option.bankAccountId === form.sourceBankAccountId,
+      ),
+    [entityAccountPickOptions, form.sourceBankAccountId],
   );
 
   function updateField<K extends keyof TransferLetterFormData>(key: K, value: TransferLetterFormData[K]) {
@@ -267,7 +275,7 @@ export function TransferLetterForm({
                 <SelectTrigger><SelectValue placeholder="Select bank account" /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="manual">Enter manually</SelectItem>
-                  {entityAccountPickOptions.map((option) => (
+                  {sourceAccountPickOptions.map((option) => (
                     <SelectItem key={option.pickId} value={option.pickId}>
                       {formatBankAccountPickLabel(option)}
                     </SelectItem>
