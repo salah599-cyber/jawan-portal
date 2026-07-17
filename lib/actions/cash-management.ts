@@ -165,7 +165,7 @@ export async function updateCashAccount(id: string, input: CashAccountInput) {
   const accounts = requireBankAccountNumbers(input);
   const legacy = toLegacyBankAccountFields(accounts);
   const includeInCashPosition = input.includeInCashPosition ?? true;
-  const includeInTransferLetterSource = input.includeInTransferLetterSource ?? false;
+  const includeInTransferLetterSource = input.includeInTransferLetterSource ?? account.includeInTransferLetterSource;
   const usageChanged = account.includeInCashPosition !== includeInCashPosition;
 
   const updated = await db.bankAccount.update({
