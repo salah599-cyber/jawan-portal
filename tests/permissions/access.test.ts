@@ -1,5 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { canAccess, canManageUsers, canWrite, getModulePermission, isSuperAdmin } from "@/lib/permissions/access";
+import { canAccess, canManageUsers, canWrite, getModulePermission, isSuperAdmin, buildModuleAccessMap } from "@/lib/permissions/access";
+import { ALL_MODULE_NAMES } from "@/lib/permissions/modules";
+import { ROLE_MATRIX } from "@/lib/permissions/matrix";
+import type { ModuleName } from "@/lib/permissions/types";
 import { makeUserContext, withOverride, withRole } from "../helpers/user-context";
 
 describe("getModulePermission", () => {
@@ -60,6 +63,22 @@ describe("canWrite", () => {
   it("respects a FULL override even for a role that otherwise cannot write", () => {
     const ctx = withOverride("EXTERNAL", "EXPENSES", "FULL");
     expect(canWrite(ctx, "EXPENSES")).toBe(true);
+  });
+});
+
+describe("buildModuleAccessMap", () => {
+  it("marks every manageable module using canAccess", () => {
+    const ctx = withRole("EXTERNAL");
+    const access = buildModuleAccessMap(ctx);
+
+    for (const module of ALL_MODULE_NAMES) {
+      expect(access[module]).toBe(canAccess(ctx, module));
+    }
+  });
+
+  it("includes every module from the role matrix", () => {
+    const matrixModules = Object.keys(ROLE_MATRIX.PRINCIPAL) as ModuleName[];
+    expect(ALL_MODULE_NAMES.sort()).toEqual(matrixModules.sort());
   });
 });
 

@@ -62,6 +62,15 @@ const PERMISSION_LEVELS: { value: PermissionLevel | "DEFAULT"; label: string }[]
   { value: "NONE", label: "No access" },
 ];
 
+const DOCUMENT_PERMISSION_LEVELS: { value: PermissionLevel | "DEFAULT"; label: string }[] = [
+  ...PERMISSION_LEVELS,
+  { value: "SHARED_ONLY", label: "Shared only" },
+];
+
+function permissionLevelsForModule(module: ModuleName) {
+  return module === "DOCUMENTS" ? DOCUMENT_PERMISSION_LEVELS : PERMISSION_LEVELS;
+}
+
 function emptyAccess(): UserAccessInput {
   return {
     role: "EXTERNAL",
@@ -168,7 +177,7 @@ function UserAccessFields({
               >
                 <SelectTrigger className="w-[140px]"><SelectValue /></SelectTrigger>
                 <SelectContent>
-                  {PERMISSION_LEVELS.map((option) => (
+                  {permissionLevelsForModule(module).map((option) => (
                     <SelectItem key={option.value} value={option.value}>{option.label}</SelectItem>
                   ))}
                 </SelectContent>

@@ -2,6 +2,7 @@ import { auth } from "@clerk/nextjs/server";
 import { forbidden, redirect } from "next/navigation";
 import { db } from "@/lib/db";
 import { ROLE_MATRIX } from "./matrix";
+import { ALL_MODULE_NAMES } from "./modules";
 import type { ModuleName, PermissionLevel, UserContext } from "./types";
 
 export async function getCurrentUserContext(): Promise<UserContext | null> {
@@ -61,6 +62,14 @@ export function canAccess(ctx: UserContext, module: ModuleName): boolean {
 export function canWrite(ctx: UserContext, module: ModuleName): boolean {
   if (ctx.isSuperAdmin) return true;
   return getModulePermission(ctx, module) === "FULL";
+}
+
+export function buildModuleAccessMap(ctx: UserContext): Record<ModuleName, boolean> {
+  const access = {} as Record<ModuleName, boolean>;
+  for (const module of ALL_MODULE_NAMES) {
+    access[module] = canAccess(ctx, module);
+  }
+  return access;
 }
 
 export async function requireUserContext(): Promise<UserContext> {

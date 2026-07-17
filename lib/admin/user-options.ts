@@ -1,5 +1,6 @@
 import type { UserRole } from "@/lib/generated/prisma/client";
 import type { ModuleName } from "@/lib/permissions/types";
+import { ALL_MODULE_NAMES } from "@/lib/permissions/modules";
 
 export const MANAGEABLE_MODULES: { module: ModuleName; label: string }[] = [
   { module: "DASHBOARD", label: "Dashboard" },
@@ -25,6 +26,8 @@ export const MANAGEABLE_MODULES: { module: ModuleName; label: string }[] = [
   { module: "SUCCESSION", label: "Succession & Estate Planning" },
   { module: "CONTACTS", label: "Contacts Directory" },
 ];
+
+export const MODULE_NAMES = ALL_MODULE_NAMES;
 
 export const USER_ROLE_OPTIONS: { value: UserRole; label: string }[] = [
   { value: "PRINCIPAL", label: "Principal" },

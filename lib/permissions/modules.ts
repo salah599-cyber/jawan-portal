@@ -1,0 +1,26 @@
+import type { ModuleName } from "@/lib/permissions/types";
+
+export const ALL_MODULE_NAMES: ModuleName[] = [
+  "DASHBOARD",
+  "ASSETS",
+  "LANDS",
+  "REAL_ESTATE",
+  "CARS",
+  "COMPANIES",
+  "LOANS",
+  "CHEQUES",
+  "PROPOSALS",
+  "DOCUMENTS",
+  "INSURANCE",
+  "EXPENSES",
+  "REPORTS",
+  "PRIVATE_EQUITY",
+  "FUND_LP",
+  "CASH_MANAGEMENT",
+  "CALENDAR",
+  "USERS",
+  "AUDIT",
+  "FAMILY_MEMBERS",
+  "SUCCESSION",
+  "CONTACTS",
+];
