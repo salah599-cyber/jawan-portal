@@ -31,6 +31,7 @@ import {
   Download,
   type LucideIcon,
 } from "lucide-react";
+import type { ModuleName } from "@/lib/permissions/types";
 import {
   Sidebar,
   SidebarContent,
@@ -46,58 +47,79 @@ import {
   SidebarMenuSubItem,
 } from "@/components/ui/sidebar";
 
+type NavChild = {
+  href: string;
+  label: string;
+  icon?: "file" | "shield" | "users" | "scroll";
+  module: ModuleName;
+};
+
 type NavItem = {
   href: string;
   label: string;
   icon: LucideIcon;
+  module?: ModuleName;
+  modules?: ModuleName[];
   groupPrefix?: string;
-  children?: { href: string; label: string; icon?: "file" | "shield" | "users" | "scroll" }[];
+  children?: NavChild[];
 };
 
 const platformNav: NavItem[] = [
-  { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
-  { href: "/calendar", label: "Calendar", icon: CalendarDays },
-  { href: "/assets", label: "Assets", icon: Building2 },
-  { href: "/portfolio/public-markets", label: "Public Markets", icon: TrendingUp },
-  { href: "/portfolio/pe", label: "PE / VC Portfolio", icon: Briefcase },
-  { href: "/portfolio/fund-lp", label: "Fund LP Investments", icon: Landmark },
-  { href: "/portfolio/exits", label: "Exits", icon: DoorOpen },
-  { href: "/lands", label: "Lands", icon: Map },
-  { href: "/real-estate", label: "Real Estate", icon: Home, groupPrefix: "/real-estate", children: [
-    { href: "/real-estate", label: "Investment Portfolio" },
-    { href: "/real-estate/private", label: "Private Real Estate" },
-  ]},
-  { href: "/cars", label: "Cars", icon: Car },
-  { href: "/companies", label: "Companies", icon: Factory },
-  { href: "/loans", label: "Loans", icon: HandCoins },
-  { href: "/cheques", label: "Cheques", icon: Banknote },
-  { href: "/transfer-letters", label: "Transfer Letters", icon: Send },
-  { href: "/cash", label: "Cash Management", icon: Wallet },
-  { href: "/proposals", label: "Proposals", icon: Lightbulb },
-  { href: "/assets/bank-details", label: "Bank Details", icon: Landmark },
+  { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard, module: "DASHBOARD" },
+  { href: "/calendar", label: "Calendar", icon: CalendarDays, module: "CALENDAR" },
+  { href: "/assets", label: "Assets", icon: Building2, module: "ASSETS" },
+  { href: "/portfolio/public-markets", label: "Public Markets", icon: TrendingUp, module: "ASSETS" },
+  { href: "/portfolio/pe", label: "PE / VC Portfolio", icon: Briefcase, module: "PRIVATE_EQUITY" },
+  { href: "/portfolio/fund-lp", label: "Fund LP Investments", icon: Landmark, module: "FUND_LP" },
+  {
+    href: "/portfolio/exits",
+    label: "Exits",
+    icon: DoorOpen,
+    modules: ["ASSETS", "PRIVATE_EQUITY", "REAL_ESTATE"],
+  },
+  { href: "/lands", label: "Lands", icon: Map, module: "LANDS" },
+  {
+    href: "/real-estate",
+    label: "Real Estate",
+    icon: Home,
+    groupPrefix: "/real-estate",
+    module: "REAL_ESTATE",
+    children: [
+      { href: "/real-estate", label: "Investment Portfolio", module: "REAL_ESTATE" },
+      { href: "/real-estate/private", label: "Private Real Estate", module: "REAL_ESTATE" },
+    ],
+  },
+  { href: "/cars", label: "Cars", icon: Car, module: "CARS" },
+  { href: "/companies", label: "Companies", icon: Factory, module: "COMPANIES" },
+  { href: "/loans", label: "Loans", icon: HandCoins, module: "LOANS" },
+  { href: "/cheques", label: "Cheques", icon: Banknote, module: "CHEQUES" },
+  { href: "/transfer-letters", label: "Transfer Letters", icon: Send, module: "ASSETS" },
+  { href: "/cash", label: "Cash Management", icon: Wallet, module: "CASH_MANAGEMENT" },
+  { href: "/proposals", label: "Proposals", icon: Lightbulb, module: "PROPOSALS" },
+  { href: "/assets/bank-details", label: "Bank Details", icon: Landmark, module: "ASSETS" },
   {
     href: "/documents",
     label: "Documents",
     icon: FileText,
     groupPrefix: "/documents",
     children: [
-      { href: "/documents", label: "Document Vault", icon: "file" as const },
-      { href: "/documents/insurance", label: "Insurance Register", icon: "shield" as const },
+      { href: "/documents", label: "Document Vault", icon: "file", module: "DOCUMENTS" },
+      { href: "/documents/insurance", label: "Insurance Register", icon: "shield", module: "INSURANCE" },
     ],
   },
-  { href: "/expenses", label: "Expenses", icon: Receipt },
+  { href: "/expenses", label: "Expenses", icon: Receipt, module: "EXPENSES" },
   {
     href: "/family/members",
     label: "Family",
     icon: Heart,
     groupPrefix: "/family",
     children: [
-      { href: "/family/members", label: "Members & Beneficiaries", icon: "users" as const },
-      { href: "/family/succession", label: "Succession & Estate", icon: "scroll" as const },
+      { href: "/family/members", label: "Members & Beneficiaries", icon: "users", module: "FAMILY_MEMBERS" },
+      { href: "/family/succession", label: "Succession & Estate", icon: "scroll", module: "SUCCESSION" },
     ],
   },
-  { href: "/contacts", label: "Contacts", icon: BookUser },
-  { href: "/reports", label: "Reports", icon: BarChart3 },
+  { href: "/contacts", label: "Contacts", icon: BookUser, module: "CONTACTS" },
+  { href: "/reports", label: "Reports", icon: BarChart3, module: "REPORTS" },
 ];
 
 const adminNav = [
@@ -142,58 +164,45 @@ function childIcon(icon?: "file" | "shield" | "users" | "scroll") {
   return FileText;
 }
 
+function canSeeNavItem(item: NavItem, moduleAccess: Record<ModuleName, boolean>) {
+  if (item.children?.length) {
+    return item.children.some((child) => moduleAccess[child.module]);
+  }
+  if (item.modules?.length) {
+    return item.modules.some((module) => moduleAccess[module]);
+  }
+  if (item.module) {
+    return moduleAccess[item.module];
+  }
+  return true;
+}
+
+function filterNavItems(items: NavItem[], moduleAccess: Record<ModuleName, boolean>): NavItem[] {
+  return items
+    .map((item) => {
+      if (!item.children?.length) {
+        return canSeeNavItem(item, moduleAccess) ? item : null;
+      }
+
+      const children = item.children.filter((child) => moduleAccess[child.module]);
+      if (children.length === 0) return null;
+
+      return { ...item, children };
+    })
+    .filter((item): item is NavItem => item != null);
+}
+
 export function AppSidebar({
   showAdmin = false,
   pendingDownloadRequests = 0,
-  showReports = true,
-  showCalendar = true,
-  showDocumentsVault = true,
-  showInsuranceRegister = true,
-  showFamilyMembers = false,
-  showSuccession = false,
-  showContacts = false,
+  moduleAccess,
 }: {
   showAdmin?: boolean;
   pendingDownloadRequests?: number;
-  showReports?: boolean;
-  showCalendar?: boolean;
-  showDocumentsVault?: boolean;
-  showInsuranceRegister?: boolean;
-  showFamilyMembers?: boolean;
-  showSuccession?: boolean;
-  showContacts?: boolean;
+  moduleAccess: Record<ModuleName, boolean>;
 }) {
   const pathname = usePathname();
-
-  let items = platformNav
-    .map((item) => {
-      if (item.href === "/documents" && item.children) {
-        const children = item.children.filter((child) => {
-          if (child.href === "/documents") return showDocumentsVault;
-          if (child.href === "/documents/insurance") return showInsuranceRegister;
-          return true;
-        });
-        if (children.length === 0) return null;
-        return { ...item, children };
-      }
-
-      if (item.href === "/family/members" && item.children) {
-        const children = item.children.filter((child) => {
-          if (child.href === "/family/members") return showFamilyMembers;
-          if (child.href === "/family/succession") return showSuccession;
-          return true;
-        });
-        if (children.length === 0) return null;
-        return { ...item, children };
-      }
-
-      return item;
-    })
-    .filter((item): item is NavItem => item != null);
-
-  if (!showCalendar) items = items.filter((item) => item.href !== "/calendar");
-  if (!showReports) items = items.filter((item) => item.href !== "/reports");
-  if (!showContacts) items = items.filter((item) => item.href !== "/contacts");
+  const items = filterNavItems(platformNav, moduleAccess);
   const nav: NavItem[] = showAdmin ? [...items, ...(adminNav as NavItem[])] : items;
 
   return (
