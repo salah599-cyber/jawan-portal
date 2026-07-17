@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { db } from "@/lib/db";
 import { logAudit } from "@/lib/audit/log";
 import { ensureTransferLettersSchema } from "@/lib/db/ensure-transfer-letters-schema";
+import { ensureCashManagementSchema } from "@/lib/db/ensure-cash-management-schema";
 import { buildAmountInWords } from "@/lib/transfer/amount-in-words";
 import { parseDateInputToUtc } from "@/lib/transfer/format-letter-date";
 import { canWrite, getModulePermission, requireModuleAccess } from "@/lib/permissions/access";
@@ -127,6 +128,7 @@ export async function getTransferLetter(id: string) {
 
 export async function listTransferLetterBankAccountOptions() {
   const ctx = await requireModuleAccess("ASSETS");
+  await ensureCashManagementSchema();
   const filter = transferLetterEntityFilter(ctx);
   const where =
     "entityId" in filter && filter.entityId && typeof filter.entityId === "object"

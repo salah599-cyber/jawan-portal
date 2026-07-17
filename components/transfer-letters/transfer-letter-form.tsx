@@ -79,7 +79,7 @@ function buildInitialForm(
   const sourcePick = findBankAccountPickOption(accountPickOptions, {
     bankAccountId: preselectedBankAccountId,
   });
-  if (!sourcePick?.includeInTransferLetterSource) return base;
+  if (!sourcePick || sourcePick.includeInTransferLetterSource === false) return base;
 
   return {
     ...base,
@@ -112,20 +112,58 @@ export function TransferLetterForm({
     [bankAccounts],
   );
 
-  const entityAccountPickOptions = useMemo(
-    () => accountPickOptions.filter((option) => !option.entityId || option.entityId === form.entityId),
-    [accountPickOptions, form.entityId],
-  );
+  const sourceAccountPickOptions = useMemo(() => {
+    const entityFiltered = accountPickOptions.filter(
+      (option) => !option.entityId || option.entityId === form.entityId,
+    );
 
-  const sourceAccountPickOptions = useMemo(
-    () =>
-      entityAccountPickOptions.filter(
+    const eligible = entityFiltered.filter(
+      (option) => option.includeInTransferLetterSource !== false,
+    );
+
+    if (!form.sourcePickId) return eligible;
+
+    const selected = accountPickOptions.find((option) => option.pickId === form.sourcePickId);
+    if (selected && !eligible.some((option) => option.pickId === selected.pickId)) {
+      return [selected, ...eligible];
+    }
+
+    return eligible;
+  }, [accountPickOptions, form.entityId, form.sourcePickId]);
+
+  const sourceSelectValue = useMemo(() => {
+    if (form.sourceMode === "manual") return "manual";
+    if (
+      form.sourcePickId &&
+      sourceAccountPickOptions.some((option) => option.pickId === form.sourcePickId)
+    ) {
+      return form.sourcePickId;
+    }
+    return "manual";
+  }, [form.sourceMode, form.sourcePickId, sourceAccountPickOptions]);
+
+  function handleEntityChange(entityId: string) {
+    setForm((current) => {
+      const next = { ...current, entityId };
+      if (current.sourceMode !== "bank" || !current.sourcePickId) return next;
+
+      const stillValid = accountPickOptions.some(
         (option) =>
-          option.includeInTransferLetterSource ||
-          option.bankAccountId === form.sourceBankAccountId,
-      ),
-    [entityAccountPickOptions, form.sourceBankAccountId],
-  );
+          option.pickId === current.sourcePickId &&
+          (!option.entityId || option.entityId === entityId) &&
+          option.includeInTransferLetterSource !== false,
+      );
+
+      if (stillValid) return next;
+
+      return {
+        ...next,
+        sourceMode: "manual",
+        sourcePickId: "",
+        sourceBankAccountId: "",
+      };
+    });
+  }
 
   function updateField<K extends keyof TransferLetterFormData>(key: K, value: TransferLetterFormData[K]) {
     setForm((current) => ({ ...current, [key]: value }));
@@ -261,7 +299,7 @@ export function TransferLetterForm({
               <EntitySelect
                 entities={entities}
                 value={form.entityId}
-                onValueChange={(value) => updateField("entityId", value)}
+                onValueChange={handleEntityChange}
               />
               <input type="hidden" name="entityId" value={form.entityId} />
             </div>
@@ -269,10 +307,12 @@ export function TransferLetterForm({
             <div className="space-y-2 md:col-span-2">
               <Label>Source Account (debit from)</Label>
               <Select
-                value={form.sourceMode === "manual" ? "manual" : form.sourcePickId || "manual"}
+                value={sourceSelectValue}
                 onValueChange={handleSourcePickChange}
               >
-                <SelectTrigger><SelectValue placeholder="Select bank account" /></SelectTrigger>
+                <SelectTrigger className="w-full">
+                  <SelectValue placeholder="Select bank account" />
+                </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="manual">Enter manually</SelectItem>
                   {sourceAccountPickOptions.map((option) => (
@@ -282,6 +322,12 @@ export function TransferLetterForm({
                   ))}
                 </SelectContent>
               </Select>
+              {sourceAccountPickOptions.length === 0 ? (
+                <p className="text-xs text-muted-foreground">
+                  No source accounts are available for this entity. Edit a bank account and enable
+                  &quot;Include in transfer letter source accounts&quot;, or enter source details manually.
+                </p>
+              ) : null}
               <input type="hidden" name="sourceMode" value={form.sourceMode} />
               <input type="hidden" name="sourceBankAccountId" value={form.sourceBankAccountId} />
             </div>
