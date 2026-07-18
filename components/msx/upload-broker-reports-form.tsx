@@ -9,7 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Upload } from "lucide-react";
+import { Upload, Download } from "lucide-react";
 
 export function UploadBrokerReportsForm({
   entities,
@@ -129,6 +129,14 @@ export function UploadBrokerReportsForm({
               Select multiple files to import reports from different brokers at once. Maximum{" "}
               {MAX_UPLOAD_LABEL} per file. Supported: PDF, Excel (.xlsx, .xls).
             </p>
+            <a
+              href="/templates/msx-upload-template.xlsx"
+              download
+              className="inline-flex items-center gap-1 text-xs text-primary underline-offset-4 hover:underline"
+            >
+              <Download className="h-3 w-3" />
+              Download Excel template
+            </a>
           </div>
 
           {error ? <p className="text-sm text-destructive">{error}</p> : null}
