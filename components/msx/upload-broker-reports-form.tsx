@@ -130,8 +130,8 @@ export function UploadBrokerReportsForm({
               {MAX_UPLOAD_LABEL} per file. Supported: PDF, Excel (.xlsx, .xls).
             </p>
             <a
-              href="/templates/msx-upload-template.xlsx"
-              download
+              href="/api/templates/public-markets?market=MSX"
+              download="msx-upload-template.xlsx"
               className="inline-flex items-center gap-1 text-xs text-primary underline-offset-4 hover:underline"
             >
               <Download className="h-3 w-3" />
