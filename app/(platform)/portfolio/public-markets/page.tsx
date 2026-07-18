@@ -5,6 +5,7 @@ import { AddManualCryptoForm } from "@/components/public-markets/add-manual-cryp
 import { AddManualOptionForm } from "@/components/public-markets/add-manual-option-form";
 import { AddManualStructuredNoteForm } from "@/components/public-markets/add-manual-structured-note-form";
 import { ExportHoldingsButton } from "@/components/public-markets/export-holdings-button";
+import { DownloadPortfolioTemplateButton } from "@/components/public-markets/download-portfolio-template-button";
 import { PublicMarketsFilters } from "@/components/public-markets/public-markets-filters";
 import { RefreshPricesButton } from "@/components/public-markets/refresh-prices-button";
 import { RefreshCryptoPricesButton } from "@/components/public-markets/refresh-crypto-prices-button";
@@ -113,6 +114,7 @@ export default async function PublicMarketsPage({
             ) : null}
           </div>
           <div className="flex flex-wrap items-center gap-2">
+            <DownloadPortfolioTemplateButton />
             <ExportHoldingsButton entityId={entityId} market={activeMarket} />
             {canEdit && isEquityTab ? (
               <RefreshPricesButton

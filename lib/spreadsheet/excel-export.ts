@@ -1,18 +1,35 @@
 import ExcelJS from "exceljs";
 
-export async function aoaToExcelBuffer(
-  sheetName: string,
-  rows: (string | number | null | undefined)[][],
-): Promise<Buffer> {
-  const workbook = new ExcelJS.Workbook();
-  const worksheet = workbook.addWorksheet(sheetName);
+export type ExcelSheetRows = {
+  name: string;
+  rows: (string | number | null | undefined)[][];
+  columnWidths?: number[];
+};
 
-  for (const row of rows) {
-    worksheet.addRow(row.map((cell) => cell ?? ""));
+export async function multiSheetAoaToExcelBuffer(sheets: ExcelSheetRows[]): Promise<Buffer> {
+  const workbook = new ExcelJS.Workbook();
+
+  for (const sheet of sheets) {
+    const worksheet = workbook.addWorksheet(sheet.name);
+    for (const row of sheet.rows) {
+      worksheet.addRow(row.map((cell) => cell ?? ""));
+    }
+    if (sheet.columnWidths?.length) {
+      sheet.columnWidths.forEach((width, index) => {
+        worksheet.getColumn(index + 1).width = width;
+      });
+    }
   }
 
   const buffer = await workbook.xlsx.writeBuffer();
   return Buffer.from(buffer);
+}
+
+export async function aoaToExcelBuffer(
+  sheetName: string,
+  rows: (string | number | null | undefined)[][],
+): Promise<Buffer> {
+  return multiSheetAoaToExcelBuffer([{ name: sheetName, rows }]);
 }
 
 export async function recordsToExcelBuffer(

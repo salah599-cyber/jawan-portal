@@ -21,6 +21,7 @@ import {
 import { canWrite, requireModuleAccess } from "@/lib/permissions/access";
 import { encodeExcelDownload, recordsToExcelBuffer } from "@/lib/spreadsheet/excel-export";
 import {
+  buildPortfolioUploadTemplateBuffer,
   buildUploadTemplateBuffer,
   isUploadTemplateMarket,
 } from "@/lib/public-markets/upload-template";
@@ -928,6 +929,16 @@ export async function downloadPublicMarketUploadTemplate(
   }
 
   const { buffer, fileName } = await buildUploadTemplateBuffer(normalizedMarket);
+  return encodeExcelDownload(buffer, fileName);
+}
+
+export async function downloadPortfolioUploadTemplate(): Promise<{
+  fileName: string;
+  base64: string;
+  mimeType: string;
+}> {
+  await requireModuleAccess("ASSETS");
+  const { buffer, fileName } = await buildPortfolioUploadTemplateBuffer();
   return encodeExcelDownload(buffer, fileName);
 }
 

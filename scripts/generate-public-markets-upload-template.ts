@@ -8,6 +8,7 @@ import fs from "fs";
 import path from "path";
 import { fileURLToPath } from "url";
 import {
+  buildPortfolioUploadTemplateBuffer,
   buildUploadTemplateBuffer,
   isUploadTemplateMarket,
 } from "../lib/public-markets/upload-template";
@@ -29,6 +30,14 @@ function writeTemplate(market: string, outputPath?: string) {
   });
 }
 
+async function writePortfolioTemplate(outputPath?: string) {
+  const { buffer, fileName } = await buildPortfolioUploadTemplateBuffer();
+  const resolvedPath = path.resolve(outputPath || path.join(TEMPLATES_DIR, fileName));
+  fs.mkdirSync(path.dirname(resolvedPath), { recursive: true });
+  fs.writeFileSync(resolvedPath, buffer);
+  console.log(`Created: ${resolvedPath}`);
+}
+
 async function main() {
   const args = process.argv.slice(2);
 
@@ -36,6 +45,12 @@ async function main() {
     for (const market of ["MSX", "USA"] as const) {
       await writeTemplate(market);
     }
+    await writePortfolioTemplate();
+    return;
+  }
+
+  if (args[0]?.toUpperCase() === "PORTFOLIO") {
+    await writePortfolioTemplate(args[1]);
     return;
   }
 
