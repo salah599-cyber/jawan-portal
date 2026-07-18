@@ -145,7 +145,7 @@ export function UploadPublicMarketReportsForm({
             {templateUrl ? (
               <a
                 href={templateUrl}
-                download
+                download={market === "MSX" ? "msx-upload-template.xlsx" : "usa-upload-template.xlsx"}
                 className="inline-flex items-center gap-1 text-xs text-primary underline-offset-4 hover:underline"
               >
                 <Download className="h-3 w-3" />
