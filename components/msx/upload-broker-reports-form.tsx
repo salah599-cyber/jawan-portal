@@ -5,11 +5,12 @@ import { useRouter } from "next/navigation";
 import type { ImportFileResult } from "@/lib/msx/types";
 import { MAX_UPLOAD_LABEL, validateUploadFileSize } from "@/lib/upload-limits";
 import { EntitySelect, type EntityOption } from "@/components/platform/entity-select";
+import { DownloadUploadTemplateLink } from "@/components/public-markets/download-upload-template-link";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Upload, Download } from "lucide-react";
+import { Upload } from "lucide-react";
 
 export function UploadBrokerReportsForm({
   entities,
@@ -129,14 +130,7 @@ export function UploadBrokerReportsForm({
               Select multiple files to import reports from different brokers at once. Maximum{" "}
               {MAX_UPLOAD_LABEL} per file. Supported: PDF, Excel (.xlsx, .xls).
             </p>
-            <a
-              href="/api/templates/public-markets?market=MSX"
-              download="msx-upload-template.xlsx"
-              className="inline-flex items-center gap-1 text-xs text-primary underline-offset-4 hover:underline"
-            >
-              <Download className="h-3 w-3" />
-              Download Excel template
-            </a>
+            <DownloadUploadTemplateLink market="MSX" />
           </div>
 
           {error ? <p className="text-sm text-destructive">{error}</p> : null}

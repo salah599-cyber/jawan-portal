@@ -1,7 +1,6 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import * as XLSX from "xlsx";
 import { db } from "@/lib/db";
 import { logAudit } from "@/lib/audit/log";
 import type { PublicMarket } from "@/lib/generated/prisma/client";
@@ -20,7 +19,48 @@ import {
   normalizeOptionHoldingValues,
 } from "@/lib/public-markets/valuation";
 import { canWrite, requireModuleAccess } from "@/lib/permissions/access";
+import { encodeExcelDownload, recordsToExcelBuffer } from "@/lib/spreadsheet/excel-export";
+import {
+  buildUploadTemplateBuffer,
+  isUploadTemplateMarket,
+} from "@/lib/public-markets/upload-template";
 import { MAX_UPLOAD_BYTES } from "@/lib/upload-limits";
+
+const PUBLIC_HOLDINGS_EXPORT_HEADERS = [
+  "Market",
+  "Entity",
+  "Instrument Type",
+  "Symbol",
+  "Name",
+  "Underlying Symbol",
+  "Option Type",
+  "Strike Price",
+  "Expiry Date",
+  "Issuer",
+  "Product Name",
+  "Notional",
+  "Maturity",
+  "Coupon Rate",
+  "CoinGecko ID",
+  "Custodian",
+  "Quantity",
+  "Cost Basis",
+  "Price",
+  "Market Value",
+  "Market Value (OMR)",
+  "Unrealised P&L",
+  "Currency",
+  "Broker",
+  "Account",
+  "Exchange",
+  "ISIN",
+  "CUSIP",
+  "SEDOL",
+  "Source",
+  "Price Source",
+  "Price Fetched",
+  "As Of",
+] as const;
 
 function getFilesFromFormData(formData: FormData, field: string): File[] {
   const entries = formData.getAll(field);
@@ -877,7 +917,23 @@ function parseOptionalNumber(value: FormDataEntryValue | null): number | undefin
   return Number.isNaN(num) ? undefined : num;
 }
 
-export async function exportPublicHoldings(formData: FormData): Promise<{ fileName: string; base64: string }> {
+export async function downloadPublicMarketUploadTemplate(
+  market: string,
+): Promise<{ fileName: string; base64: string; mimeType: string }> {
+  await requireModuleAccess("ASSETS");
+
+  const normalizedMarket = market.toUpperCase();
+  if (!isUploadTemplateMarket(normalizedMarket)) {
+    throw new Error("Unsupported market template.");
+  }
+
+  const { buffer, fileName } = await buildUploadTemplateBuffer(normalizedMarket);
+  return encodeExcelDownload(buffer, fileName);
+}
+
+export async function exportPublicHoldings(
+  formData: FormData,
+): Promise<{ fileName: string; base64: string; mimeType: string }> {
   const ctx = await requireModuleAccess("ASSETS");
   await ensurePublicMarketsSchema();
   const entityId = String(formData.get("entityId") ?? "").trim() || undefined;
@@ -928,14 +984,11 @@ export async function exportPublicHoldings(formData: FormData): Promise<{ fileNa
     "As Of": holding.asOfDate ? holding.asOfDate.toISOString().slice(0, 10) : "",
   }));
 
-  const worksheet = XLSX.utils.json_to_sheet(rows);
-  const workbook = XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(workbook, worksheet, "Holdings");
-  const buffer = XLSX.write(workbook, { type: "buffer", bookType: "xlsx" }) as Buffer;
-
+  const buffer = await recordsToExcelBuffer("Holdings", rows, [...PUBLIC_HOLDINGS_EXPORT_HEADERS]);
   const suffix = market ? MARKET_CONFIG[market].slug : "ALL";
-  return {
-    fileName: `public-markets-${suffix}-${new Date().toISOString().slice(0, 10)}.xlsx`,
-    base64: buffer.toString("base64"),
-  };
+
+  return encodeExcelDownload(
+    buffer,
+    `public-markets-${suffix}-${new Date().toISOString().slice(0, 10)}.xlsx`,
+  );
 }

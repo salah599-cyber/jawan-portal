@@ -1,5 +1,5 @@
-import * as XLSX from "xlsx";
 import type { PublicMarket } from "@/lib/generated/prisma/client";
+import { aoaToExcelBuffer } from "@/lib/spreadsheet/excel-export";
 
 const HOLDINGS_HEADERS = [
   "Symbol",
@@ -14,20 +14,6 @@ const HOLDINGS_HEADERS = [
   "SEDOL",
   "Exchange",
 ] as const;
-
-const HOLDINGS_COL_WIDTHS = [
-  { wch: 10 },
-  { wch: 32 },
-  { wch: 10 },
-  { wch: 12 },
-  { wch: 12 },
-  { wch: 14 },
-  { wch: 14 },
-  { wch: 14 },
-  { wch: 10 },
-  { wch: 10 },
-  { wch: 10 },
-];
 
 type TemplateMarket = Extract<PublicMarket, "MSX" | "USA">;
 
@@ -83,14 +69,11 @@ export function isUploadTemplateMarket(market: string): market is TemplateMarket
   return market === "MSX" || market === "USA";
 }
 
-export function buildUploadTemplateBuffer(market: TemplateMarket): { buffer: Buffer; fileName: string } {
+export async function buildUploadTemplateBuffer(
+  market: TemplateMarket,
+): Promise<{ buffer: Buffer; fileName: string }> {
   const config = TEMPLATE_CONFIG[market];
-  const workbook = XLSX.utils.book_new();
-  const holdingsSheet = XLSX.utils.aoa_to_sheet(buildHoldingsRows(config));
-  holdingsSheet["!cols"] = HOLDINGS_COL_WIDTHS;
-  XLSX.utils.book_append_sheet(workbook, holdingsSheet, "Holdings");
-
-  const buffer = XLSX.write(workbook, { type: "buffer", bookType: "xlsx" }) as Buffer;
+  const buffer = await aoaToExcelBuffer("Holdings", buildHoldingsRows(config));
 
   return {
     buffer,

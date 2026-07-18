@@ -30,11 +30,6 @@ export type MarketConfig = {
 
 export const MSX_PORTFOLIO_ASSET_NAME = "MSX Portfolio";
 
-export const PUBLIC_MARKET_UPLOAD_TEMPLATES: Partial<Record<PublicMarket, string>> = {
-  MSX: "/api/templates/public-markets?market=MSX",
-  USA: "/api/templates/public-markets?market=USA",
-};
-
 export const PUBLIC_MARKET_ORDER: PublicMarket[] = [
   "MSX",
   "UAE",
