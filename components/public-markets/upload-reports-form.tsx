@@ -4,14 +4,14 @@ import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import type { PublicMarket } from "@/lib/generated/prisma/client";
 import type { ImportFileResult } from "@/lib/public-markets/types";
-import { MARKET_CONFIG } from "@/lib/public-markets/constants";
+import { MARKET_CONFIG, PUBLIC_MARKET_UPLOAD_TEMPLATES } from "@/lib/public-markets/constants";
 import { MAX_UPLOAD_LABEL, validateUploadFileSize } from "@/lib/upload-limits";
 import { EntitySelect, type EntityOption } from "@/components/platform/entity-select";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Upload } from "lucide-react";
+import { Upload, Download } from "lucide-react";
 
 export function UploadPublicMarketReportsForm({
   entities,
@@ -28,6 +28,7 @@ export function UploadPublicMarketReportsForm({
   const [results, setResults] = useState<ImportFileResult[] | null>(null);
   const [entityId, setEntityId] = useState(defaultEntityId ?? entities[0]?.id ?? "");
   const config = MARKET_CONFIG[market];
+  const templateUrl = PUBLIC_MARKET_UPLOAD_TEMPLATES[market];
 
   function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -141,6 +142,16 @@ export function UploadPublicMarketReportsForm({
               {MAX_UPLOAD_LABEL} per file.
               {market === "MSX" ? " Supported: PDF, Excel (.xlsx, .xls)." : " Supported: Excel (.xlsx, .xls, .csv)."}
             </p>
+            {templateUrl ? (
+              <a
+                href={templateUrl}
+                download
+                className="inline-flex items-center gap-1 text-xs text-primary underline-offset-4 hover:underline"
+              >
+                <Download className="h-3 w-3" />
+                Download Excel template
+              </a>
+            ) : null}
           </div>
 
           {error ? <p className="text-sm text-destructive">{error}</p> : null}

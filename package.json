@@ -15,6 +15,7 @@
     "db:migrate": "prisma migrate dev",
     "db:push": "prisma db push",
     "db:studio": "prisma studio",
+    "templates:public-markets": "node scripts/generate-public-markets-upload-template.cjs --all",
     "postinstall": "prisma generate"
   },
   "dependencies": {
