@@ -3,6 +3,7 @@
 import { useTransition } from "react";
 import { exportPublicHoldings } from "@/lib/actions/public-markets";
 import type { PublicMarket } from "@/lib/generated/prisma/client";
+import { downloadExcelBase64File } from "@/lib/spreadsheet/download-excel";
 import { Button } from "@/components/ui/button";
 import { Download } from "lucide-react";
 
@@ -22,16 +23,7 @@ export function ExportHoldingsButton({
 
     startTransition(async () => {
       const result = await exportPublicHoldings(formData);
-      const bytes = Uint8Array.from(atob(result.base64), (c) => c.charCodeAt(0));
-      const blob = new Blob([bytes], {
-        type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-      });
-      const url = URL.createObjectURL(blob);
-      const link = document.createElement("a");
-      link.href = url;
-      link.download = result.fileName;
-      link.click();
-      URL.revokeObjectURL(url);
+      downloadExcelBase64File(result);
     });
   }
 

@@ -1,25 +1,22 @@
-import * as XLSX from "xlsx";
+import ExcelJS from "exceljs";
 import type { ReportResult } from "@/lib/reports/types";
+import { recordsToExcelBuffer } from "@/lib/spreadsheet/excel-export";
 
-function appendSectionSheet(
-  workbook: XLSX.WorkBook,
+async function appendSectionSheet(
+  workbookRows: { sheetName: string; rows: Record<string, string | number | null>[]; headers: string[] }[],
   name: string,
   columns: { key: string; label: string }[],
   rows: Record<string, string | number | null>[],
 ) {
-  const tableRows = rows.map((row) => {
-    const mapped: Record<string, string | number | null> = {};
-    for (const column of columns) {
-      mapped[column.label] = row[column.key] ?? null;
-    }
-    return mapped;
-  });
-  const worksheet = XLSX.utils.json_to_sheet(tableRows.length > 0 ? tableRows : [{}]);
   const safeName = name.replace(/[\\/?*[\]]/g, " ").slice(0, 31) || "Sheet";
-  XLSX.utils.book_append_sheet(workbook, worksheet, safeName);
+  workbookRows.push({
+    sheetName: safeName,
+    rows,
+    headers: columns.map((column) => column.label),
+  });
 }
 
-export function reportToWorkbook(result: ReportResult): Buffer {
+export async function reportToWorkbook(result: ReportResult): Promise<Buffer> {
   const rows: Record<string, string | number | null>[] = [];
 
   if (result.metrics.length > 0) {
@@ -44,17 +41,31 @@ export function reportToWorkbook(result: ReportResult): Buffer {
 
   rows.push(...tableRows);
 
-  const worksheet = XLSX.utils.json_to_sheet(rows);
-  const workbook = XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(workbook, worksheet, "Report");
+  const headers = Array.from(new Set(rows.flatMap((row) => Object.keys(row))));
+  const mainBuffer = await recordsToExcelBuffer("Report", rows, headers);
 
-  if (result.sections?.length) {
-    for (const section of result.sections) {
-      appendSectionSheet(workbook, section.title, section.columns, section.rows);
+  if (!result.sections?.length) {
+    return mainBuffer;
+  }
+
+  const workbook = new ExcelJS.Workbook();
+  await workbook.xlsx.load(mainBuffer as unknown as Parameters<ExcelJS.Workbook["xlsx"]["load"]>[0]);
+
+  for (const section of result.sections) {
+    const sectionRows: { sheetName: string; rows: Record<string, string | number | null>[]; headers: string[] }[] =
+      [];
+    await appendSectionSheet(sectionRows, section.title, section.columns, section.rows);
+    const [{ sheetName, rows: sectionData, headers: sectionHeaders }] = sectionRows;
+    const worksheet = workbook.addWorksheet(sheetName);
+    worksheet.addRow(sectionHeaders);
+    worksheet.getRow(1).font = { bold: true };
+    for (const row of sectionData) {
+      worksheet.addRow(sectionHeaders.map((header) => row[header] ?? ""));
     }
   }
 
-  return XLSX.write(workbook, { type: "buffer", bookType: "xlsx" }) as Buffer;
+  const buffer = await workbook.xlsx.writeBuffer();
+  return Buffer.from(buffer);
 }
 
 export function reportToCsv(result: ReportResult): string {

@@ -4,8 +4,8 @@ import { buildUploadTemplateBuffer } from "@/lib/public-markets/upload-template"
 import { readSpreadsheetRows } from "@/lib/msx/read-workbook";
 
 describe("public market upload templates", () => {
-  it.each(["MSX", "USA"] as const)("parses the %s template", (market) => {
-    const { buffer, fileName } = buildUploadTemplateBuffer(market);
+  it.each(["MSX", "USA"] as const)("parses the %s template", async (market) => {
+    const { buffer, fileName } = await buildUploadTemplateBuffer(market);
     expect(buffer.byteLength).toBeGreaterThan(0);
 
     const sheets = readSpreadsheetRows(buffer, fileName);

@@ -32,7 +32,7 @@ export async function exportReport(formData: FormData): Promise<{
     return encodeCsvExport(csv, `${reportId}-${dateSuffix}.csv`);
   }
 
-  const buffer = reportToWorkbook(result);
+  const buffer = await reportToWorkbook(result);
   return encodeExport(buffer, `${reportId}-${dateSuffix}.xlsx`);
 }
 

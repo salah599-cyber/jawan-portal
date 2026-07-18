@@ -10,7 +10,7 @@ export async function GET(request: Request) {
     return Response.json({ error: "Unsupported market." }, { status: 404 });
   }
 
-  const { buffer, fileName } = buildUploadTemplateBuffer(market);
+  const { buffer, fileName } = await buildUploadTemplateBuffer(market);
 
   return new Response(new Uint8Array(buffer), {
     headers: {
