@@ -3,6 +3,11 @@ import type { PublicHoldingRow } from "@/lib/data/public-markets";
 import { PUBLIC_OPTION_TYPE_LABELS } from "@/lib/labels";
 import { DeletePublicHoldingButton } from "@/components/public-markets/delete-holding-button";
 import { EditHoldingDialog } from "@/components/public-markets/edit-holding-dialog";
+import {
+  DuplicateSymbolBadge,
+  HoldingSourceBadge,
+} from "@/components/public-markets/holding-source-badge";
+import { findDuplicateSymbolKeys, isDuplicateHolding } from "@/lib/public-markets/holding-duplicates";
 import { Badge } from "@/components/ui/badge";
 import {
   Table,
@@ -47,6 +52,8 @@ export function PublicHoldingsTable({
   showOmr?: boolean;
   instrumentType?: PublicInstrumentType | null;
 }) {
+  const duplicateKeys = findDuplicateSymbolKeys(holdings);
+
   if (holdings.length === 0) {
     return <p className="text-sm text-muted-foreground">{emptyMessage(instrumentType)}</p>;
   }
@@ -259,6 +266,7 @@ export function PublicHoldingsTable({
           {showMarket ? <TableHead>Market</TableHead> : null}
           <TableHead>Symbol</TableHead>
           <TableHead>Security</TableHead>
+          <TableHead>Source</TableHead>
           <TableHead>Broker</TableHead>
           <TableHead className="text-right">Quantity</TableHead>
           <TableHead className="text-right">Cost Basis</TableHead>
@@ -280,9 +288,15 @@ export function PublicHoldingsTable({
               </TableCell>
             ) : null}
             <TableCell className="font-medium">
-              <Badge variant="secondary">{holding.symbol}</Badge>
+              <div className="flex flex-wrap items-center gap-1.5">
+                <Badge variant="secondary">{holding.symbol}</Badge>
+                {isDuplicateHolding(holding, duplicateKeys) ? <DuplicateSymbolBadge /> : null}
+              </div>
             </TableCell>
             <TableCell>{holding.name ?? "—"}</TableCell>
+            <TableCell>
+              <HoldingSourceBadge source={holding.source} />
+            </TableCell>
             <TableCell>
               <div className="space-y-0.5">
                 <p>{holding.broker ?? "—"}</p>

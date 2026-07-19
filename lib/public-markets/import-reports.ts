@@ -11,6 +11,7 @@ import { normalizeAndFormatHoldingValues } from "@/lib/public-markets/valuation"
 import { recordAssetValuation } from "@/lib/portfolio/valuations";
 import { refreshPublicMarketPrices } from "@/lib/public-markets/refresh-prices";
 import { hasAutomaticPriceRefresh } from "@/lib/public-markets/prices/symbols";
+import { formatManualOverlapWarning } from "@/lib/public-markets/import-warnings";
 
 export async function ensurePortfolioAsset(entityId: string, market: PublicMarket) {
   const config = MARKET_CONFIG[market];
@@ -68,11 +69,26 @@ export async function refreshAssetValue(assetId: string) {
   }
 }
 
+async function getManualEquitySymbols(assetId: string, market: PublicMarket): Promise<Set<string>> {
+  const holdings = await db.publicEquityHolding.findMany({
+    where: {
+      assetId,
+      market,
+      source: "MANUAL",
+      instrumentType: "EQUITY",
+    },
+    select: { symbol: true },
+  });
+
+  return new Set(holdings.map((holding) => holding.symbol.toUpperCase()));
+}
+
 async function importSingleReport(
   assetId: string,
   market: PublicMarket,
   userEmail: string,
   file: BrokerReportFile,
+  manualSymbols: Set<string>,
 ): Promise<ImportFileResult> {
   try {
     const parsed = await parseMarketReport(file, market);
@@ -149,13 +165,22 @@ async function importSingleReport(
       }),
     });
 
+    const manualOverlaps = [
+      ...new Set(
+        parsed.holdings
+          .map((holding) => holding.symbol.toUpperCase())
+          .filter((symbol) => manualSymbols.has(symbol)),
+      ),
+    ].sort();
+    const overlapWarning = formatManualOverlapWarning(manualOverlaps);
+
     return {
       fileName: file.fileName,
       broker: parsed.broker,
       accountNumber: parsed.accountNumber,
       asOfDate: parsed.asOfDate?.toISOString(),
       holdingsImported: parsed.holdings.length,
-      warnings: parsed.warnings,
+      warnings: overlapWarning ? [...parsed.warnings, overlapWarning] : parsed.warnings,
       parserId: parsed.parserId,
     };
   } catch (error) {
@@ -178,8 +203,10 @@ export async function importBrokerReportsForEntity(
   await ensurePublicMarketsSchema();
   const asset = await ensurePortfolioAsset(entityId, market);
 
+  const manualSymbols = await getManualEquitySymbols(asset.id, market);
+
   const results = await Promise.all(
-    files.map((file) => importSingleReport(asset.id, market, ctx.email, file)),
+    files.map((file) => importSingleReport(asset.id, market, ctx.email, file, manualSymbols)),
   );
 
   await refreshAssetValue(asset.id);
