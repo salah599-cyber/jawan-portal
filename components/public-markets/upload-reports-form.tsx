@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState, useTransition } from "react";
+import { useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import type { PublicMarket } from "@/lib/generated/prisma/client";
 import type { ImportFileResult } from "@/lib/public-markets/types";
@@ -44,9 +44,23 @@ export function UploadPublicMarketReportsForm({
   const [pendingFormData, setPendingFormData] = useState<FormData | null>(null);
   const previewRequestId = useRef(0);
   const config = MARKET_CONFIG[market];
+  const selectedManagedPortfolioId =
+    managedPortfolioId && portfolios.some((portfolio) => portfolio.id === managedPortfolioId)
+      ? managedPortfolioId
+      : portfolios[0]?.id ?? "";
+
+  function handleEntityChange(nextEntityId: string) {
+    setPreview(null);
+    setEntityId(nextEntityId);
+  }
+
+  function handleManagedPortfolioChange(nextManagedPortfolioId: string) {
+    setPreview(null);
+    setManagedPortfolioId(nextManagedPortfolioId);
+  }
 
   async function runPreview(files: FileList | null) {
-    if (!files || files.length === 0 || !entityId || !managedPortfolioId) {
+    if (!files || files.length === 0 || !entityId || !selectedManagedPortfolioId) {
       setPreview(null);
       return;
     }
@@ -66,7 +80,7 @@ export function UploadPublicMarketReportsForm({
       const formData = new FormData();
       formData.set("entityId", entityId);
       formData.set("market", market);
-      formData.set("managedPortfolioId", managedPortfolioId);
+      formData.set("managedPortfolioId", selectedManagedPortfolioId);
       for (const file of Array.from(files)) {
         formData.append("files", file);
       }
@@ -99,16 +113,6 @@ export function UploadPublicMarketReportsForm({
       }
     }
   }
-
-  useEffect(() => {
-    setPreview(null);
-  }, [entityId, market, managedPortfolioId]);
-
-  useEffect(() => {
-    if (!managedPortfolioId && portfolios[0]) {
-      setManagedPortfolioId(portfolios[0].id);
-    }
-  }, [managedPortfolioId, portfolios]);
 
   async function submitImport(formData: FormData, overlapResolution?: OverlapResolutionStrategy) {
     if (overlapResolution) {
@@ -190,14 +194,14 @@ export function UploadPublicMarketReportsForm({
       }
     }
 
-    if (!managedPortfolioId) {
+    if (!selectedManagedPortfolioId) {
       setError("Select the managed portfolio to import into.");
       return;
     }
 
     formData.set("entityId", entityId);
     formData.set("market", market);
-    formData.set("managedPortfolioId", managedPortfolioId);
+    formData.set("managedPortfolioId", selectedManagedPortfolioId);
 
     if (preview && preview.manualOverlapDetails.length > 0) {
       setPendingFormData(formData);
@@ -236,7 +240,7 @@ export function UploadPublicMarketReportsForm({
               <EntitySelect
                 entities={entities}
                 value={entityId}
-                onValueChange={setEntityId}
+                onValueChange={handleEntityChange}
                 allowAdd={false}
                 placeholder="Select entity"
               />
@@ -244,8 +248,8 @@ export function UploadPublicMarketReportsForm({
 
             <ManagedPortfolioSelect
               portfolios={portfolios}
-              value={managedPortfolioId}
-              onValueChange={setManagedPortfolioId}
+              value={selectedManagedPortfolioId}
+              onValueChange={handleManagedPortfolioChange}
               allowPrivate={false}
               required
               label="Managed portfolio"
