@@ -252,6 +252,7 @@ export default async function PublicMarketsPage({
                   defaultEntityId={entityId}
                   market={market}
                   portfolios={managedPortfolios}
+                  brokerAccounts={brokerAccounts}
                 />
                 <AddManualHoldingForm
                   entities={entities}

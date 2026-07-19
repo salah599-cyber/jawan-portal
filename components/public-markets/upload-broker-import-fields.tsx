@@ -9,10 +9,12 @@ export function UploadBrokerImportFields({
   entityId,
   brokerAccountId,
   onBrokerAccountIdChange,
+  brokerAccounts = [],
 }: {
   entityId: string;
   brokerAccountId: string;
   onBrokerAccountIdChange: (value: string) => void;
+  brokerAccounts?: PublicBrokerAccountRow[];
 }) {
   const [isManaged, setIsManaged] = useState(true);
   const [overrideManaged, setOverrideManaged] = useState(false);
@@ -28,6 +30,7 @@ export function UploadBrokerImportFields({
       <BrokerAccountSelect
         entityId={entityId}
         value={brokerAccountId}
+        brokerAccounts={brokerAccounts}
         onValueChange={(value) => {
           setOverrideManaged(false);
           onBrokerAccountIdChange(value);
