@@ -21,8 +21,12 @@ export async function importBrokerReports(formData: FormData): Promise<ImportFil
   }
 
   const entityId = String(formData.get("entityId") ?? "").trim();
+  const managedPortfolioId = String(formData.get("managedPortfolioId") ?? "").trim();
   if (!entityId) {
     throw new Error("Entity is required.");
+  }
+  if (!managedPortfolioId) {
+    throw new Error("Managed portfolio is required.");
   }
 
   if (ctx.entityIds.length > 0 && !ctx.entityIds.includes(entityId)) {
@@ -48,7 +52,7 @@ export async function importBrokerReports(formData: FormData): Promise<ImportFil
     })),
   );
 
-  return importBrokerReportsForEntity(ctx, entityId, reportFiles);
+  return importBrokerReportsForEntity(ctx, entityId, reportFiles, managedPortfolioId);
 }
 
 export async function deleteMsxHolding(holdingId: string) {

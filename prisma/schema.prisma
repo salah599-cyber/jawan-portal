@@ -434,6 +434,8 @@ model Entity {
   successionPlans       SuccessionPlan[]
   successionDistributionInstructions SuccessionDistributionInstruction[]
   directoryContacts     DirectoryContact[]
+  managedPortfolios     ManagedPortfolio[]
+  managedPortfolioValuations ManagedPortfolioValuation[]
   userAccess   UserEntityAccess[]
   createdAt    DateTime           @default(now())
   updatedAt    DateTime           @updatedAt
@@ -797,6 +799,8 @@ model PublicEquityHolding {
   id            String              @id @default(cuid())
   assetId       String
   asset         Asset               @relation(fields: [assetId], references: [id], onDelete: Cascade)
+  managedPortfolioId String?
+  managedPortfolio   ManagedPortfolio? @relation(fields: [managedPortfolioId], references: [id], onDelete: SetNull)
   market        PublicMarket        @default(MSX)
   symbol        String
   name          String?
@@ -827,8 +831,43 @@ model PublicEquityHolding {
   updatedAt     DateTime            @updatedAt
   @@index([assetId, symbol])
   @@index([assetId, market])
+  @@index([managedPortfolioId, market])
   @@index([market])
   @@index([instrumentType])
+}
+
+model ManagedPortfolio {
+  id             String              @id @default(cuid())
+  entityId       String
+  entity         Entity              @relation(fields: [entityId], references: [id], onDelete: Cascade)
+  name           String
+  managerName    String
+  accountNumber  String?
+  notes          String?
+  status         AssetStatus         @default(ACTIVE)
+  holdings       PublicEquityHolding[]
+  importBatches  ImportBatch[]
+  valuations     ManagedPortfolioValuation[]
+  createdAt      DateTime            @default(now())
+  updatedAt      DateTime            @updatedAt
+
+  @@index([entityId])
+  @@index([entityId, status])
+}
+
+model ManagedPortfolioValuation {
+  id                 String            @id @default(cuid())
+  entityId           String
+  entity             Entity            @relation(fields: [entityId], references: [id], onDelete: Cascade)
+  managedPortfolioId String?
+  managedPortfolio   ManagedPortfolio? @relation(fields: [managedPortfolioId], references: [id], onDelete: Cascade)
+  valueOmr           Decimal           @db.Decimal(18, 2)
+  costBasisOmr       Decimal?          @db.Decimal(18, 2)
+  valuedAt           DateTime          @default(now())
+  notes              String?
+  createdAt          DateTime          @default(now())
+
+  @@index([entityId, managedPortfolioId, valuedAt])
 }
 
 model PublicOptionDetail {
@@ -1379,6 +1418,8 @@ model ImportBatch {
   accountNumber String?
   asOfDate      DateTime?
   parserId      String?
+  managedPortfolioId String?
+  managedPortfolio   ManagedPortfolio? @relation(fields: [managedPortfolioId], references: [id], onDelete: SetNull)
   holdings      PublicEquityHolding[]
   createdAt     DateTime              @default(now())
 }

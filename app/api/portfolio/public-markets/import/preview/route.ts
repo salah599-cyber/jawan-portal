@@ -1,6 +1,10 @@
 import { NextResponse } from "next/server";
-import { importBrokerReportsForEntity } from "@/lib/msx/import-reports";
-import type { BrokerReportFile } from "@/lib/msx/types";
+import {
+  previewImportForEntity,
+} from "@/lib/public-markets/import-preview";
+import type { BrokerReportFile } from "@/lib/public-markets/types";
+import type { PublicMarket } from "@/lib/generated/prisma/client";
+import { MARKET_CONFIG } from "@/lib/public-markets/constants";
 import { canWrite, getCurrentUserContext } from "@/lib/permissions/access";
 import { MAX_UPLOAD_BYTES } from "@/lib/upload-limits";
 
@@ -12,6 +16,14 @@ function getFilesFromFormData(formData: FormData): File[] {
     .filter((entry): entry is File => entry instanceof File && entry.size > 0);
 }
 
+function parseMarket(value: string): PublicMarket {
+  const market = value.trim().toUpperCase() as PublicMarket;
+  if (!(market in MARKET_CONFIG)) {
+    throw new Error("Invalid market.");
+  }
+  return market;
+}
+
 export async function POST(request: Request): Promise<NextResponse> {
   const ctx = await getCurrentUserContext();
   if (!ctx) {
@@ -19,7 +31,7 @@ export async function POST(request: Request): Promise<NextResponse> {
   }
   if (!canWrite(ctx, "ASSETS")) {
     return NextResponse.json(
-      { error: "You do not have permission to import brokerage reports." },
+      { error: "You do not have permission to preview brokerage reports." },
       { status: 403 },
     );
   }
@@ -32,10 +44,13 @@ export async function POST(request: Request): Promise<NextResponse> {
   }
 
   const entityId = String(formData.get("entityId") ?? "").trim();
+  const market = parseMarket(String(formData.get("market") ?? "MSX"));
   const managedPortfolioId = String(formData.get("managedPortfolioId") ?? "").trim();
+
   if (!entityId) {
     return NextResponse.json({ error: "Entity is required." }, { status: 400 });
   }
+
   if (!managedPortfolioId) {
     return NextResponse.json({ error: "Managed portfolio is required." }, { status: 400 });
   }
@@ -47,7 +62,7 @@ export async function POST(request: Request): Promise<NextResponse> {
   const files = getFilesFromFormData(formData);
   if (files.length === 0) {
     return NextResponse.json(
-      { error: "Select at least one brokerage report to upload." },
+      { error: "Select at least one brokerage report to preview." },
       { status: 400 },
     );
   }
@@ -70,15 +85,15 @@ export async function POST(request: Request): Promise<NextResponse> {
       })),
     );
 
-    const results = await importBrokerReportsForEntity(
-      ctx,
+    const preview = await previewImportForEntity(
       entityId,
-      reportFiles,
+      market,
       managedPortfolioId,
+      reportFiles,
     );
-    return NextResponse.json({ results });
+    return NextResponse.json(preview);
   } catch (error) {
-    const message = error instanceof Error ? error.message : "Failed to import reports.";
+    const message = error instanceof Error ? error.message : "Failed to preview reports.";
     return NextResponse.json({ error: message }, { status: 500 });
   }
 }

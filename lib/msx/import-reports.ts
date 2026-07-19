@@ -9,8 +9,9 @@ export async function importBrokerReportsForEntity(
   ctx: UserContext,
   entityId: string,
   files: BrokerReportFile[],
+  managedPortfolioId: string,
 ): Promise<ImportFileResult[]> {
-  return importForMarket(ctx, entityId, "MSX", files);
+  return importForMarket(ctx, entityId, "MSX", managedPortfolioId, files);
 }
 
 export async function importBrokerReportsForMarket(
@@ -18,6 +19,7 @@ export async function importBrokerReportsForMarket(
   entityId: string,
   market: PublicMarket,
   files: BrokerReportFile[],
+  managedPortfolioId: string,
 ): Promise<ImportFileResult[]> {
-  return importForMarket(ctx, entityId, market, files);
+  return importForMarket(ctx, entityId, market, managedPortfolioId, files);
 }

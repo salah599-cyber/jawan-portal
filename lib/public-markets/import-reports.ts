@@ -11,6 +11,19 @@ import { normalizeAndFormatHoldingValues } from "@/lib/public-markets/valuation"
 import { recordAssetValuation } from "@/lib/portfolio/valuations";
 import { refreshPublicMarketPrices } from "@/lib/public-markets/refresh-prices";
 import { hasAutomaticPriceRefresh } from "@/lib/public-markets/prices/symbols";
+import { formatOverlapResolutionSummary } from "@/lib/public-markets/import-warnings";
+import { getManualEquityHoldings } from "@/lib/public-markets/import-preview";
+import { normalizeBrokerName } from "@/lib/public-markets/broker-normalize";
+import {
+  snapshotManagedPortfolioValuation,
+} from "@/lib/portfolio/managed-portfolio-valuations";
+import {
+  groupManualEquityHoldings,
+  parseOverlapResolution,
+  resolveImportHoldings,
+  type ManualEquitySnapshot,
+  type OverlapResolutionStrategy,
+} from "@/lib/public-markets/overlap-resolution";
 
 export async function ensurePortfolioAsset(entityId: string, market: PublicMarket) {
   const config = MARKET_CONFIG[market];
@@ -71,35 +84,57 @@ export async function refreshAssetValue(assetId: string) {
 async function importSingleReport(
   assetId: string,
   market: PublicMarket,
+  managedPortfolioId: string,
   userEmail: string,
   file: BrokerReportFile,
+  manualBySymbol: Map<string, ManualEquitySnapshot[]>,
+  overlapResolution: OverlapResolutionStrategy,
 ): Promise<ImportFileResult> {
   try {
     const parsed = await parseMarketReport(file, market);
+    const broker = normalizeBrokerName(parsed.broker);
+    const parsedWithBroker = { ...parsed, broker };
 
-    if (parsed.holdings.length === 0) {
+    if (parsedWithBroker.holdings.length === 0) {
       return {
         fileName: file.fileName,
-        broker: parsed.broker,
-        accountNumber: parsed.accountNumber,
-        asOfDate: parsed.asOfDate?.toISOString(),
+        broker: parsedWithBroker.broker,
+        accountNumber: parsedWithBroker.accountNumber,
+        asOfDate: parsedWithBroker.asOfDate?.toISOString(),
         holdingsImported: 0,
-        warnings: parsed.warnings,
-        parserId: parsed.parserId,
+        warnings: parsedWithBroker.warnings,
+        parserId: parsedWithBroker.parserId,
         error: "No holdings found in this report.",
       };
+    }
+
+    const resolution = resolveImportHoldings(
+      parsedWithBroker.holdings,
+      manualBySymbol,
+      overlapResolution,
+    );
+
+    if (resolution.manualIdsToDelete.length > 0) {
+      await db.publicEquityHolding.deleteMany({
+        where: {
+          assetId,
+          managedPortfolioId,
+          id: { in: resolution.manualIdsToDelete },
+        },
+      });
     }
 
     const batch = await db.importBatch.create({
       data: {
         fileName: file.fileName,
         uploadedBy: userEmail,
-        rowCount: parsed.holdings.length,
+        rowCount: resolution.holdings.length,
         market,
-        broker: parsed.broker,
-        accountNumber: parsed.accountNumber,
-        asOfDate: parsed.asOfDate,
-        parserId: parsed.parserId,
+        broker: parsedWithBroker.broker,
+        accountNumber: parsedWithBroker.accountNumber,
+        asOfDate: parsedWithBroker.asOfDate,
+        parserId: parsedWithBroker.parserId,
+        managedPortfolioId,
       },
     });
 
@@ -107,56 +142,66 @@ async function importSingleReport(
       where: {
         assetId,
         market,
-        broker: parsed.broker,
+        managedPortfolioId,
+        broker: parsedWithBroker.broker,
         source: "IMPORT",
-        ...(parsed.accountNumber ? { accountNumber: parsed.accountNumber } : {}),
+        ...(parsedWithBroker.accountNumber ? { accountNumber: parsedWithBroker.accountNumber } : {}),
       },
     });
 
-    await db.publicEquityHolding.createMany({
-      data: parsed.holdings.map((holding) => {
-        const { decimals } = normalizeAndFormatHoldingValues({
-          quantity: holding.quantity,
-          costBasis: holding.costBasis,
-          marketPrice: holding.marketPrice,
-          marketValue: holding.marketValue,
-          unrealisedPnl: holding.unrealisedPnl,
-        });
+    if (resolution.holdings.length > 0) {
+      await db.publicEquityHolding.createMany({
+        data: resolution.holdings.map((holding) => {
+          const { decimals } = normalizeAndFormatHoldingValues({
+            quantity: holding.quantity,
+            costBasis: holding.costBasis,
+            marketPrice: holding.marketPrice,
+            marketValue: holding.marketValue,
+            unrealisedPnl: holding.unrealisedPnl,
+          });
 
-        return {
-          assetId,
-          market,
-          symbol: holding.symbol,
-          name: holding.name,
-          quantity: holding.quantity.toFixed(6),
-          costBasis: decimals.costBasis,
-          marketPrice: decimals.marketPrice,
-          marketValue: decimals.marketValue,
-          unrealisedPnl: decimals.unrealisedPnl,
-          priceSource: "BROKER",
-          broker: parsed.broker,
-          accountNumber: parsed.accountNumber,
-          exchange: holding.exchange,
-          isin: holding.isin,
-          cusip: holding.cusip,
-          sedol: holding.sedol,
-          country: holding.country ?? MARKET_CONFIG[market].country,
-          source: "IMPORT",
-          currency: holding.currency ?? MARKET_CONFIG[market].currency,
-          asOfDate: parsed.asOfDate,
-          importBatchId: batch.id,
-        };
-      }),
-    });
+          return {
+            assetId,
+            managedPortfolioId,
+            market,
+            symbol: holding.symbol,
+            name: holding.name,
+            quantity: holding.quantity.toFixed(6),
+            costBasis: decimals.costBasis,
+            marketPrice: decimals.marketPrice,
+            marketValue: decimals.marketValue,
+            unrealisedPnl: decimals.unrealisedPnl,
+            priceSource: "BROKER",
+            broker: parsedWithBroker.broker,
+            accountNumber: parsedWithBroker.accountNumber,
+            exchange: holding.exchange,
+            isin: holding.isin,
+            cusip: holding.cusip,
+            sedol: holding.sedol,
+            country: holding.country ?? MARKET_CONFIG[market].country,
+            source: "IMPORT",
+            currency: holding.currency ?? MARKET_CONFIG[market].currency,
+            asOfDate: parsedWithBroker.asOfDate,
+            importBatchId: batch.id,
+          };
+        }),
+      });
+    }
+
+    const resolutionWarnings = [
+      formatOverlapResolutionSummary(overlapResolution, resolution.skippedSymbols),
+      formatOverlapResolutionSummary("replace_manual", resolution.replacedSymbols),
+      formatOverlapResolutionSummary("merge", resolution.mergedSymbols),
+    ].filter((warning): warning is string => Boolean(warning));
 
     return {
       fileName: file.fileName,
-      broker: parsed.broker,
-      accountNumber: parsed.accountNumber,
-      asOfDate: parsed.asOfDate?.toISOString(),
-      holdingsImported: parsed.holdings.length,
-      warnings: parsed.warnings,
-      parserId: parsed.parserId,
+      broker: parsedWithBroker.broker,
+      accountNumber: parsedWithBroker.accountNumber,
+      asOfDate: parsedWithBroker.asOfDate?.toISOString(),
+      holdingsImported: resolution.holdings.length,
+      warnings: [...parsedWithBroker.warnings, ...resolutionWarnings],
+      parserId: parsedWithBroker.parserId,
     };
   } catch (error) {
     return {
@@ -173,16 +218,44 @@ export async function importBrokerReportsForEntity(
   ctx: UserContext,
   entityId: string,
   market: PublicMarket,
+  managedPortfolioId: string,
   files: BrokerReportFile[],
+  overlapResolutionInput?: string | null,
 ): Promise<ImportFileResult[]> {
   await ensurePublicMarketsSchema();
-  const asset = await ensurePortfolioAsset(entityId, market);
 
-  const results = await Promise.all(
-    files.map((file) => importSingleReport(asset.id, market, ctx.email, file)),
-  );
+  const portfolio = await db.managedPortfolio.findFirst({
+    where: { id: managedPortfolioId, entityId, status: { in: ["ACTIVE", "MONITOR"] } },
+  });
+
+  if (!portfolio) {
+    throw new Error("Managed portfolio not found for this entity.");
+  }
+
+  const asset = await ensurePortfolioAsset(entityId, market);
+  const overlapResolution = parseOverlapResolution(overlapResolutionInput);
+  const manualHoldings = await getManualEquityHoldings(entityId, market, managedPortfolioId);
+  const manualBySymbol = groupManualEquityHoldings(manualHoldings);
+
+  const results: ImportFileResult[] = [];
+  for (const file of files) {
+    results.push(
+      await importSingleReport(
+        asset.id,
+        market,
+        managedPortfolioId,
+        ctx.email,
+        file,
+        manualBySymbol,
+        overlapResolution,
+      ),
+    );
+  }
 
   await refreshAssetValue(asset.id);
+
+  await snapshotManagedPortfolioValuation(entityId, managedPortfolioId, "import");
+  await snapshotManagedPortfolioValuation(entityId, null, "import");
 
   if (hasAutomaticPriceRefresh(market)) {
     try {
@@ -203,8 +276,10 @@ export async function importBrokerReportsForEntity(
       metadata: {
         entityId,
         market,
+        managedPortfolioId,
         fileCount: files.length,
         holdingsImported: importedCount,
+        overlapResolution,
         results: results.map((result) => ({
           fileName: result.fileName,
           broker: result.broker,

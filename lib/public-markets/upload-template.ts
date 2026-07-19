@@ -127,8 +127,8 @@ export async function buildUploadTemplateBuffer(
       title: config.title,
       currency: config.currency,
       symbolGuide: config.symbolGuide,
-      uploadNote:
-        "Fill in your holdings below. Symbol and Quantity are required. Delete the sample rows or replace them.",
+        uploadNote:
+          "Select the managed portfolio in the portal before uploading. Symbol and Quantity are required. Delete the sample rows or replace them.",
       sampleHoldings: config.sampleHoldings,
     }),
   );
@@ -152,7 +152,7 @@ export async function buildPortfolioUploadTemplateBuffer(): Promise<{
         currency: "OMR",
         symbolGuide: "2-6 letter codes (e.g. BKMB, OQGN)",
         uploadNote:
-          "Muscat Stock Exchange equities. Symbol and Quantity are required. Upload this sheet via Portfolio → Public Markets → MSX.",
+          "Muscat Stock Exchange equities. Select the managed portfolio in the portal before uploading. Symbol and Quantity are required.",
         sampleHoldings: OMAN_STOCKS_SAMPLE,
       }),
     },
@@ -164,7 +164,7 @@ export async function buildPortfolioUploadTemplateBuffer(): Promise<{
         currency: "USD",
         symbolGuide: "1-5 letter tickers (e.g. AAPL, MSFT, BRK.B)",
         uploadNote:
-          "US listed equities. Symbol and Quantity are required. Upload this sheet via Portfolio → Public Markets → USA.",
+          "US listed equities. Select the managed portfolio in the portal before uploading. Symbol and Quantity are required.",
         sampleHoldings: US_STOCKS_SAMPLE,
       }),
     },

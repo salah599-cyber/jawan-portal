@@ -381,3 +381,31 @@ export function resolveInstrumentFromSearchParam(param?: string | null): {
   }
   return { slug: "equity", instrumentType: "EQUITY" };
 }
+
+export const PRIVATE_PORTFOLIO_SLUG = "private";
+export const ALL_PORTFOLIOS_SLUG = "all";
+
+export function isPrivatePortfolioSlug(value?: string | null): boolean {
+  return value?.trim().toLowerCase() === PRIVATE_PORTFOLIO_SLUG;
+}
+
+export function isAllPortfoliosSlug(value?: string | null): boolean {
+  return !value || value.trim().toLowerCase() === ALL_PORTFOLIOS_SLUG;
+}
+
+export function resolvePortfolioFilter(portfolioParam?: string | null): {
+  mode: "all" | "private" | "managed";
+  managedPortfolioId: string | null;
+} {
+  if (isPrivatePortfolioSlug(portfolioParam)) {
+    return { mode: "private", managedPortfolioId: null };
+  }
+  if (isAllPortfoliosSlug(portfolioParam)) {
+    return { mode: "all", managedPortfolioId: null };
+  }
+  const id = portfolioParam?.trim();
+  if (id) {
+    return { mode: "managed", managedPortfolioId: id };
+  }
+  return { mode: "all", managedPortfolioId: null };
+}

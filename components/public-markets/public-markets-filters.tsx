@@ -11,9 +11,12 @@ import {
   PUBLIC_MARKET_ORDER,
   PUBLIC_MARKETS_PATH,
   PUBLIC_INSTRUMENT_SLUGS,
+  PRIVATE_PORTFOLIO_SLUG,
+  ALL_PORTFOLIOS_SLUG,
   slugFromMarket,
   type PublicInstrumentSlug,
 } from "@/lib/public-markets/constants";
+import type { ManagedPortfolioRow } from "@/lib/data/managed-portfolios";
 import { PUBLIC_INSTRUMENT_TYPE_LABELS } from "@/lib/labels";
 
 const INSTRUMENT_LABELS: Record<PublicInstrumentSlug, string> = {
@@ -27,14 +30,18 @@ const INSTRUMENT_LABELS: Record<PublicInstrumentSlug, string> = {
 export function PublicMarketsFilters({
   activeMarket,
   activeInstrument,
+  activePortfolio,
   entityId,
   entities,
+  portfolios,
   currentParams,
 }: {
   activeMarket: PublicMarket | "ALL";
   activeInstrument: PublicInstrumentSlug;
+  activePortfolio: string;
   entityId?: string;
   entities: EntityOption[];
+  portfolios: ManagedPortfolioRow[];
   currentParams: SearchParamMap;
 }) {
   const marketValue = activeMarket === "ALL" ? "ALL" : slugFromMarket(activeMarket);
@@ -49,9 +56,28 @@ export function PublicMarketsFilters({
     value: slug,
     label: INSTRUMENT_LABELS[slug],
   }));
+  const portfolioOptions = [
+    { value: ALL_PORTFOLIOS_SLUG, label: "All portfolios" },
+    { value: PRIVATE_PORTFOLIO_SLUG, label: "Private holdings" },
+    ...portfolios.map((portfolio) => ({
+      value: portfolio.id,
+      label: `${portfolio.managerName} — ${portfolio.name}`,
+    })),
+  ];
 
   return (
     <FilterToolbar>
+      <UrlFilterSelect
+        label="Portfolio"
+        paramKey="portfolio"
+        value={activePortfolio}
+        options={portfolioOptions}
+        pathname={PUBLIC_MARKETS_PATH}
+        currentParams={currentParams}
+        preserveParams={["entity", "market", "instrument"]}
+        omitWhenValue={ALL_PORTFOLIOS_SLUG}
+        triggerClassName="min-w-[14rem]"
+      />
       <UrlFilterSelect
         label="Market"
         paramKey="market"
@@ -59,7 +85,7 @@ export function PublicMarketsFilters({
         options={marketOptions}
         pathname={PUBLIC_MARKETS_PATH}
         currentParams={currentParams}
-        preserveParams={["entity", "instrument"]}
+        preserveParams={["entity", "portfolio", "instrument"]}
         triggerClassName="min-w-[11rem]"
       />
       <UrlFilterSelect
@@ -69,7 +95,7 @@ export function PublicMarketsFilters({
         options={instrumentOptions}
         pathname={PUBLIC_MARKETS_PATH}
         currentParams={currentParams}
-        preserveParams={["entity", "market"]}
+        preserveParams={["entity", "market", "portfolio"]}
         omitWhenValue="equity"
         triggerClassName="min-w-[11rem]"
       />
@@ -78,7 +104,7 @@ export function PublicMarketsFilters({
         value={entityId}
         pathname={PUBLIC_MARKETS_PATH}
         currentParams={currentParams}
-        preserveParams={["market", "instrument"]}
+        preserveParams={["market", "instrument", "portfolio"]}
         allowAll={false}
       />
     </FilterToolbar>
