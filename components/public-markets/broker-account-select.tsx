@@ -27,21 +27,23 @@ export function BrokerAccountSelect({
   const [pending, startTransition] = useTransition();
 
   useEffect(() => {
-    if (!entityId) {
-      setAccounts([]);
-      return;
-    }
+    if (!entityId) return;
+
+    let cancelled = false;
 
     startTransition(async () => {
       const rows = await listPublicBrokerAccounts(entityId);
+      if (cancelled) return;
+
       setAccounts(rows);
     });
+
+    return () => {
+      cancelled = true;
+    };
   }, [entityId]);
 
-  useEffect(() => {
-    const account = accounts.find((row) => row.id === value) ?? null;
-    onAccountSelected?.(account);
-  }, [accounts, value, onAccountSelected]);
+  const visibleAccounts = entityId ? accounts : [];
 
   return (
     <div className="space-y-2">
@@ -51,12 +53,17 @@ export function BrokerAccountSelect({
         name="brokerAccountId"
         required
         value={value}
-        onChange={(event) => onValueChange(event.target.value)}
+        onChange={(event) => {
+          const nextValue = event.target.value;
+          onValueChange(nextValue);
+          const account = visibleAccounts.find((row) => row.id === nextValue) ?? null;
+          onAccountSelected?.(account);
+        }}
         disabled={!entityId || pending}
         className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
       >
         <option value="">{pending ? "Loading accounts..." : "Select broker account"}</option>
-        {accounts.map((account) => (
+        {visibleAccounts.map((account) => (
           <option key={account.id} value={account.id}>
             {formatBrokerAccountLabel(account)}
           </option>
