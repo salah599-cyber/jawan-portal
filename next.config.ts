@@ -13,7 +13,7 @@ const contentSecurityPolicy = [
   "font-src 'self' data:",
   "connect-src 'self' " +
     clerkOrigin +
-    " https://*.clerk.services https://*.blob.vercel-storage.com https://vercel.com https://api.openai.com",
+    " https://*.clerk.services https://*.blob.vercel-storage.com https://vercel.com",
   `frame-src ${clerkOrigin} https://challenges.cloudflare.com`,
   "worker-src 'self' blob:",
   "base-uri 'self'",

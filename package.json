@@ -19,7 +19,7 @@
     "postinstall": "prisma generate"
   },
   "dependencies": {
-    "@ai-sdk/openai": "^4.0.16",
+    "@ai-sdk/google": "^4.0.18",
     "@ai-sdk/react": "^4.0.34",
     "@clerk/nextjs": "^7.5.9",
     "@napi-rs/canvas": "^1.0.2",

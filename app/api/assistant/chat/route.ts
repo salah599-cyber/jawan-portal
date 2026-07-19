@@ -6,7 +6,7 @@ import {
   toUIMessageStream,
   type UIMessage,
 } from "ai";
-import { openai } from "@ai-sdk/openai";
+import { google } from "@ai-sdk/google";
 import { NextResponse } from "next/server";
 import { ASSISTANT_SYSTEM_PROMPT } from "@/lib/assistant/system-prompt";
 import { createAssistantTools } from "@/lib/assistant/tools";
@@ -15,10 +15,10 @@ import { getCurrentUserContext } from "@/lib/permissions/access";
 export const maxDuration = 60;
 
 function getAssistantModel() {
-  if (!process.env.OPENAI_API_KEY) {
+  if (!process.env.GOOGLE_GENERATIVE_AI_API_KEY) {
     return null;
   }
-  return openai(process.env.OPENAI_MODEL ?? "gpt-4o-mini");
+  return google(process.env.GEMINI_MODEL ?? "gemini-2.5-flash-lite");
 }
 
 export async function POST(request: Request) {
@@ -32,7 +32,7 @@ export async function POST(request: Request) {
     return NextResponse.json(
       {
         error:
-          "AI assistant is not configured. Set OPENAI_API_KEY in the environment.",
+          "AI assistant is not configured. Set GOOGLE_GENERATIVE_AI_API_KEY in the environment.",
       },
       { status: 503 },
     );
