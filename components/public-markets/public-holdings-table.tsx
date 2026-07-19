@@ -1,6 +1,6 @@
 import { formatDate, formatMoney } from "@/lib/format";
 import type { PublicHoldingRow } from "@/lib/data/public-markets";
-import { PUBLIC_OPTION_TYPE_LABELS } from "@/lib/labels";
+import { PUBLIC_OPTION_TYPE_LABELS, PUBLIC_MANAGEMENT_TYPE_LABELS } from "@/lib/labels";
 import { DeletePublicHoldingButton } from "@/components/public-markets/delete-holding-button";
 import { EditHoldingDialog } from "@/components/public-markets/edit-holding-dialog";
 import { Badge } from "@/components/ui/badge";
@@ -284,10 +284,22 @@ export function PublicHoldingsTable({
             </TableCell>
             <TableCell>{holding.name ?? "—"}</TableCell>
             <TableCell>
-              <div className="space-y-0.5">
-                <p>{holding.broker ?? "—"}</p>
-                {holding.accountNumber ? (
-                  <p className="text-xs text-muted-foreground">{holding.accountNumber}</p>
+              <div className="space-y-1">
+                <div className="space-y-0.5">
+                  <p>{holding.broker ?? "—"}</p>
+                  {holding.accountNumber ? (
+                    <p className="text-xs text-muted-foreground">{holding.accountNumber}</p>
+                  ) : null}
+                  {holding.brokerAccountLabel ? (
+                    <p className="text-xs text-muted-foreground">{holding.brokerAccountLabel}</p>
+                  ) : null}
+                </div>
+                {holding.source === "IMPORT" ? (
+                  <Badge variant="outline">
+                    {holding.isManaged
+                      ? PUBLIC_MANAGEMENT_TYPE_LABELS.managed
+                      : PUBLIC_MANAGEMENT_TYPE_LABELS.reference}
+                  </Badge>
                 ) : null}
               </div>
             </TableCell>

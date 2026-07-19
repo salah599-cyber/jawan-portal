@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { importBrokerReportsForEntity } from "@/lib/public-markets/import-reports";
+import { parseImportOptionsFromFormData } from "@/lib/public-markets/import-options";
 import type { BrokerReportFile } from "@/lib/public-markets/types";
 import type { PublicMarket } from "@/lib/generated/prisma/client";
 import { MARKET_CONFIG } from "@/lib/public-markets/constants";
@@ -78,7 +79,13 @@ export async function POST(request: Request): Promise<NextResponse> {
       })),
     );
 
-    const results = await importBrokerReportsForEntity(ctx, entityId, market, reportFiles);
+    const results = await importBrokerReportsForEntity(
+      ctx,
+      entityId,
+      market,
+      reportFiles,
+      parseImportOptionsFromFormData(formData),
+    );
     return NextResponse.json({ results });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Failed to import reports.";

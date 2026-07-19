@@ -28,6 +28,9 @@ export type PublicHoldingRow = {
   unrealisedPnl: number | null;
   broker: string | null;
   accountNumber: string | null;
+  brokerAccountId: string | null;
+  brokerAccountLabel: string | null;
+  isManaged: boolean;
   exchange: string | null;
   isin: string | null;
   cusip: string | null;
@@ -74,6 +77,7 @@ export type PublicImportBatchRow = {
   marketLabel: string | null;
   broker: string | null;
   accountNumber: string | null;
+  isManaged: boolean;
   asOfDate: Date | null;
   parserId: string | null;
   createdAt: Date;
@@ -165,6 +169,10 @@ async function mapHoldingRow(
       coinGeckoId: string;
       custodian: string | null;
     } | null;
+    brokerAccount?: {
+      label: string | null;
+      broker: string;
+    } | null;
   },
 ): Promise<PublicHoldingRow> {
   const quantity = toNumber(holding.quantity) ?? 0;
@@ -194,6 +202,9 @@ async function mapHoldingRow(
     unrealisedPnl: normalized.unrealisedPnl,
     broker: holding.broker,
     accountNumber: holding.accountNumber,
+    brokerAccountId: holding.brokerAccountId ?? null,
+    brokerAccountLabel: holding.brokerAccount?.label ?? holding.brokerAccount?.broker ?? null,
+    isManaged: holding.isManaged,
     exchange: holding.exchange,
     isin: holding.isin,
     cusip: holding.cusip,
@@ -248,17 +259,20 @@ function resolveHoldingsAssetMarket(
   return market ?? null;
 }
 
+export type PublicManagementFilter = "all" | "managed" | "reference";
+
 export async function getPublicHoldings(
   ctx: UserContext,
   options: {
     entityId?: string;
     market?: PublicMarket | null;
     instrumentType?: PublicInstrumentType | null;
+    management?: PublicManagementFilter;
   } = {},
 ): Promise<PublicHoldingRow[]> {
   await ensurePublicMarketsDataLayerReady();
   const entityFilter = assetEntityFilter(ctx);
-  const { entityId, market, instrumentType } = options;
+  const { entityId, market, instrumentType, management = "all" } = options;
   const assetMarket = resolveHoldingsAssetMarket(market, instrumentType);
 
   const assets = await db.asset.findMany({
@@ -284,8 +298,11 @@ export async function getPublicHoldings(
           ? { market }
           : {}),
       ...(instrumentType ? { instrumentType } : {}),
+      ...(management === "managed" ? { isManaged: true } : {}),
+      ...(management === "reference" ? { isManaged: false } : {}),
     },
     include: {
+      brokerAccount: { select: { label: true, broker: true } },
       optionDetail: true,
       structuredNoteDetail: true,
       cryptoDetail: true,
@@ -345,6 +362,7 @@ export async function getPublicImportBatches(
     marketLabel: batch.market ? MARKET_CONFIG[batch.market].shortLabel : null,
     broker: batch.broker,
     accountNumber: batch.accountNumber,
+    isManaged: batch.isManaged,
     asOfDate: batch.asOfDate,
     parserId: batch.parserId,
     createdAt: batch.createdAt,

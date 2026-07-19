@@ -339,6 +339,7 @@ export const COLUMN_ALIASES: Record<string, string[]> = {
 export const PUBLIC_MARKETS_PATH = "/portfolio/public-markets";
 
 export type PublicInstrumentSlug = "equity" | "options" | "structured-notes" | "crypto" | "all";
+export type PublicManagementSlug = "all" | "managed" | "reference";
 
 export const PUBLIC_INSTRUMENT_SLUGS: PublicInstrumentSlug[] = [
   "equity",
@@ -380,4 +381,12 @@ export function resolveInstrumentFromSearchParam(param?: string | null): {
     return { slug: "all", instrumentType: null };
   }
   return { slug: "equity", instrumentType: "EQUITY" };
+}
+
+export function resolveManagementFromSearchParam(param?: string | null): PublicManagementSlug {
+  const normalized = param?.trim().toLowerCase();
+  if (normalized === "managed" || normalized === "reference") {
+    return normalized;
+  }
+  return "all";
 }

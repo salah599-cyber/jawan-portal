@@ -16,6 +16,7 @@ import {
 } from "@/components/public-markets/public-market-summary";
 import { PublicHoldingsTable } from "@/components/public-markets/public-holdings-table";
 import { PublicImportHistoryTable } from "@/components/public-markets/public-import-history-table";
+import { BrokerAccountsCard } from "@/components/public-markets/broker-accounts-card";
 import { UploadPublicMarketReportsForm } from "@/components/public-markets/upload-reports-form";
 import {
   getAllMarketsSummary,
@@ -29,8 +30,10 @@ import {
   MARKET_CONFIG,
   getMarketPricingNote,
   resolveInstrumentFromSearchParam,
+  resolveManagementFromSearchParam,
   slugFromMarket,
 } from "@/lib/public-markets/constants";
+import { listPublicBrokerAccountsForEntity } from "@/lib/public-markets/broker-accounts";
 import { hasAutomaticPriceRefresh } from "@/lib/public-markets/prices/symbols";
 import { canWrite, requireModuleAccess } from "@/lib/permissions/access";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -40,13 +43,18 @@ import { ExternalLink } from "lucide-react";
 export default async function PublicMarketsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ entity?: string; market?: string; instrument?: string }>;
+  searchParams: Promise<{ entity?: string; market?: string; instrument?: string; management?: string }>;
 }) {
-  const { entity: entityParam, market: marketParam, instrument: instrumentParam } =
-    await searchParams;
+  const {
+    entity: entityParam,
+    market: marketParam,
+    instrument: instrumentParam,
+    management: managementParam,
+  } = await searchParams;
   const { mode, market } = resolveMarketFromSearchParam(marketParam);
   const { slug: instrumentSlug, instrumentType } =
     resolveInstrumentFromSearchParam(instrumentParam);
+  const management = resolveManagementFromSearchParam(managementParam);
   const ctx = await requireModuleAccess("ASSETS");
   const entities = await listPublicMarketsEntities(ctx);
   const entityId = entityParam && entities.some((entity) => entity.id === entityParam)
@@ -58,23 +66,27 @@ export default async function PublicMarketsPage({
   const marketSlug = isAllMarkets ? "ALL" : slugFromMarket(market);
   const isEquityTab = instrumentSlug === "equity";
   const isCryptoTab = instrumentSlug === "crypto";
+  const canEdit = canWrite(ctx, "ASSETS");
 
-  const [summary, allSummary, holdings, importBatches] = await Promise.all([
+  const [summary, allSummary, holdings, importBatches, brokerAccounts] = await Promise.all([
     isAllMarkets ? null : getPublicMarketSummary(ctx, entityId, market),
     isAllMarkets ? getAllMarketsSummary(ctx, entityId) : null,
     getPublicHoldings(ctx, {
       entityId,
       market: isAllMarkets ? null : market,
       instrumentType,
+      management: isEquityTab ? management : "all",
     }),
     isEquityTab
       ? getPublicImportBatches(ctx, {
           market: isAllMarkets ? null : market,
         })
       : Promise.resolve([]),
+    canEdit && isEquityTab && entityId
+      ? listPublicBrokerAccountsForEntity(ctx, entityId)
+      : Promise.resolve([]),
   ]);
 
-  const canEdit = canWrite(ctx, "ASSETS");
   const marketConfig = isAllMarkets ? null : MARKET_CONFIG[market];
   const holdingsDescription =
     instrumentSlug === "options"
@@ -85,7 +97,7 @@ export default async function PublicMarketsPage({
           ? "Cryptocurrency positions priced via CoinGecko in USD, with optional manual overrides."
           : isAllMarkets
           ? "All positions across markets, with values converted to OMR where applicable."
-          : "Consolidated positions across imported broker reports and manual entries. Re-importing a broker statement replaces that broker's holdings only.";
+          : "Consolidated positions across imported broker reports and manual entries. Re-importing replaces holdings for the selected broker account and portfolio type only.";
 
   return (
     <>
@@ -140,12 +152,15 @@ export default async function PublicMarketsPage({
         <PublicMarketsFilters
           activeMarket={activeMarket}
           activeInstrument={instrumentSlug}
+          activeManagement={management}
+          showManagementFilter={isEquityTab}
           entityId={entityId}
           entities={entities}
           currentParams={{
             entity: entityParam,
             market: isAllMarkets ? "ALL" : marketParam ?? slugFromMarket(market),
             instrument: instrumentSlug === "equity" ? undefined : instrumentSlug,
+            management: management === "all" ? undefined : management,
           }}
         />
 
@@ -162,6 +177,11 @@ export default async function PublicMarketsPage({
           <>
             {isEquityTab ? (
               <>
+                <BrokerAccountsCard
+                  entities={entities}
+                  defaultEntityId={entityId}
+                  accounts={brokerAccounts}
+                />
                 <UploadPublicMarketReportsForm
                   entities={entities}
                   defaultEntityId={entityId}

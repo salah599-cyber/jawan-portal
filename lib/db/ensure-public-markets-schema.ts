@@ -1,16 +1,22 @@
 import { Client } from "pg";
+import { backfillPublicBrokerAccounts } from "@/lib/db/backfill-public-broker-accounts";
 import {
-  isIgnorablePublicMarketsSchemaError,
-  PUBLIC_MARKETS_ENUM_EXPANSION_STATEMENTS,
-  PUBLIC_MARKETS_SCHEMA_COLUMN_CHECK_SQL,
-  PUBLIC_MARKETS_SCHEMA_STATEMENTS,
-} from "@/lib/db/public-markets-schema-statements";
+  PUBLIC_BROKER_ACCOUNTS_FK_STATEMENTS,
+  PUBLIC_BROKER_ACCOUNTS_SCHEMA_COLUMN_CHECK_SQL,
+  PUBLIC_BROKER_ACCOUNTS_SCHEMA_STATEMENTS,
+} from "@/lib/db/public-markets-broker-accounts-schema-statements";
 import {
   PUBLIC_CRYPTO_DETAIL_SCHEMA_STATEMENTS,
   PUBLIC_INSTRUMENTS_ENUM_EXPANSION_STATEMENTS,
   PUBLIC_INSTRUMENTS_SCHEMA_COLUMN_CHECK_SQL,
   PUBLIC_INSTRUMENTS_SCHEMA_STATEMENTS,
 } from "@/lib/db/public-markets-instruments-schema-statements";
+import {
+  isIgnorablePublicMarketsSchemaError,
+  PUBLIC_MARKETS_ENUM_EXPANSION_STATEMENTS,
+  PUBLIC_MARKETS_SCHEMA_COLUMN_CHECK_SQL,
+  PUBLIC_MARKETS_SCHEMA_STATEMENTS,
+} from "@/lib/db/public-markets-schema-statements";
 
 let ensurePromise: Promise<void> | null = null;
 
@@ -31,6 +37,11 @@ async function publicMarketsColumnExists(client: Client): Promise<boolean> {
 
 async function instrumentsColumnExists(client: Client): Promise<boolean> {
   const result = await client.query(PUBLIC_INSTRUMENTS_SCHEMA_COLUMN_CHECK_SQL);
+  return Boolean(result.rows[0]?.exists);
+}
+
+async function brokerAccountsColumnExists(client: Client): Promise<boolean> {
+  const result = await client.query(PUBLIC_BROKER_ACCOUNTS_SCHEMA_COLUMN_CHECK_SQL);
   return Boolean(result.rows[0]?.exists);
 }
 
@@ -80,6 +91,19 @@ async function applyPublicMarketsSchema() {
 
     await runStatements(client, PUBLIC_INSTRUMENTS_ENUM_EXPANSION_STATEMENTS);
     await runStatements(client, PUBLIC_CRYPTO_DETAIL_SCHEMA_STATEMENTS);
+
+    if (!(await brokerAccountsColumnExists(client))) {
+      await runStatements(client, PUBLIC_BROKER_ACCOUNTS_SCHEMA_STATEMENTS);
+      await runStatements(client, PUBLIC_BROKER_ACCOUNTS_FK_STATEMENTS);
+
+      if (!(await brokerAccountsColumnExists(client))) {
+        throw new Error(
+          "Public markets broker account schema sync finished but PublicEquityHolding.brokerAccountId is still missing.",
+        );
+      }
+    }
+
+    await backfillPublicBrokerAccounts(client);
   } finally {
     await client.end();
   }

@@ -13,8 +13,9 @@ import {
   PUBLIC_INSTRUMENT_SLUGS,
   slugFromMarket,
   type PublicInstrumentSlug,
+  type PublicManagementSlug,
 } from "@/lib/public-markets/constants";
-import { PUBLIC_INSTRUMENT_TYPE_LABELS } from "@/lib/labels";
+import { PUBLIC_INSTRUMENT_TYPE_LABELS, PUBLIC_MANAGEMENT_TYPE_LABELS } from "@/lib/labels";
 
 const INSTRUMENT_LABELS: Record<PublicInstrumentSlug, string> = {
   equity: PUBLIC_INSTRUMENT_TYPE_LABELS.EQUITY,
@@ -27,12 +28,16 @@ const INSTRUMENT_LABELS: Record<PublicInstrumentSlug, string> = {
 export function PublicMarketsFilters({
   activeMarket,
   activeInstrument,
+  activeManagement = "all",
+  showManagementFilter = false,
   entityId,
   entities,
   currentParams,
 }: {
   activeMarket: PublicMarket | "ALL";
   activeInstrument: PublicInstrumentSlug;
+  activeManagement?: PublicManagementSlug;
+  showManagementFilter?: boolean;
   entityId?: string;
   entities: EntityOption[];
   currentParams: SearchParamMap;
@@ -49,6 +54,11 @@ export function PublicMarketsFilters({
     value: slug,
     label: INSTRUMENT_LABELS[slug],
   }));
+  const managementOptions = [
+    { value: "all", label: "All portfolios" },
+    { value: "managed", label: PUBLIC_MANAGEMENT_TYPE_LABELS.managed },
+    { value: "reference", label: PUBLIC_MANAGEMENT_TYPE_LABELS.reference },
+  ];
 
   return (
     <FilterToolbar>
@@ -59,7 +69,7 @@ export function PublicMarketsFilters({
         options={marketOptions}
         pathname={PUBLIC_MARKETS_PATH}
         currentParams={currentParams}
-        preserveParams={["entity", "instrument"]}
+        preserveParams={["entity", "instrument", "management"]}
         triggerClassName="min-w-[11rem]"
       />
       <UrlFilterSelect
@@ -69,16 +79,29 @@ export function PublicMarketsFilters({
         options={instrumentOptions}
         pathname={PUBLIC_MARKETS_PATH}
         currentParams={currentParams}
-        preserveParams={["entity", "market"]}
+        preserveParams={["entity", "market", "management"]}
         omitWhenValue="equity"
         triggerClassName="min-w-[11rem]"
       />
+      {showManagementFilter ? (
+        <UrlFilterSelect
+          label="Portfolio"
+          paramKey="management"
+          value={activeManagement}
+          options={managementOptions}
+          pathname={PUBLIC_MARKETS_PATH}
+          currentParams={currentParams}
+          preserveParams={["entity", "market", "instrument"]}
+          omitWhenValue="all"
+          triggerClassName="min-w-[11rem]"
+        />
+      ) : null}
       <EntityFilterSelect
         entities={entities}
         value={entityId}
         pathname={PUBLIC_MARKETS_PATH}
         currentParams={currentParams}
-        preserveParams={["market", "instrument"]}
+        preserveParams={["market", "instrument", "management"]}
         allowAll={false}
       />
     </FilterToolbar>

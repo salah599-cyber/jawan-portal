@@ -8,6 +8,7 @@ import { MARKET_CONFIG } from "@/lib/public-markets/constants";
 import { MAX_UPLOAD_LABEL, validateUploadFileSize } from "@/lib/upload-limits";
 import { EntitySelect, type EntityOption } from "@/components/platform/entity-select";
 import { DownloadUploadTemplateLink } from "@/components/public-markets/download-upload-template-link";
+import { UploadBrokerImportFields } from "@/components/public-markets/upload-broker-import-fields";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -28,6 +29,7 @@ export function UploadPublicMarketReportsForm({
   const [error, setError] = useState<string | null>(null);
   const [results, setResults] = useState<ImportFileResult[] | null>(null);
   const [entityId, setEntityId] = useState(defaultEntityId ?? entities[0]?.id ?? "");
+  const [brokerAccountId, setBrokerAccountId] = useState("");
   const config = MARKET_CONFIG[market];
 
   function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
@@ -58,7 +60,13 @@ export function UploadPublicMarketReportsForm({
       }
     }
 
+    if (!brokerAccountId) {
+      setError("Select a broker account before importing.");
+      return;
+    }
+
     formData.set("entityId", entityId);
+    formData.set("brokerAccountId", brokerAccountId);
     formData.set("market", market);
 
     startTransition(async () => {
@@ -79,7 +87,7 @@ export function UploadPublicMarketReportsForm({
         }
 
         setResults(body.results ?? []);
-        form.reset();
+        setBrokerAccountId("");
 
         try {
           router.refresh();
@@ -121,11 +129,20 @@ export function UploadPublicMarketReportsForm({
             <EntitySelect
               entities={entities}
               value={entityId}
-              onValueChange={setEntityId}
+              onValueChange={(id) => {
+                setEntityId(id);
+                setBrokerAccountId("");
+              }}
               allowAdd={false}
               placeholder="Select entity"
             />
           </div>
+
+          <UploadBrokerImportFields
+            entityId={entityId}
+            brokerAccountId={brokerAccountId}
+            onBrokerAccountIdChange={setBrokerAccountId}
+          />
 
           <div className="space-y-2">
             <Label htmlFor="broker-files">Brokerage reports</Label>

@@ -6,6 +6,7 @@ import { logAudit } from "@/lib/audit/log";
 import type { PublicMarket } from "@/lib/generated/prisma/client";
 import { getPublicHoldings } from "@/lib/data/public-markets";
 import { importBrokerReportsForEntity } from "@/lib/public-markets/import-reports";
+import { parseImportOptionsFromFormData } from "@/lib/public-markets/import-options";
 import { MARKET_CONFIG, PUBLIC_MARKETS_PATH } from "@/lib/public-markets/constants";
 import type { ImportFileResult, ManualCryptoInput, ManualHoldingInput, ManualOptionInput, ManualStructuredNoteInput } from "@/lib/public-markets/types";
 import { ensurePortfolioAsset, refreshAssetValue } from "@/lib/public-markets/import-reports";
@@ -25,7 +26,14 @@ import {
   buildUploadTemplateBuffer,
   isUploadTemplateMarket,
 } from "@/lib/public-markets/upload-template";
+import {
+  createPublicBrokerAccountRecord,
+  deletePublicBrokerAccountRecord,
+  listPublicBrokerAccountsForEntity,
+  updatePublicBrokerAccountRecord,
+} from "@/lib/public-markets/broker-accounts";
 import { MAX_UPLOAD_BYTES } from "@/lib/upload-limits";
+import { PUBLIC_MANAGEMENT_TYPE_LABELS } from "@/lib/labels";
 
 const PUBLIC_HOLDINGS_EXPORT_HEADERS = [
   "Market",
@@ -53,6 +61,8 @@ const PUBLIC_HOLDINGS_EXPORT_HEADERS = [
   "Currency",
   "Broker",
   "Account",
+  "Broker Account",
+  "Management Type",
   "Exchange",
   "ISIN",
   "CUSIP",
@@ -142,7 +152,68 @@ export async function importPublicMarketReports(formData: FormData): Promise<Imp
     })),
   );
 
-  return importBrokerReportsForEntity(ctx, entityId, market, reportFiles);
+  return importBrokerReportsForEntity(ctx, entityId, market, reportFiles, parseImportOptionsFromFormData(formData));
+}
+
+export async function listPublicBrokerAccounts(entityId: string) {
+  const ctx = await requireModuleAccess("ASSETS");
+  if (!entityId.trim()) return [];
+  return listPublicBrokerAccountsForEntity(ctx, entityId.trim());
+}
+
+export async function createPublicBrokerAccount(formData: FormData) {
+  const ctx = await requireModuleAccess("ASSETS");
+  if (!canWrite(ctx, "ASSETS")) {
+    throw new Error("You do not have permission to manage broker accounts.");
+  }
+
+  const entityId = String(formData.get("entityId") ?? "").trim();
+  const broker = String(formData.get("broker") ?? "").trim();
+  const accountNumber = String(formData.get("accountNumber") ?? "").trim();
+  const label = String(formData.get("label") ?? "").trim();
+  const isManaged = String(formData.get("isManaged") ?? "true") !== "false";
+
+  await createPublicBrokerAccountRecord(ctx, {
+    entityId,
+    broker,
+    accountNumber: accountNumber || undefined,
+    label: label || undefined,
+    isManaged,
+  });
+
+  revalidatePath(PUBLIC_MARKETS_PATH);
+}
+
+export async function updatePublicBrokerAccount(formData: FormData) {
+  const ctx = await requireModuleAccess("ASSETS");
+  if (!canWrite(ctx, "ASSETS")) {
+    throw new Error("You do not have permission to manage broker accounts.");
+  }
+
+  const accountId = String(formData.get("accountId") ?? "").trim();
+  const broker = String(formData.get("broker") ?? "").trim();
+  const accountNumber = String(formData.get("accountNumber") ?? "").trim();
+  const label = String(formData.get("label") ?? "").trim();
+  const isManaged = String(formData.get("isManaged") ?? "true") !== "false";
+
+  await updatePublicBrokerAccountRecord(ctx, accountId, {
+    broker,
+    accountNumber,
+    label: label || undefined,
+    isManaged,
+  });
+
+  revalidatePath(PUBLIC_MARKETS_PATH);
+}
+
+export async function deletePublicBrokerAccount(accountId: string) {
+  const ctx = await requireModuleAccess("ASSETS");
+  if (!canWrite(ctx, "ASSETS")) {
+    throw new Error("You do not have permission to manage broker accounts.");
+  }
+
+  await deletePublicBrokerAccountRecord(ctx, accountId);
+  revalidatePath(PUBLIC_MARKETS_PATH);
 }
 
 export async function deletePublicHolding(holdingId: string) {
@@ -983,6 +1054,10 @@ export async function exportPublicHoldings(
     Currency: holding.currency,
     Broker: holding.broker ?? "",
     Account: holding.accountNumber ?? "",
+    "Broker Account": holding.brokerAccountLabel ?? "",
+    "Management Type": holding.isManaged
+      ? PUBLIC_MANAGEMENT_TYPE_LABELS.managed
+      : PUBLIC_MANAGEMENT_TYPE_LABELS.reference,
     Exchange: holding.exchange ?? "",
     ISIN: holding.isin ?? "",
     CUSIP: holding.cusip ?? "",

@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
-import { importBrokerReportsForEntity } from "@/lib/msx/import-reports";
-import type { BrokerReportFile } from "@/lib/msx/types";
+import { importBrokerReportsForEntity } from "@/lib/public-markets/import-reports";
+import { parseImportOptionsFromFormData } from "@/lib/public-markets/import-options";
+import type { BrokerReportFile } from "@/lib/public-markets/types";
 import { canWrite, getCurrentUserContext } from "@/lib/permissions/access";
 import { MAX_UPLOAD_BYTES } from "@/lib/upload-limits";
 
@@ -66,7 +67,13 @@ export async function POST(request: Request): Promise<NextResponse> {
       })),
     );
 
-    const results = await importBrokerReportsForEntity(ctx, entityId, reportFiles);
+    const results = await importBrokerReportsForEntity(
+      ctx,
+      entityId,
+      "MSX",
+      reportFiles,
+      parseImportOptionsFromFormData(formData),
+    );
     return NextResponse.json({ results });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Failed to import reports.";
