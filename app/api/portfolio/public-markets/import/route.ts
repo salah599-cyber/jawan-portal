@@ -43,9 +43,14 @@ export async function POST(request: Request): Promise<NextResponse> {
 
   const entityId = String(formData.get("entityId") ?? "").trim();
   const market = parseMarket(String(formData.get("market") ?? "MSX"));
+  const managedPortfolioId = String(formData.get("managedPortfolioId") ?? "").trim() || null;
 
   if (!entityId) {
     return NextResponse.json({ error: "Entity is required." }, { status: 400 });
+  }
+
+  if (!managedPortfolioId) {
+    return NextResponse.json({ error: "Managed portfolio is required." }, { status: 400 });
   }
 
   if (ctx.entityIds.length > 0 && !ctx.entityIds.includes(entityId)) {
@@ -84,6 +89,7 @@ export async function POST(request: Request): Promise<NextResponse> {
       ctx,
       entityId,
       market,
+      managedPortfolioId,
       reportFiles,
       overlapResolution,
     );

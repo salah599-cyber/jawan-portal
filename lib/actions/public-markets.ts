@@ -114,9 +114,15 @@ export async function importPublicMarketReports(formData: FormData): Promise<Imp
 
   const entityId = String(formData.get("entityId") ?? "").trim();
   const market = parseMarket(String(formData.get("market") ?? "MSX"));
+  const managedPortfolioId = String(formData.get("managedPortfolioId") ?? "").trim();
+  const overlapResolution = String(formData.get("overlapResolution") ?? "").trim() || null;
 
   if (!entityId) {
     throw new Error("Entity is required.");
+  }
+
+  if (!managedPortfolioId) {
+    throw new Error("Managed portfolio is required.");
   }
 
   if (ctx.entityIds.length > 0 && !ctx.entityIds.includes(entityId)) {
@@ -142,7 +148,14 @@ export async function importPublicMarketReports(formData: FormData): Promise<Imp
     })),
   );
 
-  return importBrokerReportsForEntity(ctx, entityId, market, reportFiles);
+  return importBrokerReportsForEntity(
+    ctx,
+    entityId,
+    market,
+    managedPortfolioId,
+    reportFiles,
+    overlapResolution,
+  );
 }
 
 export async function deletePublicHolding(holdingId: string) {
@@ -190,6 +203,9 @@ export async function addManualHolding(formData: FormData) {
 
   const entityId = String(formData.get("entityId") ?? "").trim();
   const market = parseMarket(String(formData.get("market") ?? "MSX"));
+  const managedPortfolioRaw = String(formData.get("managedPortfolioId") ?? "").trim();
+  const managedPortfolioId =
+    managedPortfolioRaw && managedPortfolioRaw !== "private" ? managedPortfolioRaw : null;
   const input: ManualHoldingInput = {
     symbol: String(formData.get("symbol") ?? "").trim().toUpperCase(),
     name: String(formData.get("name") ?? "").trim() || undefined,
@@ -220,6 +236,16 @@ export async function addManualHolding(formData: FormData) {
   await ensurePublicMarketsSchema();
   const config = MARKET_CONFIG[market];
   const asset = await ensurePortfolioAsset(entityId, market);
+
+  if (managedPortfolioId) {
+    const portfolio = await db.managedPortfolio.findFirst({
+      where: { id: managedPortfolioId, entityId, status: { in: ["ACTIVE", "MONITOR"] } },
+    });
+    if (!portfolio) {
+      throw new Error("Managed portfolio not found for this entity.");
+    }
+  }
+
   const { decimals } = normalizeAndFormatHoldingValues(
     {
       quantity: input.quantity,
@@ -233,6 +259,7 @@ export async function addManualHolding(formData: FormData) {
   const holding = await db.publicEquityHolding.create({
     data: {
       assetId: asset.id,
+      managedPortfolioId,
       market,
       symbol: input.symbol,
       name: input.name,
@@ -242,7 +269,7 @@ export async function addManualHolding(formData: FormData) {
       marketValue: decimals.marketValue,
       unrealisedPnl: decimals.unrealisedPnl,
       priceSource: input.marketPrice != null ? "MANUAL" : undefined,
-      broker: input.broker ?? "Manual Entry",
+      broker: input.broker ?? (managedPortfolioId ? "Manual Entry" : "Private holdings"),
       accountNumber: input.accountNumber,
       exchange: input.exchange ?? config.exchange,
       isin: input.isin,

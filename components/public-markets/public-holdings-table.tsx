@@ -43,12 +43,14 @@ export function PublicHoldingsTable({
   holdings,
   canEdit,
   showMarket = false,
+  showPortfolio = false,
   showOmr = false,
   instrumentType = "EQUITY",
 }: {
   holdings: PublicHoldingRow[];
   canEdit: boolean;
   showMarket?: boolean;
+  showPortfolio?: boolean;
   showOmr?: boolean;
   instrumentType?: PublicInstrumentType | null;
 }) {
@@ -264,6 +266,7 @@ export function PublicHoldingsTable({
       <TableHeader>
         <TableRow>
           {showMarket ? <TableHead>Market</TableHead> : null}
+          {showPortfolio ? <TableHead>Portfolio</TableHead> : null}
           <TableHead>Symbol</TableHead>
           <TableHead>Security</TableHead>
           <TableHead>Source</TableHead>
@@ -285,6 +288,11 @@ export function PublicHoldingsTable({
             {showMarket ? (
               <TableCell>
                 <Badge variant="outline">{holding.marketLabel}</Badge>
+              </TableCell>
+            ) : null}
+            {showPortfolio ? (
+              <TableCell className="max-w-[12rem] truncate" title={holding.managedPortfolioLabel}>
+                {holding.managedPortfolioLabel}
               </TableCell>
             ) : null}
             <TableCell className="font-medium">

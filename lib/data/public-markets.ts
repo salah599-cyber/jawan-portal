@@ -34,6 +34,9 @@ export type PublicHoldingRow = {
   sedol: string | null;
   country: string | null;
   source: string;
+  managedPortfolioId: string | null;
+  managedPortfolioName: string | null;
+  managedPortfolioLabel: string;
   currency: string;
   asOfDate: Date | null;
   priceFetchedAt: Date | null;
@@ -143,6 +146,11 @@ export async function findPortfolioAsset(entityId: string, market: PublicMarket)
 async function mapHoldingRow(
   holding: Awaited<ReturnType<typeof db.publicEquityHolding.findMany>>[number] & {
     asset: { entityId: string; entity: { name: string } };
+    managedPortfolio?: {
+      id: string;
+      name: string;
+      managerName: string;
+    } | null;
     optionDetail?: {
       underlyingSymbol: string;
       optionType: PublicOptionType;
@@ -200,6 +208,11 @@ async function mapHoldingRow(
     sedol: holding.sedol,
     country: holding.country,
     source: holding.source,
+    managedPortfolioId: holding.managedPortfolioId ?? null,
+    managedPortfolioName: holding.managedPortfolio?.name ?? null,
+    managedPortfolioLabel: holding.managedPortfolio
+      ? `${holding.managedPortfolio.managerName} — ${holding.managedPortfolio.name}`
+      : "Private holdings",
     currency: holding.currency,
     asOfDate: holding.asOfDate,
     priceFetchedAt: holding.priceFetchedAt ?? null,
@@ -254,11 +267,12 @@ export async function getPublicHoldings(
     entityId?: string;
     market?: PublicMarket | null;
     instrumentType?: PublicInstrumentType | null;
+    managedPortfolioId?: string | null | "private";
   } = {},
 ): Promise<PublicHoldingRow[]> {
   await ensurePublicMarketsDataLayerReady();
   const entityFilter = assetEntityFilter(ctx);
-  const { entityId, market, instrumentType } = options;
+  const { entityId, market, instrumentType, managedPortfolioId } = options;
   const assetMarket = resolveHoldingsAssetMarket(market, instrumentType);
 
   const assets = await db.asset.findMany({
@@ -275,9 +289,17 @@ export async function getPublicHoldings(
 
   if (assets.length === 0) return [];
 
+  const portfolioFilter =
+    managedPortfolioId === "private"
+      ? { managedPortfolioId: null }
+      : managedPortfolioId
+        ? { managedPortfolioId }
+        : {};
+
   const holdings = await db.publicEquityHolding.findMany({
     where: {
       assetId: { in: assets.map((asset) => asset.id) },
+      ...portfolioFilter,
       ...(instrumentType === "STRUCTURED_NOTE" || instrumentType === "CRYPTO"
         ? {}
         : market
@@ -286,6 +308,9 @@ export async function getPublicHoldings(
       ...(instrumentType ? { instrumentType } : {}),
     },
     include: {
+      managedPortfolio: {
+        select: { id: true, name: true, managerName: true },
+      },
       optionDetail: true,
       structuredNoteDetail: true,
       cryptoDetail: true,
@@ -296,7 +321,12 @@ export async function getPublicHoldings(
         },
       },
     },
-    orderBy: [{ market: "asc" }, { broker: "asc" }, { symbol: "asc" }],
+    orderBy: [
+      { managedPortfolioId: "asc" },
+      { market: "asc" },
+      { broker: "asc" },
+      { symbol: "asc" },
+    ],
   });
 
   return Promise.all(holdings.map(mapHoldingRow));
@@ -304,10 +334,14 @@ export async function getPublicHoldings(
 
 export async function getPublicImportBatches(
   ctx: UserContext,
-  options: { market?: PublicMarket | null; limit?: number } = {},
+  options: {
+    market?: PublicMarket | null;
+    managedPortfolioId?: string | null;
+    limit?: number;
+  } = {},
 ): Promise<PublicImportBatchRow[]> {
   await ensurePublicMarketsDataLayerReady();
-  const { market, limit = 15 } = options;
+  const { market, managedPortfolioId, limit = 15 } = options;
   const entityFilter = assetEntityFilter(ctx);
 
   const assets = await db.asset.findMany({
@@ -325,6 +359,7 @@ export async function getPublicImportBatches(
 
   const batches = await db.importBatch.findMany({
     where: {
+      ...(managedPortfolioId ? { managedPortfolioId } : {}),
       holdings: {
         some: {
           assetId: { in: assets.map((asset) => asset.id) },

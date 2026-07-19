@@ -1,21 +1,31 @@
 import type { PublicMarket } from "@/lib/generated/prisma/client";
 
 export type HoldingSymbolKey = {
+  managedPortfolioId?: string | null;
   market: PublicMarket;
   symbol: string;
 };
 
-export function holdingSymbolKey(market: PublicMarket, symbol: string): string {
-  return `${market}:${symbol.toUpperCase()}`;
+export function holdingSymbolKey({
+  managedPortfolioId,
+  market,
+  symbol,
+}: HoldingSymbolKey): string {
+  const portfolioKey = managedPortfolioId ?? "private";
+  return `${portfolioKey}:${market}:${symbol.toUpperCase()}`;
 }
 
 export function findDuplicateSymbolKeys(
-  holdings: Array<{ market: PublicMarket; symbol: string }>,
+  holdings: Array<{
+    managedPortfolioId?: string | null;
+    market: PublicMarket;
+    symbol: string;
+  }>,
 ): Set<string> {
   const counts = new Map<string, number>();
 
   for (const holding of holdings) {
-    const key = holdingSymbolKey(holding.market, holding.symbol);
+    const key = holdingSymbolKey(holding);
     counts.set(key, (counts.get(key) ?? 0) + 1);
   }
 
@@ -25,8 +35,12 @@ export function findDuplicateSymbolKeys(
 }
 
 export function isDuplicateHolding(
-  holding: { market: PublicMarket; symbol: string },
+  holding: {
+    managedPortfolioId?: string | null;
+    market: PublicMarket;
+    symbol: string;
+  },
   duplicateKeys: Set<string>,
 ): boolean {
-  return duplicateKeys.has(holdingSymbolKey(holding.market, holding.symbol));
+  return duplicateKeys.has(holdingSymbolKey(holding));
 }

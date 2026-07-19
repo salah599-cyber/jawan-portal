@@ -40,9 +40,10 @@ function toNumber(value: { toString(): string } | number | null | undefined): nu
   return Number.isNaN(num) ? null : num;
 }
 
-async function getManualEquityHoldings(
+export async function getManualEquityHoldings(
   entityId: string,
   market: PublicMarket,
+  managedPortfolioId: string,
 ): Promise<ManualEquitySnapshot[]> {
   const asset = await findPortfolioAsset(entityId, market);
   if (!asset) return [];
@@ -51,6 +52,7 @@ async function getManualEquityHoldings(
     where: {
       assetId: asset.id,
       market,
+      managedPortfolioId,
       source: "MANUAL",
       instrumentType: "EQUITY",
     },
@@ -81,6 +83,7 @@ async function getManualEquityHoldings(
 async function getExistingImportCounts(
   entityId: string,
   market: PublicMarket,
+  managedPortfolioId: string,
   scopes: Array<{ broker: string; accountNumber?: string }>,
 ): Promise<ImportPreviewReplaceScope[]> {
   const asset = await findPortfolioAsset(entityId, market);
@@ -99,6 +102,7 @@ async function getExistingImportCounts(
       where: {
         assetId: asset.id,
         market,
+        managedPortfolioId,
         broker: scope.broker,
         source: "IMPORT",
         ...(scope.accountNumber ? { accountNumber: scope.accountNumber } : {}),
@@ -118,11 +122,20 @@ async function getExistingImportCounts(
 export async function previewImportForEntity(
   entityId: string,
   market: PublicMarket,
+  managedPortfolioId: string,
   files: BrokerReportFile[],
 ): Promise<ImportPreviewResult> {
   await ensurePublicMarketsSchema();
 
-  const manualHoldings = await getManualEquityHoldings(entityId, market);
+  const portfolio = await db.managedPortfolio.findFirst({
+    where: { id: managedPortfolioId, entityId, status: { in: ["ACTIVE", "MONITOR"] } },
+  });
+
+  if (!portfolio) {
+    throw new Error("Managed portfolio not found for this entity.");
+  }
+
+  const manualHoldings = await getManualEquityHoldings(entityId, market, managedPortfolioId);
   const manualBySymbol = groupManualEquityHoldings(manualHoldings);
   const manualSymbols = new Set(manualBySymbol.keys());
   const fileResults: ImportPreviewFileResult[] = [];
@@ -183,6 +196,7 @@ export async function previewImportForEntity(
   const replaceScopes = await getExistingImportCounts(
     entityId,
     market,
+    managedPortfolioId,
     [...replaceScopeKeys.values()],
   );
 
@@ -195,5 +209,3 @@ export async function previewImportForEntity(
     replaceScopes,
   };
 }
-
-export { getManualEquityHoldings };

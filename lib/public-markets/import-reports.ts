@@ -80,6 +80,7 @@ export async function refreshAssetValue(assetId: string) {
 async function importSingleReport(
   assetId: string,
   market: PublicMarket,
+  managedPortfolioId: string,
   userEmail: string,
   file: BrokerReportFile,
   manualBySymbol: Map<string, ManualEquitySnapshot[]>,
@@ -111,6 +112,7 @@ async function importSingleReport(
       await db.publicEquityHolding.deleteMany({
         where: {
           assetId,
+          managedPortfolioId,
           id: { in: resolution.manualIdsToDelete },
         },
       });
@@ -126,6 +128,7 @@ async function importSingleReport(
         accountNumber: parsed.accountNumber,
         asOfDate: parsed.asOfDate,
         parserId: parsed.parserId,
+        managedPortfolioId,
       },
     });
 
@@ -133,6 +136,7 @@ async function importSingleReport(
       where: {
         assetId,
         market,
+        managedPortfolioId,
         broker: parsed.broker,
         source: "IMPORT",
         ...(parsed.accountNumber ? { accountNumber: parsed.accountNumber } : {}),
@@ -152,6 +156,7 @@ async function importSingleReport(
 
           return {
             assetId,
+            managedPortfolioId,
             market,
             symbol: holding.symbol,
             name: holding.name,
@@ -207,13 +212,23 @@ export async function importBrokerReportsForEntity(
   ctx: UserContext,
   entityId: string,
   market: PublicMarket,
+  managedPortfolioId: string,
   files: BrokerReportFile[],
   overlapResolutionInput?: string | null,
 ): Promise<ImportFileResult[]> {
   await ensurePublicMarketsSchema();
+
+  const portfolio = await db.managedPortfolio.findFirst({
+    where: { id: managedPortfolioId, entityId, status: { in: ["ACTIVE", "MONITOR"] } },
+  });
+
+  if (!portfolio) {
+    throw new Error("Managed portfolio not found for this entity.");
+  }
+
   const asset = await ensurePortfolioAsset(entityId, market);
   const overlapResolution = parseOverlapResolution(overlapResolutionInput);
-  const manualHoldings = await getManualEquityHoldings(entityId, market);
+  const manualHoldings = await getManualEquityHoldings(entityId, market, managedPortfolioId);
   const manualBySymbol = groupManualEquityHoldings(manualHoldings);
 
   const results: ImportFileResult[] = [];
@@ -222,6 +237,7 @@ export async function importBrokerReportsForEntity(
       await importSingleReport(
         asset.id,
         market,
+        managedPortfolioId,
         ctx.email,
         file,
         manualBySymbol,
@@ -251,6 +267,7 @@ export async function importBrokerReportsForEntity(
       metadata: {
         entityId,
         market,
+        managedPortfolioId,
         fileCount: files.length,
         holdingsImported: importedCount,
         overlapResolution,

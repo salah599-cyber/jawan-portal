@@ -11,6 +11,10 @@ import {
   PUBLIC_INSTRUMENTS_SCHEMA_COLUMN_CHECK_SQL,
   PUBLIC_INSTRUMENTS_SCHEMA_STATEMENTS,
 } from "@/lib/db/public-markets-instruments-schema-statements";
+import {
+  MANAGED_PORTFOLIO_SCHEMA_COLUMN_CHECK_SQL,
+  MANAGED_PORTFOLIO_SCHEMA_STATEMENTS,
+} from "@/lib/db/managed-portfolio-schema-statements";
 
 let ensurePromise: Promise<void> | null = null;
 
@@ -44,6 +48,11 @@ async function runStatements(client: Client, statements: string[]) {
       throw new Error(`Public markets schema statement failed: ${message}`);
     }
   }
+}
+
+async function managedPortfolioColumnExists(client: Client): Promise<boolean> {
+  const result = await client.query(MANAGED_PORTFOLIO_SCHEMA_COLUMN_CHECK_SQL);
+  return Boolean(result.rows[0]?.exists);
 }
 
 async function applyPublicMarketsSchema() {
@@ -80,6 +89,16 @@ async function applyPublicMarketsSchema() {
 
     await runStatements(client, PUBLIC_INSTRUMENTS_ENUM_EXPANSION_STATEMENTS);
     await runStatements(client, PUBLIC_CRYPTO_DETAIL_SCHEMA_STATEMENTS);
+
+    if (!(await managedPortfolioColumnExists(client))) {
+      await runStatements(client, MANAGED_PORTFOLIO_SCHEMA_STATEMENTS);
+
+      if (!(await managedPortfolioColumnExists(client))) {
+        throw new Error(
+          "Managed portfolio schema sync finished but PublicEquityHolding.managedPortfolioId is still missing.",
+        );
+      }
+    }
   } finally {
     await client.end();
   }

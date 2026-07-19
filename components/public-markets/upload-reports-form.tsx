@@ -9,8 +9,10 @@ import { formatManualOverlapWarning } from "@/lib/public-markets/import-warnings
 import type { OverlapResolutionStrategy } from "@/lib/public-markets/overlap-resolution";
 import { MARKET_CONFIG } from "@/lib/public-markets/constants";
 import { MAX_UPLOAD_LABEL, validateUploadFileSize } from "@/lib/upload-limits";
+import type { ManagedPortfolioRow } from "@/lib/data/managed-portfolios";
 import { EntitySelect, type EntityOption } from "@/components/platform/entity-select";
 import { DownloadUploadTemplateLink } from "@/components/public-markets/download-upload-template-link";
+import { ManagedPortfolioSelect } from "@/components/public-markets/managed-portfolio-select";
 import { ImportOverlapResolutionDialog } from "@/components/public-markets/import-overlap-resolution-dialog";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -22,10 +24,12 @@ export function UploadPublicMarketReportsForm({
   entities,
   defaultEntityId,
   market,
+  portfolios,
 }: {
   entities: EntityOption[];
   defaultEntityId?: string;
   market: PublicMarket;
+  portfolios: ManagedPortfolioRow[];
 }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
@@ -34,6 +38,7 @@ export function UploadPublicMarketReportsForm({
   const [results, setResults] = useState<ImportFileResult[] | null>(null);
   const [preview, setPreview] = useState<ImportPreviewResult | null>(null);
   const [entityId, setEntityId] = useState(defaultEntityId ?? entities[0]?.id ?? "");
+  const [managedPortfolioId, setManagedPortfolioId] = useState(portfolios[0]?.id ?? "");
   const [overlapDialogOpen, setOverlapDialogOpen] = useState(false);
   const [overlapStrategy, setOverlapStrategy] = useState<OverlapResolutionStrategy>("keep_manual");
   const [pendingFormData, setPendingFormData] = useState<FormData | null>(null);
@@ -41,7 +46,7 @@ export function UploadPublicMarketReportsForm({
   const config = MARKET_CONFIG[market];
 
   async function runPreview(files: FileList | null) {
-    if (!files || files.length === 0 || !entityId) {
+    if (!files || files.length === 0 || !entityId || !managedPortfolioId) {
       setPreview(null);
       return;
     }
@@ -61,6 +66,7 @@ export function UploadPublicMarketReportsForm({
       const formData = new FormData();
       formData.set("entityId", entityId);
       formData.set("market", market);
+      formData.set("managedPortfolioId", managedPortfolioId);
       for (const file of Array.from(files)) {
         formData.append("files", file);
       }
@@ -96,7 +102,13 @@ export function UploadPublicMarketReportsForm({
 
   useEffect(() => {
     setPreview(null);
-  }, [entityId, market]);
+  }, [entityId, market, managedPortfolioId]);
+
+  useEffect(() => {
+    if (!managedPortfolioId && portfolios[0]) {
+      setManagedPortfolioId(portfolios[0].id);
+    }
+  }, [managedPortfolioId, portfolios]);
 
   async function submitImport(formData: FormData, overlapResolution?: OverlapResolutionStrategy) {
     if (overlapResolution) {
@@ -178,8 +190,14 @@ export function UploadPublicMarketReportsForm({
       }
     }
 
+    if (!managedPortfolioId) {
+      setError("Select the managed portfolio to import into.");
+      return;
+    }
+
     formData.set("entityId", entityId);
     formData.set("market", market);
+    formData.set("managedPortfolioId", managedPortfolioId);
 
     if (preview && preview.manualOverlapDetails.length > 0) {
       setPendingFormData(formData);
@@ -206,11 +224,10 @@ export function UploadPublicMarketReportsForm({
             <Upload className="h-5 w-5" />
             Import Brokerage Reports
           </CardTitle>
-          <CardDescription>
-            Upload managed portfolio reports for {config.label}. Re-uploading the same broker and
-            account replaces prior imported holdings. Manual entries are only changed when you choose
-            to replace or merge overlaps.
-          </CardDescription>
+        <CardDescription>
+          Upload reports into a specific managed portfolio for {config.label}. Re-uploading the
+          same broker and account replaces prior imported holdings in that portfolio only.
+        </CardDescription>
         </CardHeader>
         <CardContent>
           <form id="public-market-import-form" onSubmit={handleSubmit} className="grid gap-4">
@@ -224,6 +241,22 @@ export function UploadPublicMarketReportsForm({
                 placeholder="Select entity"
               />
             </div>
+
+            <ManagedPortfolioSelect
+              portfolios={portfolios}
+              value={managedPortfolioId}
+              onValueChange={setManagedPortfolioId}
+              allowPrivate={false}
+              required
+              label="Managed portfolio"
+              placeholder="Select managed portfolio"
+            />
+
+            {portfolios.length === 0 ? (
+              <p className="text-sm text-amber-700">
+                Create a managed portfolio above before importing manager reports.
+              </p>
+            ) : null}
 
             <div className="space-y-2">
               <Label htmlFor="broker-files">Brokerage reports</Label>
@@ -338,7 +371,7 @@ export function UploadPublicMarketReportsForm({
             ) : null}
 
             <div>
-              <Button type="submit" disabled={pending || previewPending}>
+              <Button type="submit" disabled={pending || previewPending || portfolios.length === 0}>
                 {pending ? "Parsing reports..." : "Upload & Parse Reports"}
               </Button>
             </div>

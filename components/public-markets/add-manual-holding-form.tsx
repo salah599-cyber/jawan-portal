@@ -4,7 +4,9 @@ import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import type { PublicMarket } from "@/lib/generated/prisma/client";
 import { addManualHolding } from "@/lib/actions/public-markets";
-import { MARKET_CONFIG } from "@/lib/public-markets/constants";
+import type { ManagedPortfolioRow } from "@/lib/data/managed-portfolios";
+import { ManagedPortfolioSelect } from "@/components/public-markets/managed-portfolio-select";
+import { MARKET_CONFIG, PRIVATE_PORTFOLIO_SLUG } from "@/lib/public-markets/constants";
 import { normalizeHoldingValues } from "@/lib/public-markets/valuation";
 import { EntitySelect, type EntityOption } from "@/components/platform/entity-select";
 import { Button } from "@/components/ui/button";
@@ -32,16 +34,21 @@ export function AddManualHoldingForm({
   entities,
   defaultEntityId,
   market,
+  portfolios,
+  defaultPortfolioId = PRIVATE_PORTFOLIO_SLUG,
 }: {
   entities: EntityOption[];
   defaultEntityId?: string;
   market: PublicMarket;
+  portfolios: ManagedPortfolioRow[];
+  defaultPortfolioId?: string;
 }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const [entityId, setEntityId] = useState(defaultEntityId ?? entities[0]?.id ?? "");
+  const [managedPortfolioId, setManagedPortfolioId] = useState(defaultPortfolioId);
   const [quantity, setQuantity] = useState<number | null>(null);
   const [marketPrice, setMarketPrice] = useState<number | null>(null);
   const [costBasis, setCostBasis] = useState<number | null>(null);
@@ -69,6 +76,7 @@ export function AddManualHoldingForm({
     const formData = new FormData(form);
     formData.set("entityId", entityId);
     formData.set("market", market);
+    formData.set("managedPortfolioId", managedPortfolioId);
     if (marketValue != null) formData.set("marketValue", String(marketValue));
     if (unrealisedPnl != null) formData.set("unrealisedPnl", String(unrealisedPnl));
 
@@ -97,8 +105,8 @@ export function AddManualHoldingForm({
           Add Holding Manually
         </CardTitle>
         <CardDescription>
-          Enter a position for {config.label} when you do not have a broker statement to import.
-          Market value and unrealised P&L are calculated from price, quantity, and total cost basis.
+          Enter a private position or add a manual correction inside a managed portfolio for{" "}
+          {config.label}.
         </CardDescription>
       </CardHeader>
       <CardContent>
@@ -111,6 +119,15 @@ export function AddManualHoldingForm({
               onValueChange={setEntityId}
               allowAdd={false}
               placeholder="Select entity"
+            />
+          </div>
+
+          <div className="space-y-2 md:col-span-2">
+            <ManagedPortfolioSelect
+              portfolios={portfolios}
+              value={managedPortfolioId}
+              onValueChange={setManagedPortfolioId}
+              label="Holdings bucket"
             />
           </div>
 
