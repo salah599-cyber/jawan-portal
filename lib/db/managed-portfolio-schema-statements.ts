@@ -45,6 +45,32 @@ export const MANAGED_PORTFOLIO_SCHEMA_STATEMENTS = [
   EXCEPTION
     WHEN duplicate_object THEN NULL;
   END $$`,
+  `CREATE TABLE IF NOT EXISTS "ManagedPortfolioValuation" (
+    "id" TEXT NOT NULL,
+    "entityId" TEXT NOT NULL,
+    "managedPortfolioId" TEXT,
+    "valueOmr" DECIMAL(18,2) NOT NULL,
+    "costBasisOmr" DECIMAL(18,2),
+    "valuedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "notes" TEXT,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT "ManagedPortfolioValuation_pkey" PRIMARY KEY ("id")
+  )`,
+  `CREATE INDEX IF NOT EXISTS "ManagedPortfolioValuation_entityId_managedPortfolioId_valuedAt_idx" ON "ManagedPortfolioValuation" ("entityId", "managedPortfolioId", "valuedAt")`,
+  `DO $$ BEGIN
+    ALTER TABLE "ManagedPortfolioValuation"
+      ADD CONSTRAINT "ManagedPortfolioValuation_entityId_fkey"
+      FOREIGN KEY ("entityId") REFERENCES "Entity"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+  EXCEPTION
+    WHEN duplicate_object THEN NULL;
+  END $$`,
+  `DO $$ BEGIN
+    ALTER TABLE "ManagedPortfolioValuation"
+      ADD CONSTRAINT "ManagedPortfolioValuation_managedPortfolioId_fkey"
+      FOREIGN KEY ("managedPortfolioId") REFERENCES "ManagedPortfolio"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+  EXCEPTION
+    WHEN duplicate_object THEN NULL;
+  END $$`,
 ];
 
 export const MANAGED_PORTFOLIO_SCHEMA_COLUMN_CHECK_SQL = `

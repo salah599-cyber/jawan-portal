@@ -13,6 +13,10 @@ import { refreshPublicMarketPrices } from "@/lib/public-markets/refresh-prices";
 import { hasAutomaticPriceRefresh } from "@/lib/public-markets/prices/symbols";
 import { formatOverlapResolutionSummary } from "@/lib/public-markets/import-warnings";
 import { getManualEquityHoldings } from "@/lib/public-markets/import-preview";
+import { normalizeBrokerName } from "@/lib/public-markets/broker-normalize";
+import {
+  snapshotManagedPortfolioValuation,
+} from "@/lib/portfolio/managed-portfolio-valuations";
 import {
   groupManualEquityHoldings,
   parseOverlapResolution,
@@ -88,22 +92,24 @@ async function importSingleReport(
 ): Promise<ImportFileResult> {
   try {
     const parsed = await parseMarketReport(file, market);
+    const broker = normalizeBrokerName(parsed.broker);
+    const parsedWithBroker = { ...parsed, broker };
 
-    if (parsed.holdings.length === 0) {
+    if (parsedWithBroker.holdings.length === 0) {
       return {
         fileName: file.fileName,
-        broker: parsed.broker,
-        accountNumber: parsed.accountNumber,
-        asOfDate: parsed.asOfDate?.toISOString(),
+        broker: parsedWithBroker.broker,
+        accountNumber: parsedWithBroker.accountNumber,
+        asOfDate: parsedWithBroker.asOfDate?.toISOString(),
         holdingsImported: 0,
-        warnings: parsed.warnings,
-        parserId: parsed.parserId,
+        warnings: parsedWithBroker.warnings,
+        parserId: parsedWithBroker.parserId,
         error: "No holdings found in this report.",
       };
     }
 
     const resolution = resolveImportHoldings(
-      parsed.holdings,
+      parsedWithBroker.holdings,
       manualBySymbol,
       overlapResolution,
     );
@@ -124,10 +130,10 @@ async function importSingleReport(
         uploadedBy: userEmail,
         rowCount: resolution.holdings.length,
         market,
-        broker: parsed.broker,
-        accountNumber: parsed.accountNumber,
-        asOfDate: parsed.asOfDate,
-        parserId: parsed.parserId,
+        broker: parsedWithBroker.broker,
+        accountNumber: parsedWithBroker.accountNumber,
+        asOfDate: parsedWithBroker.asOfDate,
+        parserId: parsedWithBroker.parserId,
         managedPortfolioId,
       },
     });
@@ -137,9 +143,9 @@ async function importSingleReport(
         assetId,
         market,
         managedPortfolioId,
-        broker: parsed.broker,
+        broker: parsedWithBroker.broker,
         source: "IMPORT",
-        ...(parsed.accountNumber ? { accountNumber: parsed.accountNumber } : {}),
+        ...(parsedWithBroker.accountNumber ? { accountNumber: parsedWithBroker.accountNumber } : {}),
       },
     });
 
@@ -166,8 +172,8 @@ async function importSingleReport(
             marketValue: decimals.marketValue,
             unrealisedPnl: decimals.unrealisedPnl,
             priceSource: "BROKER",
-            broker: parsed.broker,
-            accountNumber: parsed.accountNumber,
+            broker: parsedWithBroker.broker,
+            accountNumber: parsedWithBroker.accountNumber,
             exchange: holding.exchange,
             isin: holding.isin,
             cusip: holding.cusip,
@@ -175,7 +181,7 @@ async function importSingleReport(
             country: holding.country ?? MARKET_CONFIG[market].country,
             source: "IMPORT",
             currency: holding.currency ?? MARKET_CONFIG[market].currency,
-            asOfDate: parsed.asOfDate,
+            asOfDate: parsedWithBroker.asOfDate,
             importBatchId: batch.id,
           };
         }),
@@ -190,12 +196,12 @@ async function importSingleReport(
 
     return {
       fileName: file.fileName,
-      broker: parsed.broker,
-      accountNumber: parsed.accountNumber,
-      asOfDate: parsed.asOfDate?.toISOString(),
+      broker: parsedWithBroker.broker,
+      accountNumber: parsedWithBroker.accountNumber,
+      asOfDate: parsedWithBroker.asOfDate?.toISOString(),
       holdingsImported: resolution.holdings.length,
-      warnings: [...parsed.warnings, ...resolutionWarnings],
-      parserId: parsed.parserId,
+      warnings: [...parsedWithBroker.warnings, ...resolutionWarnings],
+      parserId: parsedWithBroker.parserId,
     };
   } catch (error) {
     return {
@@ -247,6 +253,9 @@ export async function importBrokerReportsForEntity(
   }
 
   await refreshAssetValue(asset.id);
+
+  await snapshotManagedPortfolioValuation(entityId, managedPortfolioId, "import");
+  await snapshotManagedPortfolioValuation(entityId, null, "import");
 
   if (hasAutomaticPriceRefresh(market)) {
     try {

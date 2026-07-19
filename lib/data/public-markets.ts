@@ -75,6 +75,7 @@ export type PublicImportBatchRow = {
   rowCount: number;
   market: PublicMarket | null;
   marketLabel: string | null;
+  managedPortfolioLabel: string | null;
   broker: string | null;
   accountNumber: string | null;
   asOfDate: Date | null;
@@ -369,6 +370,11 @@ export async function getPublicImportBatches(
     },
     orderBy: { createdAt: "desc" },
     take: limit,
+    include: {
+      managedPortfolio: {
+        select: { managerName: true, name: true },
+      },
+    },
   });
 
   return batches.map((batch) => ({
@@ -378,6 +384,9 @@ export async function getPublicImportBatches(
     rowCount: batch.rowCount,
     market: batch.market,
     marketLabel: batch.market ? MARKET_CONFIG[batch.market].shortLabel : null,
+    managedPortfolioLabel: batch.managedPortfolio
+      ? `${batch.managedPortfolio.managerName} — ${batch.managedPortfolio.name}`
+      : null,
     broker: batch.broker,
     accountNumber: batch.accountNumber,
     asOfDate: batch.asOfDate,

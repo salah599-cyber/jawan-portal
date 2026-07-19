@@ -3,6 +3,8 @@ import type { PublicMarket } from "@/lib/generated/prisma/client";
 import { ensurePublicMarketsSchema } from "@/lib/db/ensure-public-markets-schema";
 import { convertToOmr } from "@/lib/public-markets/fx";
 import { normalizeHoldingValues } from "@/lib/public-markets/valuation";
+import { getManagedPortfolioValueAtDate } from "@/lib/portfolio/managed-portfolio-valuations";
+import { PRIVATE_PORTFOLIO_SLUG } from "@/lib/public-markets/constants";
 import { assetEntityFilter } from "@/lib/permissions/scoped-queries";
 import type { UserContext } from "@/lib/permissions/types";
 
@@ -24,12 +26,15 @@ export type ManagedPortfolioRow = {
 
 export type ManagedPortfolioSummary = {
   id: string | null;
+  portfolioSlug: string;
   label: string;
   managerName: string | null;
   holdingCount: number;
   totalMarketValueOmr: number;
   totalCostBasisOmr: number;
   totalUnrealisedPnlOmr: number;
+  unrealisedReturnPct: number | null;
+  periodReturnPct: number | null;
   lastUpdated: Date | null;
 };
 
@@ -197,15 +202,46 @@ export async function summarizePrivateHoldings(
     }
   }
 
-  return {
+  return enrichSummaryMetrics(entityId, {
     id: null,
+    portfolioSlug: PRIVATE_PORTFOLIO_SLUG,
     label: "Private holdings",
     managerName: null,
     holdingCount: holdings.length,
     totalMarketValueOmr,
     totalCostBasisOmr,
     totalUnrealisedPnlOmr,
+    unrealisedReturnPct: null,
+    periodReturnPct: null,
     lastUpdated,
+  });
+}
+
+async function enrichSummaryMetrics(
+  entityId: string,
+  summary: ManagedPortfolioSummary,
+): Promise<ManagedPortfolioSummary> {
+  const unrealisedReturnPct =
+    summary.totalCostBasisOmr > 0
+      ? (summary.totalUnrealisedPnlOmr / summary.totalCostBasisOmr) * 100
+      : null;
+
+  const monthAgo = new Date();
+  monthAgo.setMonth(monthAgo.getMonth() - 1);
+  const baseline = await getManagedPortfolioValueAtDate(
+    entityId,
+    summary.id,
+    monthAgo,
+  );
+  const periodReturnPct =
+    baseline != null && baseline > 0
+      ? ((summary.totalMarketValueOmr - baseline) / baseline) * 100
+      : null;
+
+  return {
+    ...summary,
+    unrealisedReturnPct,
+    periodReturnPct,
   };
 }
 
@@ -264,17 +300,24 @@ export async function getManagedPortfolioSummaries(
 
     if (holdings.length === 0) continue;
 
-    managedSummaries.push({
-      id: portfolio.id,
-      label: portfolio.name,
-      managerName: portfolio.managerName,
-      holdingCount: holdings.length,
-      totalMarketValueOmr,
-      totalCostBasisOmr,
-      totalUnrealisedPnlOmr,
-      lastUpdated,
-    });
+    managedSummaries.push(
+      await enrichSummaryMetrics(entityId, {
+        id: portfolio.id,
+        portfolioSlug: portfolio.id,
+        label: portfolio.name,
+        managerName: portfolio.managerName,
+        holdingCount: holdings.length,
+        totalMarketValueOmr,
+        totalCostBasisOmr,
+        totalUnrealisedPnlOmr,
+        unrealisedReturnPct: null,
+        periodReturnPct: null,
+        lastUpdated,
+      }),
+    );
   }
 
-  return [privateSummary, ...managedSummaries].filter((summary) => summary.holdingCount > 0);
+  const privateEnriched = await privateSummary;
+
+  return [privateEnriched, ...managedSummaries].filter((summary) => summary.holdingCount > 0);
 }

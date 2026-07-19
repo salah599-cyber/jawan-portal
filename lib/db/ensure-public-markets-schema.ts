@@ -15,6 +15,10 @@ import {
   MANAGED_PORTFOLIO_SCHEMA_COLUMN_CHECK_SQL,
   MANAGED_PORTFOLIO_SCHEMA_STATEMENTS,
 } from "@/lib/db/managed-portfolio-schema-statements";
+import {
+  backfillLegacyManagedPortfolios,
+  normalizeImportedBrokerNames,
+} from "@/lib/public-markets/backfill-managed-portfolios";
 
 let ensurePromise: Promise<void> | null = null;
 
@@ -99,9 +103,13 @@ async function applyPublicMarketsSchema() {
         );
       }
     }
+
   } finally {
     await client.end();
   }
+
+  await normalizeImportedBrokerNames();
+  await backfillLegacyManagedPortfolios();
 }
 
 export function ensurePublicMarketsSchema() {

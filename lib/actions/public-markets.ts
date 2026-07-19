@@ -8,7 +8,9 @@ import { getPublicHoldings } from "@/lib/data/public-markets";
 import { importBrokerReportsForEntity } from "@/lib/public-markets/import-reports";
 import { MARKET_CONFIG, PUBLIC_MARKETS_PATH } from "@/lib/public-markets/constants";
 import type { ImportFileResult, ManualCryptoInput, ManualHoldingInput, ManualOptionInput, ManualStructuredNoteInput } from "@/lib/public-markets/types";
+import { findDuplicateManualEquity } from "@/lib/public-markets/holding-guards";
 import { ensurePortfolioAsset, refreshAssetValue } from "@/lib/public-markets/import-reports";
+import { snapshotManagedPortfolioValuation } from "@/lib/portfolio/managed-portfolio-valuations";
 import { ensurePublicMarketsSchema } from "@/lib/db/ensure-public-markets-schema";
 import { refreshPublicMarketPrices as runPriceRefresh, refreshCryptoPrices as runCryptoPriceRefresh } from "@/lib/public-markets/refresh-prices";
 import {
@@ -30,6 +32,7 @@ import { MAX_UPLOAD_BYTES } from "@/lib/upload-limits";
 const PUBLIC_HOLDINGS_EXPORT_HEADERS = [
   "Market",
   "Entity",
+  "Portfolio",
   "Instrument Type",
   "Symbol",
   "Name",
@@ -246,6 +249,19 @@ export async function addManualHolding(formData: FormData) {
     }
   }
 
+  const duplicate = await findDuplicateManualEquity(
+    entityId,
+    market,
+    input.symbol,
+    managedPortfolioId,
+  );
+  if (duplicate) {
+    const bucket = managedPortfolioId ? "this portfolio" : "private holdings";
+    throw new Error(
+      `${input.symbol} already exists in ${bucket}. Edit the existing row or choose a different portfolio.`,
+    );
+  }
+
   const { decimals } = normalizeAndFormatHoldingValues(
     {
       quantity: input.quantity,
@@ -283,6 +299,7 @@ export async function addManualHolding(formData: FormData) {
     },
   });
 
+  await snapshotManagedPortfolioValuation(entityId, managedPortfolioId, "manual-add");
   await refreshAssetValue(asset.id);
 
   await logAudit({
@@ -976,13 +993,25 @@ export async function exportPublicHoldings(
   await ensurePublicMarketsSchema();
   const entityId = String(formData.get("entityId") ?? "").trim() || undefined;
   const marketParam = String(formData.get("market") ?? "").trim();
+  const portfolioParam = String(formData.get("portfolio") ?? "").trim();
   const market = marketParam && marketParam !== "ALL" ? parseMarket(marketParam) : null;
+  const managedPortfolioId =
+    portfolioParam === "private"
+      ? "private"
+      : portfolioParam && portfolioParam !== "all"
+        ? portfolioParam
+        : undefined;
 
-  const holdings = await getPublicHoldings(ctx, { entityId, market });
+  const holdings = await getPublicHoldings(ctx, {
+    entityId,
+    market,
+    managedPortfolioId,
+  });
 
   const rows = holdings.map((holding) => ({
     Market: holding.marketLabel,
     Entity: holding.entityName,
+    Portfolio: holding.managedPortfolioLabel,
     "Instrument Type": holding.instrumentType,
     Symbol: holding.symbol,
     Name: holding.name ?? "",

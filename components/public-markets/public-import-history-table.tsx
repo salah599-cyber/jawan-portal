@@ -12,9 +12,11 @@ import {
 export function PublicImportHistoryTable({
   batches,
   showMarket = false,
+  showPortfolio = false,
 }: {
   batches: PublicImportBatchRow[];
   showMarket?: boolean;
+  showPortfolio?: boolean;
 }) {
   if (batches.length === 0) {
     return <p className="text-sm text-muted-foreground">No imports yet.</p>;
@@ -26,6 +28,7 @@ export function PublicImportHistoryTable({
         <TableRow>
           <TableHead>File</TableHead>
           {showMarket ? <TableHead>Market</TableHead> : null}
+          {showPortfolio ? <TableHead>Portfolio</TableHead> : null}
           <TableHead>Broker</TableHead>
           <TableHead>Uploaded By</TableHead>
           <TableHead className="text-right">Rows</TableHead>
@@ -38,6 +41,11 @@ export function PublicImportHistoryTable({
           <TableRow key={batch.id}>
             <TableCell className="font-medium">{batch.fileName}</TableCell>
             {showMarket ? <TableCell>{batch.marketLabel ?? "—"}</TableCell> : null}
+            {showPortfolio ? (
+              <TableCell className="max-w-[12rem] truncate" title={batch.managedPortfolioLabel ?? undefined}>
+                {batch.managedPortfolioLabel ?? "—"}
+              </TableCell>
+            ) : null}
             <TableCell>
               <div className="space-y-0.5">
                 <p>{batch.broker ?? "—"}</p>

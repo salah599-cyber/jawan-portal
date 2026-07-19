@@ -154,7 +154,17 @@ export default async function PublicMarketsPage({
           </div>
           <div className="flex flex-wrap items-center gap-2">
             <DownloadPortfolioTemplateButton />
-            <ExportHoldingsButton entityId={entityId} market={activeMarket} />
+            <ExportHoldingsButton
+              entityId={entityId}
+              market={activeMarket}
+              portfolio={
+                portfolioFilter.mode === "private"
+                  ? "private"
+                  : portfolioFilter.mode === "managed"
+                    ? (portfolioFilter.managedPortfolioId ?? undefined)
+                    : undefined
+              }
+            />
             {canEdit && isEquityTab ? (
               <RefreshPricesButton
                 entityId={entityId}
@@ -193,7 +203,11 @@ export default async function PublicMarketsPage({
         />
 
         {isEquityTab && portfolioFilter.mode === "all" && portfolioSummaries.length > 0 ? (
-          <ManagedPortfolioSummaryCards summaries={portfolioSummaries} />
+          <ManagedPortfolioSummaryCards
+            summaries={portfolioSummaries}
+            entityId={entityId}
+            marketSlug={marketSlug}
+          />
         ) : null}
 
         {isAllMarkets ? (
@@ -278,7 +292,11 @@ export default async function PublicMarketsPage({
               </CardDescription>
             </CardHeader>
             <CardContent>
-              <PublicImportHistoryTable batches={importBatches} showMarket={isAllMarkets} />
+              <PublicImportHistoryTable
+                batches={importBatches}
+                showMarket={isAllMarkets}
+                showPortfolio={portfolioFilter.mode === "all"}
+              />
             </CardContent>
           </Card>
         ) : null}

@@ -435,6 +435,7 @@ model Entity {
   successionDistributionInstructions SuccessionDistributionInstruction[]
   directoryContacts     DirectoryContact[]
   managedPortfolios     ManagedPortfolio[]
+  managedPortfolioValuations ManagedPortfolioValuation[]
   userAccess   UserEntityAccess[]
   createdAt    DateTime           @default(now())
   updatedAt    DateTime           @updatedAt
@@ -846,11 +847,27 @@ model ManagedPortfolio {
   status         AssetStatus         @default(ACTIVE)
   holdings       PublicEquityHolding[]
   importBatches  ImportBatch[]
+  valuations     ManagedPortfolioValuation[]
   createdAt      DateTime            @default(now())
   updatedAt      DateTime            @updatedAt
 
   @@index([entityId])
   @@index([entityId, status])
+}
+
+model ManagedPortfolioValuation {
+  id                 String            @id @default(cuid())
+  entityId           String
+  entity             Entity            @relation(fields: [entityId], references: [id], onDelete: Cascade)
+  managedPortfolioId String?
+  managedPortfolio   ManagedPortfolio? @relation(fields: [managedPortfolioId], references: [id], onDelete: Cascade)
+  valueOmr           Decimal           @db.Decimal(18, 2)
+  costBasisOmr       Decimal?          @db.Decimal(18, 2)
+  valuedAt           DateTime          @default(now())
+  notes              String?
+  createdAt          DateTime          @default(now())
+
+  @@index([entityId, managedPortfolioId, valuedAt])
 }
 
 model PublicOptionDetail {

@@ -4,6 +4,7 @@ import { findPortfolioAsset } from "@/lib/data/public-markets";
 import { ensurePublicMarketsSchema } from "@/lib/db/ensure-public-markets-schema";
 import { parseMarketReport } from "@/lib/public-markets/parsers/router";
 import type { BrokerReportFile } from "@/lib/public-markets/types";
+import { normalizeBrokerName } from "@/lib/public-markets/broker-normalize";
 import {
   buildManualOverlapDetails,
   groupManualEquityHoldings,
@@ -146,9 +147,11 @@ export async function previewImportForEntity(
   for (const file of files) {
     try {
       const parsed = await parseMarketReport(file, market);
-      const symbols = parsed.holdings.map((holding) => holding.symbol.toUpperCase());
+      const broker = normalizeBrokerName(parsed.broker);
+      const normalizedParsed = { ...parsed, broker };
+      const symbols = normalizedParsed.holdings.map((holding) => holding.symbol.toUpperCase());
 
-      for (const holding of parsed.holdings) {
+      for (const holding of normalizedParsed.holdings) {
         const symbol = holding.symbol.toUpperCase();
         uploadedSymbols.add(symbol);
 
@@ -159,23 +162,24 @@ export async function previewImportForEntity(
         }
       }
 
-      const scopeKey = `${parsed.broker}::${parsed.accountNumber ?? ""}`;
+      const scopeKey = `${normalizedParsed.broker}::${normalizedParsed.accountNumber ?? ""}`;
       if (!replaceScopeKeys.has(scopeKey)) {
         replaceScopeKeys.set(scopeKey, {
-          broker: parsed.broker,
-          accountNumber: parsed.accountNumber,
+          broker: normalizedParsed.broker,
+          accountNumber: normalizedParsed.accountNumber,
           existingImportCount: 0,
         });
       }
 
       fileResults.push({
         fileName: file.fileName,
-        broker: parsed.broker,
-        accountNumber: parsed.accountNumber,
-        holdingsFound: parsed.holdings.length,
+        broker: normalizedParsed.broker,
+        accountNumber: normalizedParsed.accountNumber,
+        holdingsFound: normalizedParsed.holdings.length,
         symbols,
-        warnings: parsed.warnings,
-        error: parsed.holdings.length === 0 ? "No holdings found in this report." : undefined,
+        warnings: normalizedParsed.warnings,
+        error:
+          normalizedParsed.holdings.length === 0 ? "No holdings found in this report." : undefined,
       });
     } catch (error) {
       fileResults.push({
