@@ -31,14 +31,15 @@ export function ManageManagedPortfoliosCard({
     setError(null);
     setSuccess(null);
 
-    const formData = new FormData(e.currentTarget);
+    const form = e.currentTarget;
+    const formData = new FormData(form);
     formData.set("entityId", entityId);
 
     startTransition(async () => {
       try {
         await createManagedPortfolio(formData);
         setSuccess("Managed portfolio created.");
-        e.currentTarget.reset();
+        form.reset();
         router.refresh();
       } catch (err) {
         setError(err instanceof Error ? err.message : "Failed to create managed portfolio.");
