@@ -1,7 +1,8 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { importBrokerReportsForEntity } from "@/lib/msx/import-reports";
+import { importBrokerReportsForEntity } from "@/lib/public-markets/import-reports";
+import { parseImportOptionsFromFormData } from "@/lib/public-markets/import-options";
 import type { ImportFileResult } from "@/lib/msx/types";
 import { deletePublicHolding } from "@/lib/actions/public-markets";
 import { canWrite, requireModuleAccess } from "@/lib/permissions/access";
@@ -52,7 +53,17 @@ export async function importBrokerReports(formData: FormData): Promise<ImportFil
     })),
   );
 
-  return importBrokerReportsForEntity(ctx, entityId, reportFiles, managedPortfolioId);
+  const overlapResolution = String(formData.get("overlapResolution") ?? "").trim() || null;
+
+  return importBrokerReportsForEntity(
+    ctx,
+    entityId,
+    "MSX",
+    managedPortfolioId,
+    reportFiles,
+    parseImportOptionsFromFormData(formData),
+    overlapResolution,
+  );
 }
 
 export async function deleteMsxHolding(holdingId: string) {

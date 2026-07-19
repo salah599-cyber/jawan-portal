@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
-import { importBrokerReportsForEntity } from "@/lib/msx/import-reports";
-import type { BrokerReportFile } from "@/lib/msx/types";
+import { importBrokerReportsForEntity } from "@/lib/public-markets/import-reports";
+import { parseImportOptionsFromFormData } from "@/lib/public-markets/import-options";
+import type { BrokerReportFile } from "@/lib/public-markets/types";
 import { canWrite, getCurrentUserContext } from "@/lib/permissions/access";
 import { MAX_UPLOAD_BYTES } from "@/lib/upload-limits";
 
@@ -70,11 +71,16 @@ export async function POST(request: Request): Promise<NextResponse> {
       })),
     );
 
+    const overlapResolution = String(formData.get("overlapResolution") ?? "").trim() || null;
+
     const results = await importBrokerReportsForEntity(
       ctx,
       entityId,
-      reportFiles,
+      "MSX",
       managedPortfolioId,
+      reportFiles,
+      parseImportOptionsFromFormData(formData),
+      overlapResolution,
     );
     return NextResponse.json({ results });
   } catch (error) {

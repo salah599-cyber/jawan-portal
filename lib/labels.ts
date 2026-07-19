@@ -392,6 +392,11 @@ export const PUBLIC_HOLDING_SOURCE_LABELS: Record<string, string> = {
   MANUAL: "Manual",
 };
 
+export const PUBLIC_MANAGEMENT_TYPE_LABELS = {
+  managed: "Managed",
+  reference: "Reference",
+} as const;
+
 export const RE_PROPERTY_TYPE_LABELS: Record<string, string> = {
   VILLA: "Villa",
   APARTMENT_BUILDING: "Apartment Building",

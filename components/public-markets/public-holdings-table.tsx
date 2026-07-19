@@ -1,6 +1,6 @@
-import { formatDate, formatMoney } from "@/lib/format";
+﻿import { formatDate, formatMoney } from "@/lib/format";
 import type { PublicHoldingRow } from "@/lib/data/public-markets";
-import { PUBLIC_OPTION_TYPE_LABELS } from "@/lib/labels";
+import { PUBLIC_OPTION_TYPE_LABELS, PUBLIC_MANAGEMENT_TYPE_LABELS } from "@/lib/labels";
 import { DeletePublicHoldingButton } from "@/components/public-markets/delete-holding-button";
 import { EditHoldingDialog } from "@/components/public-markets/edit-holding-dialog";
 import {
@@ -87,17 +87,17 @@ export function PublicHoldingsTable({
                   <Badge variant="outline">{holding.marketLabel}</Badge>
                 </TableCell>
               ) : null}
-              <TableCell className="font-medium">{holding.option?.underlyingSymbol ?? "—"}</TableCell>
+              <TableCell className="font-medium">{holding.option?.underlyingSymbol ?? "ΓÇö"}</TableCell>
               <TableCell>
                 {holding.option
                   ? PUBLIC_OPTION_TYPE_LABELS[holding.option.optionType]
-                  : "—"}
+                  : "ΓÇö"}
               </TableCell>
               <TableCell className="text-right">
-                {holding.option ? formatMoney(holding.option.strikePrice, holding.currency) : "—"}
+                {holding.option ? formatMoney(holding.option.strikePrice, holding.currency) : "ΓÇö"}
               </TableCell>
               <TableCell>
-                {holding.option ? formatDate(holding.option.expiryDate) : "—"}
+                {holding.option ? formatDate(holding.option.expiryDate) : "ΓÇö"}
               </TableCell>
               <TableCell className="text-right">{formatQuantity(holding.quantity)}</TableCell>
               <TableCell className="text-right">
@@ -114,7 +114,7 @@ export function PublicHoldingsTable({
               <TableCell className="text-right">
                 <PnlCell value={holding.unrealisedPnl} currency={holding.currency} />
               </TableCell>
-              <TableCell>{holding.broker ?? "—"}</TableCell>
+              <TableCell>{holding.broker ?? "ΓÇö"}</TableCell>
               {canEdit ? (
                 <TableCell>
                   <div className="flex items-center justify-end gap-1">
@@ -150,20 +150,20 @@ export function PublicHoldingsTable({
         <TableBody>
           {holdings.map((holding) => (
             <TableRow key={holding.id}>
-              <TableCell>{holding.structuredNote?.issuer ?? "—"}</TableCell>
+              <TableCell>{holding.structuredNote?.issuer ?? "ΓÇö"}</TableCell>
               <TableCell className="font-medium">
-                {holding.structuredNote?.productName ?? holding.name ?? "—"}
+                {holding.structuredNote?.productName ?? holding.name ?? "ΓÇö"}
               </TableCell>
               <TableCell className="text-right">
                 {formatMoney(holding.structuredNote?.notionalAmount ?? null, holding.currency)}
               </TableCell>
               <TableCell>
-                {holding.structuredNote ? formatDate(holding.structuredNote.maturityDate) : "—"}
+                {holding.structuredNote ? formatDate(holding.structuredNote.maturityDate) : "ΓÇö"}
               </TableCell>
               <TableCell className="text-right">
                 {holding.structuredNote?.couponRate != null
                   ? `${holding.structuredNote.couponRate}%`
-                  : "—"}
+                  : "ΓÇö"}
               </TableCell>
               <TableCell className="text-right">
                 {formatMoney(holding.marketValue, holding.currency)}
@@ -176,7 +176,7 @@ export function PublicHoldingsTable({
               <TableCell className="text-right">
                 <PnlCell value={holding.unrealisedPnl} currency={holding.currency} />
               </TableCell>
-              <TableCell>{holding.broker ?? "—"}</TableCell>
+              <TableCell>{holding.broker ?? "ΓÇö"}</TableCell>
               {canEdit ? (
                 <TableCell>
                   <div className="flex items-center justify-end gap-1">
@@ -216,8 +216,8 @@ export function PublicHoldingsTable({
               <TableCell className="font-medium">
                 <Badge variant="secondary">{holding.symbol}</Badge>
               </TableCell>
-              <TableCell>{holding.name ?? "—"}</TableCell>
-              <TableCell>{holding.crypto?.coinGeckoId ?? "—"}</TableCell>
+              <TableCell>{holding.name ?? "ΓÇö"}</TableCell>
+              <TableCell>{holding.crypto?.coinGeckoId ?? "ΓÇö"}</TableCell>
               <TableCell className="text-right">{formatQuantity(holding.quantity)}</TableCell>
               <TableCell className="text-right">
                 {formatMoney(holding.marketPrice, holding.currency)}
@@ -233,13 +233,13 @@ export function PublicHoldingsTable({
               <TableCell className="text-right">
                 <PnlCell value={holding.unrealisedPnl} currency={holding.currency} />
               </TableCell>
-              <TableCell>{holding.crypto?.custodian ?? holding.broker ?? "—"}</TableCell>
+              <TableCell>{holding.crypto?.custodian ?? holding.broker ?? "ΓÇö"}</TableCell>
               <TableCell>
                 <div className="space-y-0.5 text-xs">
                   {holding.priceSource ? (
                     <Badge variant="outline">{holding.priceSource}</Badge>
                   ) : (
-                    <span className="text-muted-foreground">—</span>
+                    <span className="text-muted-foreground">ΓÇö</span>
                   )}
                   {holding.priceFetchedAt ? (
                     <p className="text-muted-foreground">{formatDate(holding.priceFetchedAt)}</p>
@@ -301,15 +301,27 @@ export function PublicHoldingsTable({
                 {isDuplicateHolding(holding, duplicateKeys) ? <DuplicateSymbolBadge /> : null}
               </div>
             </TableCell>
-            <TableCell>{holding.name ?? "—"}</TableCell>
+            <TableCell>{holding.name ?? "ΓÇö"}</TableCell>
             <TableCell>
               <HoldingSourceBadge source={holding.source} />
             </TableCell>
             <TableCell>
-              <div className="space-y-0.5">
-                <p>{holding.broker ?? "—"}</p>
-                {holding.accountNumber ? (
-                  <p className="text-xs text-muted-foreground">{holding.accountNumber}</p>
+              <div className="space-y-1">
+                <div className="space-y-0.5">
+                  <p>{holding.broker ?? "—"}</p>
+                  {holding.accountNumber ? (
+                    <p className="text-xs text-muted-foreground">{holding.accountNumber}</p>
+                  ) : null}
+                  {holding.brokerAccountLabel ? (
+                    <p className="text-xs text-muted-foreground">{holding.brokerAccountLabel}</p>
+                  ) : null}
+                </div>
+                {holding.source === "IMPORT" ? (
+                  <Badge variant="outline">
+                    {holding.isManaged
+                      ? PUBLIC_MANAGEMENT_TYPE_LABELS.managed
+                      : PUBLIC_MANAGEMENT_TYPE_LABELS.reference}
+                  </Badge>
                 ) : null}
               </div>
             </TableCell>
@@ -337,7 +349,7 @@ export function PublicHoldingsTable({
                 {holding.priceSource ? (
                   <Badge variant="outline">{holding.priceSource}</Badge>
                 ) : (
-                  <span className="text-muted-foreground">—</span>
+                  <span className="text-muted-foreground">ΓÇö</span>
                 )}
                 {holding.priceFetchedAt ? (
                   <p className="text-muted-foreground">{formatDate(holding.priceFetchedAt)}</p>

@@ -33,6 +33,8 @@ export type ImportFileResult = {
   fileName: string;
   broker: string;
   accountNumber?: string;
+  brokerAccountId?: string;
+  isManaged?: boolean;
   asOfDate?: string;
   holdingsImported: number;
   warnings: string[];

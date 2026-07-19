@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import type { PublicMarket } from "@/lib/generated/prisma/client";
 import type { EntityOption } from "@/components/platform/entity-select";
@@ -15,9 +15,10 @@ import {
   ALL_PORTFOLIOS_SLUG,
   slugFromMarket,
   type PublicInstrumentSlug,
+  type PublicManagementSlug,
 } from "@/lib/public-markets/constants";
 import type { ManagedPortfolioRow } from "@/lib/data/managed-portfolios";
-import { PUBLIC_INSTRUMENT_TYPE_LABELS } from "@/lib/labels";
+import { PUBLIC_INSTRUMENT_TYPE_LABELS, PUBLIC_MANAGEMENT_TYPE_LABELS } from "@/lib/labels";
 
 const INSTRUMENT_LABELS: Record<PublicInstrumentSlug, string> = {
   equity: PUBLIC_INSTRUMENT_TYPE_LABELS.EQUITY,
@@ -31,6 +32,8 @@ export function PublicMarketsFilters({
   activeMarket,
   activeInstrument,
   activePortfolio,
+  activeManagement = "all",
+  showManagementFilter = false,
   entityId,
   entities,
   portfolios,
@@ -39,6 +42,8 @@ export function PublicMarketsFilters({
   activeMarket: PublicMarket | "ALL";
   activeInstrument: PublicInstrumentSlug;
   activePortfolio: string;
+  activeManagement?: PublicManagementSlug;
+  showManagementFilter?: boolean;
   entityId?: string;
   entities: EntityOption[];
   portfolios: ManagedPortfolioRow[];
@@ -64,6 +69,11 @@ export function PublicMarketsFilters({
       label: `${portfolio.managerName} — ${portfolio.name}`,
     })),
   ];
+  const managementOptions = [
+    { value: "all", label: "All statement types" },
+    { value: "managed", label: PUBLIC_MANAGEMENT_TYPE_LABELS.managed },
+    { value: "reference", label: PUBLIC_MANAGEMENT_TYPE_LABELS.reference },
+  ];
 
   return (
     <FilterToolbar>
@@ -74,10 +84,23 @@ export function PublicMarketsFilters({
         options={portfolioOptions}
         pathname={PUBLIC_MARKETS_PATH}
         currentParams={currentParams}
-        preserveParams={["entity", "market", "instrument"]}
+        preserveParams={["entity", "market", "instrument", "management"]}
         omitWhenValue={ALL_PORTFOLIOS_SLUG}
         triggerClassName="min-w-[14rem]"
       />
+      {showManagementFilter ? (
+        <UrlFilterSelect
+          label="Statement type"
+          paramKey="management"
+          value={activeManagement}
+          options={managementOptions}
+          pathname={PUBLIC_MARKETS_PATH}
+          currentParams={currentParams}
+          preserveParams={["entity", "market", "instrument", "portfolio"]}
+          omitWhenValue="all"
+          triggerClassName="min-w-[11rem]"
+        />
+      ) : null}
       <UrlFilterSelect
         label="Market"
         paramKey="market"
@@ -85,7 +108,7 @@ export function PublicMarketsFilters({
         options={marketOptions}
         pathname={PUBLIC_MARKETS_PATH}
         currentParams={currentParams}
-        preserveParams={["entity", "portfolio", "instrument"]}
+        preserveParams={["entity", "portfolio", "instrument", "management"]}
         triggerClassName="min-w-[11rem]"
       />
       <UrlFilterSelect
@@ -95,7 +118,7 @@ export function PublicMarketsFilters({
         options={instrumentOptions}
         pathname={PUBLIC_MARKETS_PATH}
         currentParams={currentParams}
-        preserveParams={["entity", "market", "portfolio"]}
+        preserveParams={["entity", "market", "portfolio", "management"]}
         omitWhenValue="equity"
         triggerClassName="min-w-[11rem]"
       />
@@ -104,7 +127,7 @@ export function PublicMarketsFilters({
         value={entityId}
         pathname={PUBLIC_MARKETS_PATH}
         currentParams={currentParams}
-        preserveParams={["market", "instrument", "portfolio"]}
+        preserveParams={["market", "instrument", "portfolio", "management"]}
         allowAll={false}
       />
     </FilterToolbar>

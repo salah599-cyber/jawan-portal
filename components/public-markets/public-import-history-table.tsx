@@ -1,5 +1,7 @@
 import { formatDate } from "@/lib/format";
 import type { PublicImportBatchRow } from "@/lib/data/public-markets";
+import { PUBLIC_MANAGEMENT_TYPE_LABELS } from "@/lib/labels";
+import { Badge } from "@/components/ui/badge";
 import {
   Table,
   TableBody,
@@ -30,6 +32,7 @@ export function PublicImportHistoryTable({
           {showMarket ? <TableHead>Market</TableHead> : null}
           {showPortfolio ? <TableHead>Portfolio</TableHead> : null}
           <TableHead>Broker</TableHead>
+          <TableHead>Type</TableHead>
           <TableHead>Uploaded By</TableHead>
           <TableHead className="text-right">Rows</TableHead>
           <TableHead>As Of</TableHead>
@@ -53,6 +56,13 @@ export function PublicImportHistoryTable({
                   <p className="text-xs text-muted-foreground">{batch.accountNumber}</p>
                 ) : null}
               </div>
+            </TableCell>
+            <TableCell>
+              <Badge variant="outline">
+                {batch.isManaged
+                  ? PUBLIC_MANAGEMENT_TYPE_LABELS.managed
+                  : PUBLIC_MANAGEMENT_TYPE_LABELS.reference}
+              </Badge>
             </TableCell>
             <TableCell>{batch.uploadedBy}</TableCell>
             <TableCell className="text-right">{batch.rowCount}</TableCell>

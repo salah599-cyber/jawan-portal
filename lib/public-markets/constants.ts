@@ -1,4 +1,4 @@
-import type { PublicInstrumentType, PublicMarket } from "@/lib/generated/prisma/client";
+﻿import type { PublicInstrumentType, PublicMarket } from "@/lib/generated/prisma/client";
 
 export type PublicMarketSlug =
   | "MSX"
@@ -63,7 +63,7 @@ export const MARKET_CONFIG: Record<PublicMarket, MarketConfig> = {
     slug: "AE",
     label: "United Arab Emirates",
     shortLabel: "UAE",
-    assetName: "Public Markets — UAE",
+    assetName: "Public Markets ΓÇö UAE",
     currency: "AED",
     country: "United Arab Emirates",
     exchange: "DFM/ADX",
@@ -75,7 +75,7 @@ export const MARKET_CONFIG: Record<PublicMarket, MarketConfig> = {
     slug: "SA",
     label: "Saudi Arabia",
     shortLabel: "Saudi",
-    assetName: "Public Markets — Saudi Arabia",
+    assetName: "Public Markets ΓÇö Saudi Arabia",
     currency: "SAR",
     country: "Saudi Arabia",
     exchange: "Tadawul",
@@ -87,7 +87,7 @@ export const MARKET_CONFIG: Record<PublicMarket, MarketConfig> = {
     slug: "KW",
     label: "Kuwait",
     shortLabel: "Kuwait",
-    assetName: "Public Markets — Kuwait",
+    assetName: "Public Markets ΓÇö Kuwait",
     currency: "KWD",
     country: "Kuwait",
     exchange: "Boursa Kuwait",
@@ -99,7 +99,7 @@ export const MARKET_CONFIG: Record<PublicMarket, MarketConfig> = {
     slug: "BH",
     label: "Bahrain",
     shortLabel: "Bahrain",
-    assetName: "Public Markets — Bahrain",
+    assetName: "Public Markets ΓÇö Bahrain",
     currency: "BHD",
     country: "Bahrain",
     exchange: "Bahrain Bourse",
@@ -111,7 +111,7 @@ export const MARKET_CONFIG: Record<PublicMarket, MarketConfig> = {
     slug: "QA",
     label: "Qatar",
     shortLabel: "Qatar",
-    assetName: "Public Markets — Qatar",
+    assetName: "Public Markets ΓÇö Qatar",
     currency: "QAR",
     country: "Qatar",
     exchange: "QSE",
@@ -123,7 +123,7 @@ export const MARKET_CONFIG: Record<PublicMarket, MarketConfig> = {
     slug: "USA",
     label: "United States",
     shortLabel: "USA",
-    assetName: "Public Markets — USA",
+    assetName: "Public Markets ΓÇö USA",
     currency: "USD",
     country: "United States",
     exchange: "NYSE/NASDAQ",
@@ -134,7 +134,7 @@ export const MARKET_CONFIG: Record<PublicMarket, MarketConfig> = {
     slug: "HK",
     label: "Hong Kong",
     shortLabel: "Hong Kong",
-    assetName: "Public Markets — Hong Kong",
+    assetName: "Public Markets ΓÇö Hong Kong",
     currency: "HKD",
     country: "Hong Kong",
     exchange: "HKEX",
@@ -145,7 +145,7 @@ export const MARKET_CONFIG: Record<PublicMarket, MarketConfig> = {
     slug: "CN",
     label: "China",
     shortLabel: "China",
-    assetName: "Public Markets — China",
+    assetName: "Public Markets ΓÇö China",
     currency: "CNY",
     country: "China",
     exchange: "SSE/SZSE",
@@ -156,7 +156,7 @@ export const MARKET_CONFIG: Record<PublicMarket, MarketConfig> = {
     slug: "IN",
     label: "India",
     shortLabel: "India",
-    assetName: "Public Markets — India",
+    assetName: "Public Markets ΓÇö India",
     currency: "INR",
     country: "India",
     exchange: "NSE/BSE",
@@ -167,7 +167,7 @@ export const MARKET_CONFIG: Record<PublicMarket, MarketConfig> = {
     slug: "UK",
     label: "United Kingdom",
     shortLabel: "UK",
-    assetName: "Public Markets — UK",
+    assetName: "Public Markets ΓÇö UK",
     currency: "GBP",
     country: "United Kingdom",
     exchange: "LSE",
@@ -178,7 +178,7 @@ export const MARKET_CONFIG: Record<PublicMarket, MarketConfig> = {
     slug: "OTHER",
     label: "Other Markets",
     shortLabel: "Other",
-    assetName: "Public Markets — Other",
+    assetName: "Public Markets ΓÇö Other",
     currency: "USD",
     country: "International",
     description: "Holdings in other exchanges not covered above.",
@@ -218,7 +218,7 @@ export function isAllMarketsSlug(slug?: string | null): boolean {
 export function getMarketPricingNote(market: PublicMarket): string | null {
   switch (market) {
     case "MSX":
-      return "Yahoo live prices are not available for MSX. Closing prices sync automatically from msx.om after market close (Sun–Thu); you can also refresh manually or import broker statements.";
+      return "Yahoo live prices are not available for MSX. Closing prices sync automatically from msx.om after market close (SunΓÇôThu); you can also refresh manually or import broker statements.";
     case "UAE":
       return "Yahoo live prices cover Dubai (DFM) listings. DFM closing prices also sync from dfm.ae after market close. Abu Dhabi (ADX) holdings require broker imports or manual prices.";
     case "BAHRAIN":
@@ -408,4 +408,14 @@ export function resolvePortfolioFilter(portfolioParam?: string | null): {
     return { mode: "managed", managedPortfolioId: id };
   }
   return { mode: "all", managedPortfolioId: null };
+}
+
+export type PublicManagementSlug = "all" | "managed" | "reference";
+
+export function resolveManagementFromSearchParam(param?: string | null): PublicManagementSlug {
+  const normalized = param?.trim().toLowerCase();
+  if (normalized === "managed" || normalized === "reference") {
+    return normalized;
+  }
+  return "all";
 }

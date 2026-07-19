@@ -434,6 +434,7 @@ model Entity {
   successionPlans       SuccessionPlan[]
   successionDistributionInstructions SuccessionDistributionInstruction[]
   directoryContacts     DirectoryContact[]
+  publicBrokerAccounts  PublicBrokerAccount[]
   managedPortfolios     ManagedPortfolio[]
   managedPortfolioValuations ManagedPortfolioValuation[]
   userAccess   UserEntityAccess[]
@@ -795,6 +796,23 @@ model PrivateEquityDetail {
   contactPhone       String?
 }
 
+model PublicBrokerAccount {
+  id            String                @id @default(cuid())
+  entityId      String
+  entity        Entity                @relation(fields: [entityId], references: [id], onDelete: Cascade)
+  broker        String
+  accountNumber String?
+  label         String?
+  isManaged     Boolean               @default(true)
+  holdings      PublicEquityHolding[]
+  importBatches ImportBatch[]
+  createdAt     DateTime              @default(now())
+  updatedAt     DateTime              @updatedAt
+
+  @@unique([entityId, broker, accountNumber])
+  @@index([entityId])
+}
+
 model PublicEquityHolding {
   id            String              @id @default(cuid())
   assetId       String
@@ -813,6 +831,9 @@ model PublicEquityHolding {
   priceSource   String?
   broker        String?
   accountNumber String?
+  brokerAccountId String?
+  brokerAccount PublicBrokerAccount? @relation(fields: [brokerAccountId], references: [id], onDelete: SetNull)
+  isManaged     Boolean             @default(true)
   exchange      String?
   isin          String?
   cusip         String?
@@ -831,6 +852,7 @@ model PublicEquityHolding {
   updatedAt     DateTime            @updatedAt
   @@index([assetId, symbol])
   @@index([assetId, market])
+  @@index([assetId, market, brokerAccountId, isManaged])
   @@index([managedPortfolioId, market])
   @@index([market])
   @@index([instrumentType])
@@ -1409,19 +1431,22 @@ model ExpenseReminderConfig {
 }
 
 model ImportBatch {
-  id            String                @id @default(cuid())
-  fileName      String
-  uploadedBy    String
-  rowCount      Int
-  market        PublicMarket?
-  broker        String?
-  accountNumber String?
-  asOfDate      DateTime?
-  parserId      String?
+  id                 String                @id @default(cuid())
+  fileName           String
+  uploadedBy         String
+  rowCount           Int
+  market             PublicMarket?
+  broker             String?
+  accountNumber      String?
+  brokerAccountId    String?
+  brokerAccount      PublicBrokerAccount?  @relation(fields: [brokerAccountId], references: [id], onDelete: SetNull)
+  isManaged          Boolean               @default(true)
+  asOfDate           DateTime?
+  parserId           String?
   managedPortfolioId String?
-  managedPortfolio   ManagedPortfolio? @relation(fields: [managedPortfolioId], references: [id], onDelete: SetNull)
-  holdings      PublicEquityHolding[]
-  createdAt     DateTime              @default(now())
+  managedPortfolio   ManagedPortfolio?     @relation(fields: [managedPortfolioId], references: [id], onDelete: SetNull)
+  holdings           PublicEquityHolding[]
+  createdAt          DateTime              @default(now())
 }
 
 model AuditLog {

@@ -1,4 +1,4 @@
-import { db } from "@/lib/db";
+﻿import { db } from "@/lib/db";
 import type { PublicInstrumentType, PublicMarket, PublicOptionType } from "@/lib/generated/prisma/client";
 import { ensureDefaultEntity } from "@/lib/data/entities";
 import { ensurePublicMarketsSchema } from "@/lib/db/ensure-public-markets-schema";
@@ -28,6 +28,9 @@ export type PublicHoldingRow = {
   unrealisedPnl: number | null;
   broker: string | null;
   accountNumber: string | null;
+  brokerAccountId: string | null;
+  brokerAccountLabel: string | null;
+  isManaged: boolean;
   exchange: string | null;
   isin: string | null;
   cusip: string | null;
@@ -78,6 +81,7 @@ export type PublicImportBatchRow = {
   managedPortfolioLabel: string | null;
   broker: string | null;
   accountNumber: string | null;
+  isManaged: boolean;
   asOfDate: Date | null;
   parserId: string | null;
   createdAt: Date;
@@ -174,6 +178,10 @@ async function mapHoldingRow(
       coinGeckoId: string;
       custodian: string | null;
     } | null;
+    brokerAccount?: {
+      label: string | null;
+      broker: string;
+    } | null;
   },
 ): Promise<PublicHoldingRow> {
   const quantity = toNumber(holding.quantity) ?? 0;
@@ -203,6 +211,9 @@ async function mapHoldingRow(
     unrealisedPnl: normalized.unrealisedPnl,
     broker: holding.broker,
     accountNumber: holding.accountNumber,
+    brokerAccountId: holding.brokerAccountId ?? null,
+    brokerAccountLabel: holding.brokerAccount?.label ?? holding.brokerAccount?.broker ?? null,
+    isManaged: holding.isManaged,
     exchange: holding.exchange,
     isin: holding.isin,
     cusip: holding.cusip,
@@ -212,7 +223,7 @@ async function mapHoldingRow(
     managedPortfolioId: holding.managedPortfolioId ?? null,
     managedPortfolioName: holding.managedPortfolio?.name ?? null,
     managedPortfolioLabel: holding.managedPortfolio
-      ? `${holding.managedPortfolio.managerName} — ${holding.managedPortfolio.name}`
+      ? `${holding.managedPortfolio.managerName} ΓÇö ${holding.managedPortfolio.name}`
       : "Private holdings",
     currency: holding.currency,
     asOfDate: holding.asOfDate,
@@ -262,6 +273,8 @@ function resolveHoldingsAssetMarket(
   return market ?? null;
 }
 
+export type PublicManagementFilter = "all" | "managed" | "reference";
+
 export async function getPublicHoldings(
   ctx: UserContext,
   options: {
@@ -269,11 +282,12 @@ export async function getPublicHoldings(
     market?: PublicMarket | null;
     instrumentType?: PublicInstrumentType | null;
     managedPortfolioId?: string | null | "private";
+    management?: PublicManagementFilter;
   } = {},
 ): Promise<PublicHoldingRow[]> {
   await ensurePublicMarketsDataLayerReady();
   const entityFilter = assetEntityFilter(ctx);
-  const { entityId, market, instrumentType, managedPortfolioId } = options;
+  const { entityId, market, instrumentType, managedPortfolioId, management = "all" } = options;
   const assetMarket = resolveHoldingsAssetMarket(market, instrumentType);
 
   const assets = await db.asset.findMany({
@@ -307,8 +321,11 @@ export async function getPublicHoldings(
           ? { market }
           : {}),
       ...(instrumentType ? { instrumentType } : {}),
+      ...(management === "managed" ? { isManaged: true } : {}),
+      ...(management === "reference" ? { isManaged: false } : {}),
     },
     include: {
+      brokerAccount: { select: { label: true, broker: true } },
       managedPortfolio: {
         select: { id: true, name: true, managerName: true },
       },
@@ -385,10 +402,11 @@ export async function getPublicImportBatches(
     market: batch.market,
     marketLabel: batch.market ? MARKET_CONFIG[batch.market].shortLabel : null,
     managedPortfolioLabel: batch.managedPortfolio
-      ? `${batch.managedPortfolio.managerName} — ${batch.managedPortfolio.name}`
+      ? `${batch.managedPortfolio.managerName} ΓÇö ${batch.managedPortfolio.name}`
       : null,
     broker: batch.broker,
     accountNumber: batch.accountNumber,
+    isManaged: batch.isManaged,
     asOfDate: batch.asOfDate,
     parserId: batch.parserId,
     createdAt: batch.createdAt,

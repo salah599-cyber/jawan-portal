@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
@@ -13,6 +13,7 @@ import type { ManagedPortfolioRow } from "@/lib/data/managed-portfolios";
 import { EntitySelect, type EntityOption } from "@/components/platform/entity-select";
 import { DownloadUploadTemplateLink } from "@/components/public-markets/download-upload-template-link";
 import { ManagedPortfolioSelect } from "@/components/public-markets/managed-portfolio-select";
+import { UploadBrokerImportFields } from "@/components/public-markets/upload-broker-import-fields";
 import { ImportOverlapResolutionDialog } from "@/components/public-markets/import-overlap-resolution-dialog";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -39,6 +40,7 @@ export function UploadPublicMarketReportsForm({
   const [preview, setPreview] = useState<ImportPreviewResult | null>(null);
   const [entityId, setEntityId] = useState(defaultEntityId ?? entities[0]?.id ?? "");
   const [managedPortfolioId, setManagedPortfolioId] = useState(portfolios[0]?.id ?? "");
+  const [brokerAccountId, setBrokerAccountId] = useState("");
   const [overlapDialogOpen, setOverlapDialogOpen] = useState(false);
   const [overlapStrategy, setOverlapStrategy] = useState<OverlapResolutionStrategy>("keep_manual");
   const [pendingFormData, setPendingFormData] = useState<FormData | null>(null);
@@ -52,6 +54,7 @@ export function UploadPublicMarketReportsForm({
   function handleEntityChange(nextEntityId: string) {
     setPreview(null);
     setEntityId(nextEntityId);
+    setBrokerAccountId("");
   }
 
   function handleManagedPortfolioChange(nextManagedPortfolioId: string) {
@@ -199,9 +202,15 @@ export function UploadPublicMarketReportsForm({
       return;
     }
 
+    if (!brokerAccountId) {
+      setError("Select a broker account before importing.");
+      return;
+    }
+
     formData.set("entityId", entityId);
     formData.set("market", market);
     formData.set("managedPortfolioId", selectedManagedPortfolioId);
+    formData.set("brokerAccountId", brokerAccountId);
 
     if (preview && preview.manualOverlapDetails.length > 0) {
       setPendingFormData(formData);
@@ -256,6 +265,12 @@ export function UploadPublicMarketReportsForm({
               placeholder="Select managed portfolio"
             />
 
+            <UploadBrokerImportFields
+              entityId={entityId}
+              brokerAccountId={brokerAccountId}
+              onBrokerAccountIdChange={setBrokerAccountId}
+            />
+
             {portfolios.length === 0 ? (
               <p className="text-sm text-amber-700">
                 Create a managed portfolio above before importing manager reports.
@@ -298,7 +313,7 @@ export function UploadPublicMarketReportsForm({
                       <p className="font-medium">{file.fileName}</p>
                       <p className="text-muted-foreground">
                         {file.broker}
-                        {file.accountNumber ? ` · Account ${file.accountNumber}` : ""}
+                        {file.accountNumber ? ` ┬╖ Account ${file.accountNumber}` : ""}
                       </p>
                       {file.error ? (
                         <p className="text-destructive">{file.error}</p>
@@ -324,11 +339,11 @@ export function UploadPublicMarketReportsForm({
                         const account = scope.accountNumber ? ` / ${scope.accountNumber}` : "";
                         return `${scope.broker}${account}: will replace ${scope.existingImportCount} existing managed holding${scope.existingImportCount === 1 ? "" : "s"}`;
                       })
-                      .join(" · ")}
+                      .join(" ┬╖ ")}
                   </p>
                 ) : (
                   <p className="text-sm text-muted-foreground">
-                    No existing managed holdings matched this broker/account — positions will be added
+                    No existing managed holdings matched this broker/account ΓÇö positions will be added
                     as a new managed slice.
                   </p>
                 )}
@@ -353,7 +368,7 @@ export function UploadPublicMarketReportsForm({
                       <p className="font-medium">{result.fileName}</p>
                       <p className="text-muted-foreground">
                         {result.broker}
-                        {result.accountNumber ? ` · Account ${result.accountNumber}` : ""}
+                        {result.accountNumber ? ` ┬╖ Account ${result.accountNumber}` : ""}
                       </p>
                       {result.error ? (
                         <p className="text-destructive">{result.error}</p>

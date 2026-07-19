@@ -1,7 +1,8 @@
-import { revalidatePath } from "next/cache";
+﻿import { revalidatePath } from "next/cache";
 import { db } from "@/lib/db";
 import { logAudit } from "@/lib/audit/log";
 import type { PublicMarket } from "@/lib/generated/prisma/client";
+import { getBrokerAccountForImport } from "@/lib/public-markets/broker-accounts";
 import { MARKET_CONFIG, PUBLIC_MARKETS_PATH } from "@/lib/public-markets/constants";
 import { ensurePublicMarketsSchema } from "@/lib/db/ensure-public-markets-schema";
 import { parseMarketReport } from "@/lib/public-markets/parsers/router";
@@ -13,7 +14,6 @@ import { refreshPublicMarketPrices } from "@/lib/public-markets/refresh-prices";
 import { hasAutomaticPriceRefresh } from "@/lib/public-markets/prices/symbols";
 import { formatOverlapResolutionSummary } from "@/lib/public-markets/import-warnings";
 import { getManualEquityHoldings } from "@/lib/public-markets/import-preview";
-import { normalizeBrokerName } from "@/lib/public-markets/broker-normalize";
 import {
   snapshotManagedPortfolioValuation,
 } from "@/lib/portfolio/managed-portfolio-valuations";
@@ -24,6 +24,15 @@ import {
   type ManualEquitySnapshot,
   type OverlapResolutionStrategy,
 } from "@/lib/public-markets/overlap-resolution";
+import {
+  buildImportHoldingReplaceScope,
+  resolveImportManagementType,
+} from "@/lib/public-markets/import-scope";
+
+export type ImportBrokerReportsOptions = {
+  brokerAccountId: string;
+  isManaged?: boolean | null;
+};
 
 export async function ensurePortfolioAsset(entityId: string, market: PublicMarket) {
   const config = MARKET_CONFIG[market];
@@ -89,30 +98,34 @@ async function importSingleReport(
   file: BrokerReportFile,
   manualBySymbol: Map<string, ManualEquitySnapshot[]>,
   overlapResolution: OverlapResolutionStrategy,
+  account: {
+    brokerAccountId: string;
+    broker: string;
+    accountNumber: string | null;
+    isManaged: boolean;
+  },
 ): Promise<ImportFileResult> {
   try {
     const parsed = await parseMarketReport(file, market);
-    const broker = normalizeBrokerName(parsed.broker);
-    const parsedWithBroker = { ...parsed, broker };
+    const broker = account.broker;
+    const accountNumber = account.accountNumber;
 
-    if (parsedWithBroker.holdings.length === 0) {
+    if (parsed.holdings.length === 0) {
       return {
         fileName: file.fileName,
-        broker: parsedWithBroker.broker,
-        accountNumber: parsedWithBroker.accountNumber,
-        asOfDate: parsedWithBroker.asOfDate?.toISOString(),
+        broker,
+        accountNumber: accountNumber ?? undefined,
+        brokerAccountId: account.brokerAccountId,
+        isManaged: account.isManaged,
+        asOfDate: parsed.asOfDate?.toISOString(),
         holdingsImported: 0,
-        warnings: parsedWithBroker.warnings,
-        parserId: parsedWithBroker.parserId,
+        warnings: parsed.warnings,
+        parserId: parsed.parserId,
         error: "No holdings found in this report.",
       };
     }
 
-    const resolution = resolveImportHoldings(
-      parsedWithBroker.holdings,
-      manualBySymbol,
-      overlapResolution,
-    );
+    const resolution = resolveImportHoldings(parsed.holdings, manualBySymbol, overlapResolution);
 
     if (resolution.manualIdsToDelete.length > 0) {
       await db.publicEquityHolding.deleteMany({
@@ -124,69 +137,91 @@ async function importSingleReport(
       });
     }
 
-    const batch = await db.importBatch.create({
-      data: {
-        fileName: file.fileName,
-        uploadedBy: userEmail,
-        rowCount: resolution.holdings.length,
-        market,
-        broker: parsedWithBroker.broker,
-        accountNumber: parsedWithBroker.accountNumber,
-        asOfDate: parsedWithBroker.asOfDate,
-        parserId: parsedWithBroker.parserId,
-        managedPortfolioId,
-      },
-    });
+    const holdingsImported = await db.$transaction(async (tx) => {
+      const batch = await tx.importBatch.create({
+        data: {
+          fileName: file.fileName,
+          uploadedBy: userEmail,
+          rowCount: resolution.holdings.length,
+          market,
+          broker,
+          accountNumber,
+          brokerAccountId: account.brokerAccountId,
+          isManaged: account.isManaged,
+          asOfDate: parsed.asOfDate,
+          parserId: parsed.parserId,
+          managedPortfolioId,
+        },
+      });
 
-    await db.publicEquityHolding.deleteMany({
-      where: {
+      const scope = buildImportHoldingReplaceScope({
         assetId,
         market,
+        brokerAccountId: account.brokerAccountId,
         managedPortfolioId,
-        broker: parsedWithBroker.broker,
-        source: "IMPORT",
-        ...(parsedWithBroker.accountNumber ? { accountNumber: parsedWithBroker.accountNumber } : {}),
-      },
-    });
-
-    if (resolution.holdings.length > 0) {
-      await db.publicEquityHolding.createMany({
-        data: resolution.holdings.map((holding) => {
-          const { decimals } = normalizeAndFormatHoldingValues({
-            quantity: holding.quantity,
-            costBasis: holding.costBasis,
-            marketPrice: holding.marketPrice,
-            marketValue: holding.marketValue,
-            unrealisedPnl: holding.unrealisedPnl,
-          });
-
-          return {
-            assetId,
-            managedPortfolioId,
-            market,
-            symbol: holding.symbol,
-            name: holding.name,
-            quantity: holding.quantity.toFixed(6),
-            costBasis: decimals.costBasis,
-            marketPrice: decimals.marketPrice,
-            marketValue: decimals.marketValue,
-            unrealisedPnl: decimals.unrealisedPnl,
-            priceSource: "BROKER",
-            broker: parsedWithBroker.broker,
-            accountNumber: parsedWithBroker.accountNumber,
-            exchange: holding.exchange,
-            isin: holding.isin,
-            cusip: holding.cusip,
-            sedol: holding.sedol,
-            country: holding.country ?? MARKET_CONFIG[market].country,
-            source: "IMPORT",
-            currency: holding.currency ?? MARKET_CONFIG[market].currency,
-            asOfDate: parsedWithBroker.asOfDate,
-            importBatchId: batch.id,
-          };
-        }),
+        isManaged: account.isManaged,
       });
-    }
+
+      const existingHoldings = await tx.publicEquityHolding.findMany({ where: scope });
+      const existingBySymbol = new Map(existingHoldings.map((holding) => [holding.symbol, holding]));
+      const importedSymbols = resolution.holdings.map((holding) => holding.symbol);
+
+      for (const holding of resolution.holdings) {
+        const { decimals } = normalizeAndFormatHoldingValues({
+          quantity: holding.quantity,
+          costBasis: holding.costBasis,
+          marketPrice: holding.marketPrice,
+          marketValue: holding.marketValue,
+          unrealisedPnl: holding.unrealisedPnl,
+        });
+
+        const data = {
+          assetId,
+          managedPortfolioId,
+          market,
+          symbol: holding.symbol,
+          name: holding.name,
+          quantity: holding.quantity.toFixed(6),
+          costBasis: decimals.costBasis,
+          marketPrice: decimals.marketPrice,
+          marketValue: decimals.marketValue,
+          unrealisedPnl: decimals.unrealisedPnl,
+          priceSource: "BROKER",
+          broker,
+          accountNumber,
+          brokerAccountId: account.brokerAccountId,
+          isManaged: account.isManaged,
+          exchange: holding.exchange,
+          isin: holding.isin,
+          cusip: holding.cusip,
+          sedol: holding.sedol,
+          country: holding.country ?? MARKET_CONFIG[market].country,
+          source: "IMPORT" as const,
+          currency: holding.currency ?? MARKET_CONFIG[market].currency,
+          asOfDate: parsed.asOfDate,
+          importBatchId: batch.id,
+        };
+
+        const existing = existingBySymbol.get(holding.symbol);
+        if (existing) {
+          await tx.publicEquityHolding.update({
+            where: { id: existing.id },
+            data,
+          });
+        } else {
+          await tx.publicEquityHolding.create({ data });
+        }
+      }
+
+      await tx.publicEquityHolding.deleteMany({
+        where: {
+          ...scope,
+          symbol: { notIn: importedSymbols },
+        },
+      });
+
+      return resolution.holdings.length;
+    });
 
     const resolutionWarnings = [
       formatOverlapResolutionSummary(overlapResolution, resolution.skippedSymbols),
@@ -196,17 +231,22 @@ async function importSingleReport(
 
     return {
       fileName: file.fileName,
-      broker: parsedWithBroker.broker,
-      accountNumber: parsedWithBroker.accountNumber,
-      asOfDate: parsedWithBroker.asOfDate?.toISOString(),
-      holdingsImported: resolution.holdings.length,
-      warnings: [...parsedWithBroker.warnings, ...resolutionWarnings],
-      parserId: parsedWithBroker.parserId,
+      broker,
+      accountNumber: accountNumber ?? undefined,
+      brokerAccountId: account.brokerAccountId,
+      isManaged: account.isManaged,
+      asOfDate: parsed.asOfDate?.toISOString(),
+      holdingsImported,
+      warnings: [...parsed.warnings, ...resolutionWarnings],
+      parserId: parsed.parserId,
     };
   } catch (error) {
     return {
       fileName: file.fileName,
-      broker: "Unknown",
+      broker: account.broker,
+      accountNumber: account.accountNumber ?? undefined,
+      brokerAccountId: account.brokerAccountId,
+      isManaged: account.isManaged,
       holdingsImported: 0,
       warnings: [],
       error: error instanceof Error ? error.message : "Failed to parse report.",
@@ -220,9 +260,14 @@ export async function importBrokerReportsForEntity(
   market: PublicMarket,
   managedPortfolioId: string,
   files: BrokerReportFile[],
+  importOptions: ImportBrokerReportsOptions,
   overlapResolutionInput?: string | null,
 ): Promise<ImportFileResult[]> {
   await ensurePublicMarketsSchema();
+
+  if (!importOptions.brokerAccountId?.trim()) {
+    throw new Error("Select a broker account before importing.");
+  }
 
   const portfolio = await db.managedPortfolio.findFirst({
     where: { id: managedPortfolioId, entityId, status: { in: ["ACTIVE", "MONITOR"] } },
@@ -231,6 +276,19 @@ export async function importBrokerReportsForEntity(
   if (!portfolio) {
     throw new Error("Managed portfolio not found for this entity.");
   }
+
+  const brokerAccount = await getBrokerAccountForImport(
+    ctx,
+    entityId,
+    importOptions.brokerAccountId.trim(),
+  );
+  const isManaged = resolveImportManagementType(brokerAccount, importOptions.isManaged);
+  const account = {
+    brokerAccountId: brokerAccount.id,
+    broker: brokerAccount.broker,
+    accountNumber: brokerAccount.accountNumber,
+    isManaged,
+  };
 
   const asset = await ensurePortfolioAsset(entityId, market);
   const overlapResolution = parseOverlapResolution(overlapResolutionInput);
@@ -248,6 +306,7 @@ export async function importBrokerReportsForEntity(
         file,
         manualBySymbol,
         overlapResolution,
+        account,
       ),
     );
   }
@@ -277,12 +336,15 @@ export async function importBrokerReportsForEntity(
         entityId,
         market,
         managedPortfolioId,
+        brokerAccountId: brokerAccount.id,
+        isManaged,
         fileCount: files.length,
         holdingsImported: importedCount,
         overlapResolution,
         results: results.map((result) => ({
           fileName: result.fileName,
           broker: result.broker,
+          isManaged: result.isManaged,
           holdingsImported: result.holdingsImported,
           error: result.error,
         })),

@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { importBrokerReportsForEntity } from "@/lib/public-markets/import-reports";
+import { parseImportOptionsFromFormData } from "@/lib/public-markets/import-options";
 import type { BrokerReportFile } from "@/lib/public-markets/types";
 import type { PublicMarket } from "@/lib/generated/prisma/client";
 import { MARKET_CONFIG } from "@/lib/public-markets/constants";
@@ -91,6 +92,7 @@ export async function POST(request: Request): Promise<NextResponse> {
       market,
       managedPortfolioId,
       reportFiles,
+      parseImportOptionsFromFormData(formData),
       overlapResolution,
     );
     return NextResponse.json({ results });
