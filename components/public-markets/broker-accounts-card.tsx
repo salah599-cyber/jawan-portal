@@ -163,8 +163,8 @@ export function BrokerAccountsCard({
           <div>
             <CardTitle>Broker Accounts</CardTitle>
             <CardDescription>
-              Register brokerage accounts once, then choose managed or reference when importing
-              statements.
+              Register each brokerage account once (broker name, account number, managed or
+              reference). Then choose it when importing statements below.
             </CardDescription>
           </div>
           <Button

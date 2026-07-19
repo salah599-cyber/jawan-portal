@@ -223,7 +223,7 @@ async function mapHoldingRow(
     managedPortfolioId: holding.managedPortfolioId ?? null,
     managedPortfolioName: holding.managedPortfolio?.name ?? null,
     managedPortfolioLabel: holding.managedPortfolio
-      ? `${holding.managedPortfolio.managerName} ΓÇö ${holding.managedPortfolio.name}`
+      ? `${holding.managedPortfolio.managerName} — ${holding.managedPortfolio.name}`
       : "Private holdings",
     currency: holding.currency,
     asOfDate: holding.asOfDate,
@@ -402,7 +402,7 @@ export async function getPublicImportBatches(
     market: batch.market,
     marketLabel: batch.market ? MARKET_CONFIG[batch.market].shortLabel : null,
     managedPortfolioLabel: batch.managedPortfolio
-      ? `${batch.managedPortfolio.managerName} ΓÇö ${batch.managedPortfolio.name}`
+      ? `${batch.managedPortfolio.managerName} — ${batch.managedPortfolio.name}`
       : null,
     broker: batch.broker,
     accountNumber: batch.accountNumber,

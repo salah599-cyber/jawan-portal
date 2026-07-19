@@ -17,11 +17,13 @@ export function BrokerAccountSelect({
   value,
   onValueChange,
   onAccountSelected,
+  brokerAccounts = [],
 }: {
   entityId: string;
   value: string;
   onValueChange: (value: string) => void;
   onAccountSelected?: (account: PublicBrokerAccountRow | null) => void;
+  brokerAccounts?: PublicBrokerAccountRow[];
 }) {
   const [accounts, setAccounts] = useState<PublicBrokerAccountRow[]>([]);
   const [pending, startTransition] = useTransition();
@@ -41,7 +43,7 @@ export function BrokerAccountSelect({
     return () => {
       cancelled = true;
     };
-  }, [entityId]);
+  }, [entityId, brokerAccounts]);
 
   const visibleAccounts = entityId ? accounts : [];
 
@@ -72,6 +74,12 @@ export function BrokerAccountSelect({
       <p className="text-xs text-muted-foreground">
         Re-importing replaces holdings for this account and portfolio type only.
       </p>
+      {!pending && visibleAccounts.length === 0 ? (
+        <p className="text-sm text-amber-700">
+          No broker accounts for this entity yet. Use the Broker Accounts card above to register
+          your brokerage (e.g. Schwab, UBS) before importing statements.
+        </p>
+      ) : null}
     </div>
   );
 }

@@ -10,6 +10,7 @@ import type { OverlapResolutionStrategy } from "@/lib/public-markets/overlap-res
 import { MARKET_CONFIG } from "@/lib/public-markets/constants";
 import { MAX_UPLOAD_LABEL, validateUploadFileSize } from "@/lib/upload-limits";
 import type { ManagedPortfolioRow } from "@/lib/data/managed-portfolios";
+import type { PublicBrokerAccountRow } from "@/lib/public-markets/broker-accounts";
 import { EntitySelect, type EntityOption } from "@/components/platform/entity-select";
 import { DownloadUploadTemplateLink } from "@/components/public-markets/download-upload-template-link";
 import { ManagedPortfolioSelect } from "@/components/public-markets/managed-portfolio-select";
@@ -26,11 +27,13 @@ export function UploadPublicMarketReportsForm({
   defaultEntityId,
   market,
   portfolios,
+  brokerAccounts = [],
 }: {
   entities: EntityOption[];
   defaultEntityId?: string;
   market: PublicMarket;
   portfolios: ManagedPortfolioRow[];
+  brokerAccounts?: PublicBrokerAccountRow[];
 }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
@@ -269,6 +272,7 @@ export function UploadPublicMarketReportsForm({
               entityId={entityId}
               brokerAccountId={brokerAccountId}
               onBrokerAccountIdChange={setBrokerAccountId}
+              brokerAccounts={brokerAccounts}
             />
 
             {portfolios.length === 0 ? (
@@ -343,7 +347,7 @@ export function UploadPublicMarketReportsForm({
                   </p>
                 ) : (
                   <p className="text-sm text-muted-foreground">
-                    No existing managed holdings matched this broker/account ΓÇö positions will be added
+                    No existing managed holdings matched this broker/account — positions will be added
                     as a new managed slice.
                   </p>
                 )}
