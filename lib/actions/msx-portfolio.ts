@@ -22,8 +22,12 @@ export async function importBrokerReports(formData: FormData): Promise<ImportFil
   }
 
   const entityId = String(formData.get("entityId") ?? "").trim();
+  const managedPortfolioId = String(formData.get("managedPortfolioId") ?? "").trim();
   if (!entityId) {
     throw new Error("Entity is required.");
+  }
+  if (!managedPortfolioId) {
+    throw new Error("Managed portfolio is required.");
   }
 
   if (ctx.entityIds.length > 0 && !ctx.entityIds.includes(entityId)) {
@@ -49,7 +53,17 @@ export async function importBrokerReports(formData: FormData): Promise<ImportFil
     })),
   );
 
-  return importBrokerReportsForEntity(ctx, entityId, "MSX", reportFiles, parseImportOptionsFromFormData(formData));
+  const overlapResolution = String(formData.get("overlapResolution") ?? "").trim() || null;
+
+  return importBrokerReportsForEntity(
+    ctx,
+    entityId,
+    "MSX",
+    managedPortfolioId,
+    reportFiles,
+    parseImportOptionsFromFormData(formData),
+    overlapResolution,
+  );
 }
 
 export async function deleteMsxHolding(holdingId: string) {

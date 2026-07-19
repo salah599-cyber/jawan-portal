@@ -10,9 +10,19 @@ export async function importBrokerReportsForEntity(
   ctx: UserContext,
   entityId: string,
   files: BrokerReportFile[],
+  managedPortfolioId: string,
   importOptions: ImportBrokerReportsOptions,
+  overlapResolutionInput?: string | null,
 ): Promise<ImportFileResult[]> {
-  return importForMarket(ctx, entityId, "MSX", files, importOptions);
+  return importForMarket(
+    ctx,
+    entityId,
+    "MSX",
+    managedPortfolioId,
+    files,
+    importOptions,
+    overlapResolutionInput,
+  );
 }
 
 export async function importBrokerReportsForMarket(
@@ -20,7 +30,17 @@ export async function importBrokerReportsForMarket(
   entityId: string,
   market: PublicMarket,
   files: BrokerReportFile[],
+  managedPortfolioId: string,
   importOptions: ImportBrokerReportsOptions,
+  overlapResolutionInput?: string | null,
 ): Promise<ImportFileResult[]> {
-  return importForMarket(ctx, entityId, market, files, importOptions);
+  return importForMarket(
+    ctx,
+    entityId,
+    market,
+    managedPortfolioId,
+    files,
+    importOptions,
+    overlapResolutionInput,
+  );
 }

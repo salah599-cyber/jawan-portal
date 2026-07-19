@@ -426,7 +426,7 @@ function MortgageLinkForm({
   currentId,
 }: {
   propertyId: string;
-  mortgageOptions: { id: string; name: string }[];
+  mortgageOptions: { id: string; name: string; lender: string | null }[];
   currentId: string | null;
 }) {
   const [pending, startTransition] = useTransition();
@@ -449,7 +449,7 @@ function MortgageLinkForm({
           <option value="">None</option>
           {mortgageOptions.map((loan) => (
             <option key={loan.id} value={loan.id}>
-              {loan.name}
+              {loan.lender ? `${loan.name} — ${loan.lender}` : loan.name}
             </option>
           ))}
         </select>

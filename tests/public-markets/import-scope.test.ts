@@ -56,6 +56,7 @@ describe("import holding replace scope", () => {
     assetId: "asset-1",
     market: "USA" as const,
     brokerAccountId: "broker-acct-1",
+    managedPortfolioId: "portfolio-1",
   };
 
   it("builds managed and reference scopes separately", () => {
@@ -66,6 +67,7 @@ describe("import holding replace scope", () => {
       assetId: "asset-1",
       market: "USA",
       brokerAccountId: "broker-acct-1",
+      managedPortfolioId: "portfolio-1",
       source: "IMPORT",
       isManaged: true,
     });

@@ -1,6 +1,10 @@
 import { db } from "@/lib/db";
 import { getAssetLinkedModule } from "@/lib/assets/linked-module";
-import { MARKET_CONFIG } from "@/lib/public-markets/constants";
+import { MARKET_CONFIG, PUBLIC_MARKETS_PATH, PRIVATE_PORTFOLIO_SLUG } from "@/lib/public-markets/constants";
+import {
+  computePortfolioTotalsOmr,
+  getManagedPortfolioValueAtDate,
+} from "@/lib/portfolio/managed-portfolio-valuations";
 import {
   getPerformancePeriodStart,
   type PerformancePeriod,
@@ -206,6 +210,58 @@ async function collectPublicEquityHoldingPerformers(
   return performers;
 }
 
+async function collectManagedPortfolioPerformers(
+  entityIds: string[],
+  periodStart: Date,
+): Promise<AssetPerformer[]> {
+  if (entityIds.length === 0) return [];
+
+  const performers: AssetPerformer[] = [];
+  const uniqueEntityIds = [...new Set(entityIds)];
+
+  for (const entityId of uniqueEntityIds) {
+    const privateTotals = await computePortfolioTotalsOmr(entityId, null);
+    if (privateTotals.valueOmr > 0) {
+      const privateBaseline = await getManagedPortfolioValueAtDate(entityId, null, periodStart);
+      if (privateBaseline != null && privateBaseline > 0) {
+        performers.push({
+          name: "Private holdings",
+          returnPct: ((privateTotals.valueOmr - privateBaseline) / privateBaseline) * 100,
+          href: `${PUBLIC_MARKETS_PATH}?entity=${entityId}&portfolio=${PRIVATE_PORTFOLIO_SLUG}`,
+        });
+      }
+    }
+
+    const portfolios = await db.managedPortfolio.findMany({
+      where: {
+        entityId,
+        status: { in: ["ACTIVE", "MONITOR"] },
+      },
+      select: {
+        id: true,
+        name: true,
+        managerName: true,
+      },
+    });
+
+    for (const portfolio of portfolios) {
+      const totals = await computePortfolioTotalsOmr(entityId, portfolio.id);
+      if (totals.valueOmr <= 0) continue;
+
+      const baseline = await getManagedPortfolioValueAtDate(entityId, portfolio.id, periodStart);
+      if (baseline == null || baseline <= 0) continue;
+
+      performers.push({
+        name: `${portfolio.managerName} — ${portfolio.name}`,
+        returnPct: ((totals.valueOmr - baseline) / baseline) * 100,
+        href: `${PUBLIC_MARKETS_PATH}?entity=${entityId}&portfolio=${portfolio.id}`,
+      });
+    }
+  }
+
+  return performers;
+}
+
 export async function computePortfolioPerformance(
   ctx: UserContext,
   options: PortfolioPerformanceOptions = {},
@@ -231,6 +287,7 @@ export async function computePortfolioPerformance(
     },
     select: {
       id: true,
+      entityId: true,
       name: true,
       category: true,
       currentValue: true,
@@ -302,6 +359,14 @@ export async function computePortfolioPerformance(
   periodPerformers.push(
     ...(await collectPublicEquityHoldingPerformers(publicEquityAssets, periodStart)),
   );
+
+  const entityIds = options.entityId
+    ? [options.entityId]
+    : [...new Set(assets.map((asset) => asset.entityId))];
+
+  if (publicEquityAssets.length > 0 && entityIds.length > 0) {
+    periodPerformers.push(...(await collectManagedPortfolioPerformers(entityIds, periodStart)));
+  }
 
   const periodReturn = computePortfolioReturn(currentTotalOmr, periodBaselineTotalOmr);
   const ytdReturn = computePortfolioReturn(currentTotalOmr, ytdBaselineTotalOmr);

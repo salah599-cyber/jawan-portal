@@ -388,7 +388,7 @@ export const PUBLIC_OPTION_TYPE_LABELS: Record<string, string> = {
 };
 
 export const PUBLIC_HOLDING_SOURCE_LABELS: Record<string, string> = {
-  IMPORT: "Import",
+  IMPORT: "Managed",
   MANUAL: "Manual",
 };
 

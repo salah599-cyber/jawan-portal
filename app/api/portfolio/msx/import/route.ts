@@ -33,8 +33,12 @@ export async function POST(request: Request): Promise<NextResponse> {
   }
 
   const entityId = String(formData.get("entityId") ?? "").trim();
+  const managedPortfolioId = String(formData.get("managedPortfolioId") ?? "").trim();
   if (!entityId) {
     return NextResponse.json({ error: "Entity is required." }, { status: 400 });
+  }
+  if (!managedPortfolioId) {
+    return NextResponse.json({ error: "Managed portfolio is required." }, { status: 400 });
   }
 
   if (ctx.entityIds.length > 0 && !ctx.entityIds.includes(entityId)) {
@@ -67,12 +71,16 @@ export async function POST(request: Request): Promise<NextResponse> {
       })),
     );
 
+    const overlapResolution = String(formData.get("overlapResolution") ?? "").trim() || null;
+
     const results = await importBrokerReportsForEntity(
       ctx,
       entityId,
       "MSX",
+      managedPortfolioId,
       reportFiles,
       parseImportOptionsFromFormData(formData),
+      overlapResolution,
     );
     return NextResponse.json({ results });
   } catch (error) {

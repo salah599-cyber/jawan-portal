@@ -1,4 +1,4 @@
-import Link from "next/link";
+﻿import Link from "next/link";
 import { PlatformHeader } from "@/components/platform/platform-header";
 import { AddManualHoldingForm } from "@/components/public-markets/add-manual-holding-form";
 import { AddManualCryptoForm } from "@/components/public-markets/add-manual-crypto-form";
@@ -17,7 +17,8 @@ import {
 import { PublicHoldingsTable } from "@/components/public-markets/public-holdings-table";
 import { PublicImportHistoryTable } from "@/components/public-markets/public-import-history-table";
 import { BrokerAccountsCard } from "@/components/public-markets/broker-accounts-card";
-import { UploadPublicMarketReportsForm } from "@/components/public-markets/upload-reports-form";
+import { ManageManagedPortfoliosCard } from "@/components/public-markets/manage-managed-portfolios-card";
+import { ManagedPortfolioSummaryCards } from "@/components/public-markets/managed-portfolio-summary-cards";
 import {
   getAllMarketsSummary,
   getPublicHoldings,
@@ -26,11 +27,19 @@ import {
   listPublicMarketsEntities,
   resolveMarketFromSearchParam,
 } from "@/lib/data/public-markets";
+import { UploadPublicMarketReportsForm } from "@/components/public-markets/upload-reports-form";
 import {
+  getManagedPortfolioSummaries,
+  listManagedPortfolios,
+} from "@/lib/data/managed-portfolios";
+import {
+  ALL_PORTFOLIOS_SLUG,
   MARKET_CONFIG,
+  PRIVATE_PORTFOLIO_SLUG,
   getMarketPricingNote,
   resolveInstrumentFromSearchParam,
   resolveManagementFromSearchParam,
+  resolvePortfolioFilter,
   slugFromMarket,
 } from "@/lib/public-markets/constants";
 import { listPublicBrokerAccountsForEntity } from "@/lib/public-markets/broker-accounts";
@@ -43,18 +52,32 @@ import { ExternalLink } from "lucide-react";
 export default async function PublicMarketsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ entity?: string; market?: string; instrument?: string; management?: string }>;
+  searchParams: Promise<{
+    entity?: string;
+    market?: string;
+    instrument?: string;
+    portfolio?: string;
+    management?: string;
+  }>;
 }) {
   const {
     entity: entityParam,
     market: marketParam,
     instrument: instrumentParam,
+    portfolio: portfolioParam,
     management: managementParam,
   } = await searchParams;
   const { mode, market } = resolveMarketFromSearchParam(marketParam);
   const { slug: instrumentSlug, instrumentType } =
     resolveInstrumentFromSearchParam(instrumentParam);
+  const portfolioFilter = resolvePortfolioFilter(portfolioParam);
   const management = resolveManagementFromSearchParam(managementParam);
+  const activePortfolio =
+    portfolioFilter.mode === "private"
+      ? PRIVATE_PORTFOLIO_SLUG
+      : portfolioFilter.mode === "managed" && portfolioFilter.managedPortfolioId
+        ? portfolioFilter.managedPortfolioId
+        : ALL_PORTFOLIOS_SLUG;
   const ctx = await requireModuleAccess("ASSETS");
   const entities = await listPublicMarketsEntities(ctx);
   const entityId = entityParam && entities.some((entity) => entity.id === entityParam)
@@ -66,21 +89,36 @@ export default async function PublicMarketsPage({
   const marketSlug = isAllMarkets ? "ALL" : slugFromMarket(market);
   const isEquityTab = instrumentSlug === "equity";
   const isCryptoTab = instrumentSlug === "crypto";
+  const holdingsPortfolioFilter =
+    portfolioFilter.mode === "private"
+      ? "private"
+      : portfolioFilter.mode === "managed"
+        ? portfolioFilter.managedPortfolioId
+        : undefined;
+
   const canEdit = canWrite(ctx, "ASSETS");
 
-  const [summary, allSummary, holdings, importBatches, brokerAccounts] = await Promise.all([
+  const [summary, allSummary, holdings, importBatches, managedPortfolios, portfolioSummaries, brokerAccounts] =
+    await Promise.all([
     isAllMarkets ? null : getPublicMarketSummary(ctx, entityId, market),
     isAllMarkets ? getAllMarketsSummary(ctx, entityId) : null,
     getPublicHoldings(ctx, {
       entityId,
       market: isAllMarkets ? null : market,
       instrumentType,
+      managedPortfolioId: holdingsPortfolioFilter,
       management: isEquityTab ? management : "all",
     }),
     isEquityTab
       ? getPublicImportBatches(ctx, {
           market: isAllMarkets ? null : market,
+          managedPortfolioId:
+            portfolioFilter.mode === "managed" ? portfolioFilter.managedPortfolioId : undefined,
         })
+      : Promise.resolve([]),
+    entityId ? listManagedPortfolios(ctx, entityId) : Promise.resolve([]),
+    entityId && isEquityTab && portfolioFilter.mode === "all"
+      ? getManagedPortfolioSummaries(ctx, entityId, isAllMarkets ? null : market)
       : Promise.resolve([]),
     canEdit && isEquityTab && entityId
       ? listPublicBrokerAccountsForEntity(ctx, entityId)
@@ -96,8 +134,8 @@ export default async function PublicMarketsPage({
         : instrumentSlug === "crypto"
           ? "Cryptocurrency positions priced via CoinGecko in USD, with optional manual overrides."
           : isAllMarkets
-          ? "All positions across markets, with values converted to OMR where applicable."
-          : "Consolidated positions across imported broker reports and manual entries. Re-importing replaces holdings for the selected broker account and portfolio type only.";
+          ? "All positions across markets and portfolios, with values converted to OMR where applicable."
+          : "Positions for the selected portfolio. The same symbol can exist separately under different managers or in private holdings.";
 
   return (
     <>
@@ -127,7 +165,17 @@ export default async function PublicMarketsPage({
           </div>
           <div className="flex flex-wrap items-center gap-2">
             <DownloadPortfolioTemplateButton />
-            <ExportHoldingsButton entityId={entityId} market={activeMarket} />
+            <ExportHoldingsButton
+              entityId={entityId}
+              market={activeMarket}
+              portfolio={
+                portfolioFilter.mode === "private"
+                  ? "private"
+                  : portfolioFilter.mode === "managed"
+                    ? (portfolioFilter.managedPortfolioId ?? undefined)
+                    : undefined
+              }
+            />
             {canEdit && isEquityTab ? (
               <RefreshPricesButton
                 entityId={entityId}
@@ -152,17 +200,29 @@ export default async function PublicMarketsPage({
         <PublicMarketsFilters
           activeMarket={activeMarket}
           activeInstrument={instrumentSlug}
+          activePortfolio={activePortfolio}
           activeManagement={management}
           showManagementFilter={isEquityTab}
           entityId={entityId}
           entities={entities}
+          portfolios={managedPortfolios}
           currentParams={{
             entity: entityParam,
             market: isAllMarkets ? "ALL" : marketParam ?? slugFromMarket(market),
             instrument: instrumentSlug === "equity" ? undefined : instrumentSlug,
+            portfolio:
+              activePortfolio === ALL_PORTFOLIOS_SLUG ? undefined : activePortfolio,
             management: management === "all" ? undefined : management,
           }}
         />
+
+        {isEquityTab && portfolioFilter.mode === "all" && portfolioSummaries.length > 0 ? (
+          <ManagedPortfolioSummaryCards
+            summaries={portfolioSummaries}
+            entityId={entityId}
+            marketSlug={marketSlug}
+          />
+        ) : null}
 
         {isAllMarkets ? (
           <>
@@ -182,15 +242,27 @@ export default async function PublicMarketsPage({
                   defaultEntityId={entityId}
                   accounts={brokerAccounts}
                 />
+                <ManageManagedPortfoliosCard
+                  entities={entities}
+                  defaultEntityId={entityId}
+                  portfolios={managedPortfolios}
+                />
                 <UploadPublicMarketReportsForm
                   entities={entities}
                   defaultEntityId={entityId}
                   market={market}
+                  portfolios={managedPortfolios}
                 />
                 <AddManualHoldingForm
                   entities={entities}
                   defaultEntityId={entityId}
                   market={market}
+                  portfolios={managedPortfolios}
+                  defaultPortfolioId={
+                    portfolioFilter.mode === "managed"
+                      ? portfolioFilter.managedPortfolioId ?? PRIVATE_PORTFOLIO_SLUG
+                      : PRIVATE_PORTFOLIO_SLUG
+                  }
                 />
               </>
             ) : null}
@@ -223,6 +295,7 @@ export default async function PublicMarketsPage({
               holdings={holdings}
               canEdit={canEdit && !isAllMarkets}
               showMarket={isAllMarkets}
+              showPortfolio={portfolioFilter.mode === "all"}
               showOmr={isAllMarkets}
               instrumentType={instrumentType}
             />
@@ -238,7 +311,11 @@ export default async function PublicMarketsPage({
               </CardDescription>
             </CardHeader>
             <CardContent>
-              <PublicImportHistoryTable batches={importBatches} showMarket={isAllMarkets} />
+              <PublicImportHistoryTable
+                batches={importBatches}
+                showMarket={isAllMarkets}
+                showPortfolio={portfolioFilter.mode === "all"}
+              />
             </CardContent>
           </Card>
         ) : null}

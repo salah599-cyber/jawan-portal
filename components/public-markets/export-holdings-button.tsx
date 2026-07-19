@@ -10,9 +10,11 @@ import { Download } from "lucide-react";
 export function ExportHoldingsButton({
   entityId,
   market,
+  portfolio,
 }: {
   entityId?: string;
   market?: PublicMarket | "ALL";
+  portfolio?: string;
 }) {
   const [pending, startTransition] = useTransition();
 
@@ -20,6 +22,7 @@ export function ExportHoldingsButton({
     const formData = new FormData();
     if (entityId) formData.set("entityId", entityId);
     if (market) formData.set("market", market);
+    if (portfolio) formData.set("portfolio", portfolio);
 
     startTransition(async () => {
       const result = await exportPublicHoldings(formData);

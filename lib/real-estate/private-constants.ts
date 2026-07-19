@@ -1,6 +1,9 @@
-import type { RePrivateCostCategory } from "@/lib/generated/prisma/client";
+import type { LiabilityType, RePrivateCostCategory } from "@/lib/generated/prisma/client";
 
 export const PRIVATE_RE_PATH = "/real-estate/private";
+
+/** Liability types that can be linked as a private property mortgage. */
+export const LINKABLE_MORTGAGE_LIABILITY_TYPES: LiabilityType[] = ["MORTGAGE", "LOAN"];
 
 export const PRIVATE_RUNNING_COST_CATEGORIES: RePrivateCostCategory[] = [
   "ELECTRICITY",

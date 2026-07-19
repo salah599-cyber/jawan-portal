@@ -124,9 +124,16 @@ export async function importPublicMarketReports(formData: FormData): Promise<Imp
 
   const entityId = String(formData.get("entityId") ?? "").trim();
   const market = parseMarket(String(formData.get("market") ?? "MSX"));
+  const managedPortfolioId = String(formData.get("managedPortfolioId") ?? "").trim();
+  const overlapResolution = String(formData.get("overlapResolution") ?? "").trim() || null;
+  const importOptions = parseImportOptionsFromFormData(formData);
 
   if (!entityId) {
     throw new Error("Entity is required.");
+  }
+
+  if (!managedPortfolioId) {
+    throw new Error("Managed portfolio is required.");
   }
 
   if (ctx.entityIds.length > 0 && !ctx.entityIds.includes(entityId)) {
@@ -152,7 +159,15 @@ export async function importPublicMarketReports(formData: FormData): Promise<Imp
     })),
   );
 
-  return importBrokerReportsForEntity(ctx, entityId, market, reportFiles, parseImportOptionsFromFormData(formData));
+  return importBrokerReportsForEntity(
+    ctx,
+    entityId,
+    market,
+    managedPortfolioId,
+    reportFiles,
+    importOptions,
+    overlapResolution,
+  );
 }
 
 export async function listPublicBrokerAccounts(entityId: string) {

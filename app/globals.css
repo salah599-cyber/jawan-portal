@@ -139,4 +139,12 @@
   main {
     padding: 0 !important;
   }
+
+  #transfer-letter-preview table {
+    border-collapse: collapse !important;
+  }
+
+  #transfer-letter-preview td {
+    border: 1px solid #000 !important;
+  }
 }

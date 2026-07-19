@@ -4,6 +4,7 @@ export type ImportHoldingReplaceScope = {
   assetId: string;
   market: PublicMarket;
   brokerAccountId: string;
+  managedPortfolioId: string;
   source: "IMPORT";
   isManaged: boolean;
 };
@@ -12,12 +13,14 @@ export function buildImportHoldingReplaceScope(input: {
   assetId: string;
   market: PublicMarket;
   brokerAccountId: string;
+  managedPortfolioId: string;
   isManaged: boolean;
 }): ImportHoldingReplaceScope {
   return {
     assetId: input.assetId,
     market: input.market,
     brokerAccountId: input.brokerAccountId,
+    managedPortfolioId: input.managedPortfolioId,
     source: "IMPORT",
     isManaged: input.isManaged,
   };

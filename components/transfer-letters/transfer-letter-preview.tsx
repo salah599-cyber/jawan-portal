@@ -11,43 +11,87 @@ type TransferLetterPreviewProps = {
   serialNumber?: number | null;
 };
 
-function StackedField({ label, value }: { label: string; value?: string | null }) {
+type TransferFieldRow = {
+  label: string;
+  value?: string | null;
+};
+
+function TransferFieldTable({ rows }: { rows: TransferFieldRow[] }) {
   return (
-    <div>
-      <p>{label}</p>
-      {value?.trim() ? <p>{value}</p> : null}
-    </div>
+    <table className="mb-4 w-full border-collapse border border-black text-[15px] leading-normal print:text-[14pt]">
+      <tbody>
+        {rows.map((row) => (
+          <tr key={row.label}>
+            <td className="w-[30%] border border-black px-2 py-2 align-top">{row.label}</td>
+            <td className="min-h-[1.75rem] border border-black px-2 py-2 align-top whitespace-pre-wrap">
+              {row.value?.trim() ?? ""}
+            </td>
+          </tr>
+        ))}
+      </tbody>
+    </table>
   );
 }
 
-function OptionalStackedField({ label, value }: { label: string; value?: string | null }) {
-  if (!value?.trim()) return null;
-  return (
-    <div>
-      <p>{label}</p>
-      <p>{value}</p>
-    </div>
-  );
-}
+function buildTransferFieldRows(
+  type: TransferLetterType,
+  data: TransferLetterFormData,
+  amountLine: string | null,
+): TransferFieldRow[] {
+  const amountRow = { label: "Amount", value: amountLine };
 
-function InlineField({ label, value }: { label: string; value?: string | null }) {
-  if (value?.trim()) {
-    return <p>{label} {value}</p>;
+  if (type === "LOCAL") {
+    return [
+      amountRow,
+      { label: "Bank", value: data.beneficiaryBankName },
+      { label: "For credit of", value: data.beneficiaryName },
+      { label: "Account NO", value: data.beneficiaryAccountNumber },
+      { label: "IBAN", value: data.beneficiaryIban },
+      { label: "Purpose", value: data.purpose },
+      { label: "Mobile No", value: data.mobileNo },
+      { label: "Email", value: data.email },
+    ];
   }
-  return <p>{label}</p>;
+
+  if (type === "INTERNATIONAL") {
+    return [
+      amountRow,
+      { label: "Bank", value: data.beneficiaryBankName },
+      { label: "For credit of", value: data.beneficiaryName },
+      { label: "IBAN", value: data.beneficiaryIban },
+      { label: "Account NO", value: data.beneficiaryAccountNumber },
+      { label: "Purpose", value: data.purpose },
+      { label: "Mobile No", value: data.mobileNo },
+      { label: "Email", value: data.email },
+    ];
+  }
+
+  return [
+    amountRow,
+    { label: "Bank", value: data.beneficiaryBankName },
+    { label: "For credit of", value: data.beneficiaryName },
+    { label: "IBAN", value: data.beneficiaryIban },
+    { label: "Sort Code", value: data.beneficiarySortCode },
+    { label: "Swift/BIC", value: data.beneficiarySwiftCode },
+    { label: "Account NO", value: data.beneficiaryAccountNumber },
+    { label: "Purpose", value: data.purpose },
+    { label: "Mobile No", value: data.mobileNo },
+    { label: "Email", value: data.email },
+  ];
 }
 
 export function TransferLetterPreview({ data, serialNumber }: TransferLetterPreviewProps) {
   const type = data.type as TransferLetterType;
   const letterDate = data.letterDate ? formatTransferLetterDate(data.letterDate, type) : "";
-  const debitAccountNumber = data.sourceAccountNumber.trim() || "____________________";
+  const debitAccountNumber = data.sourceAccountNumber.trim() || "********************";
   const hasAmount = amountHasValue(data.amount, data.currency);
   const amountLine = hasAmount ? formatAmountLine(data.amount, data.currency, type) : null;
+  const fieldRows = buildTransferFieldRows(type, data, amountLine);
 
   return (
     <article
       id="transfer-letter-preview"
-      className="mx-auto max-w-2xl font-serif text-[15px] leading-snug text-foreground print:max-w-none print:text-[14pt]"
+      className="mx-auto max-w-2xl text-[15px] leading-normal text-foreground print:max-w-none print:text-[14pt]"
     >
       <div className="mb-4 flex items-start justify-between gap-4">
         {letterDate ? <p>{letterDate}</p> : <span />}
@@ -65,45 +109,7 @@ export function TransferLetterPreview({ data, serialNumber }: TransferLetterPrev
       <p className="mb-4">Dear Sir,</p>
       <p className="mb-4">Please make the following wire transfer:</p>
 
-      <div className="mb-4 space-y-0">
-        {type === "LOCAL" ? (
-          <>
-            <p>Amount</p>
-            {amountLine ? <p>{amountLine}</p> : null}
-            <StackedField label="Bank" value={data.beneficiaryBankName} />
-            <StackedField label="For credit of" value={data.beneficiaryName} />
-            <StackedField label="Account NO" value={data.beneficiaryAccountNumber} />
-            <StackedField label="IBAN" value={data.beneficiaryIban} />
-            <OptionalStackedField label="Purpose" value={data.purpose} />
-            <StackedField label="Mobile No" value={data.mobileNo} />
-            <StackedField label="Email" value={data.email} />
-          </>
-        ) : type === "INTERNATIONAL" ? (
-          <>
-            <p>{amountLine ? `Amount ${amountLine}` : "Amount"}</p>
-            <StackedField label="Bank" value={data.beneficiaryBankName} />
-            <StackedField label="For credit of" value={data.beneficiaryName} />
-            <StackedField label="IBAN" value={data.beneficiaryIban} />
-            <StackedField label="Account NO" value={data.beneficiaryAccountNumber} />
-            <OptionalStackedField label="Purpose" value={data.purpose} />
-            <StackedField label="Mobile No" value={data.mobileNo} />
-            <StackedField label="Email" value={data.email} />
-          </>
-        ) : (
-          <>
-            <p>{amountLine ? `Amount ${amountLine}` : "Amount"}</p>
-            <StackedField label="Bank" value={data.beneficiaryBankName} />
-            <StackedField label="For credit of" value={data.beneficiaryName} />
-            <StackedField label="IBAN" value={data.beneficiaryIban} />
-            <StackedField label="Sort Code" value={data.beneficiarySortCode} />
-            <StackedField label="Swift/BIC" value={data.beneficiarySwiftCode} />
-            <StackedField label="Account NO" value={data.beneficiaryAccountNumber} />
-            <OptionalStackedField label="Purpose" value={data.purpose} />
-            <InlineField label="Mobile No" value={data.mobileNo} />
-            <InlineField label="Email" value={data.email} />
-          </>
-        )}
-      </div>
+      <TransferFieldTable rows={fieldRows} />
 
       <p className="mb-4">
         You may debit the above amount to our Account No. {debitAccountNumber} with you, under advice to us.
@@ -113,11 +119,9 @@ export function TransferLetterPreview({ data, serialNumber }: TransferLetterPrev
 
       {type === "INTERNATIONAL" ? (
         <div className="mb-4">
+          <p>Special Instruction/Memo:</p>
           {data.specialInstructions?.trim() ? (
-            <>
-              <p>Special Instruction/Memo:</p>
-              <p>{data.specialInstructions}</p>
-            </>
+            <p className="mt-1 whitespace-pre-wrap">{data.specialInstructions}</p>
           ) : null}
         </div>
       ) : null}

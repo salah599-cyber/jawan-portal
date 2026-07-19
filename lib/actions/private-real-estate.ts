@@ -6,14 +6,18 @@ import { ensureRealEstateSchema } from "@/lib/db/ensure-real-estate-schema";
 import { deleteBlobUrl, uploadPrivateFile } from "@/lib/blob";
 import { logAudit } from "@/lib/audit/log";
 import { canWrite, requireModuleAccess } from "@/lib/permissions/access";
-import { loanEntityFilter, rePropertyEntityFilter } from "@/lib/permissions/scoped-queries";
+import { linkableMortgageLoanFilter, rePropertyEntityFilter } from "@/lib/permissions/scoped-queries";
 import { syncRePropertyAsset } from "@/lib/real-estate/asset-sync";
 import {
   parseDateInput,
   parseDecimalInput,
   parseIntInput,
 } from "@/lib/real-estate/helpers";
-import { PRIVATE_RE_PATH, PRIVATE_RUNNING_COST_CATEGORIES } from "@/lib/real-estate/private-constants";
+import {
+  LINKABLE_MORTGAGE_LIABILITY_TYPES,
+  PRIVATE_RE_PATH,
+  PRIVATE_RUNNING_COST_CATEGORIES,
+} from "@/lib/real-estate/private-constants";
 import type {
   ReFinishingQuality,
   ReFurnishingStatus,
@@ -308,11 +312,11 @@ export async function linkPrivateMortgage(propertyId: string, liabilityId: strin
     where: {
       id: liabilityId,
       entityId: property.entityId,
-      type: "MORTGAGE",
-      ...loanEntityFilter(ctx),
+      type: { in: LINKABLE_MORTGAGE_LIABILITY_TYPES },
+      ...linkableMortgageLoanFilter(ctx),
     },
   });
-  if (!liability) throw new Error("Mortgage loan not found.");
+  if (!liability) throw new Error("Loan not found or cannot be linked.");
 
   await db.reProperty.update({
     where: { id: propertyId },

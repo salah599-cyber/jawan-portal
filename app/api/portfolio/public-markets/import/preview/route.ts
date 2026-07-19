@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
-import { importBrokerReportsForEntity } from "@/lib/public-markets/import-reports";
-import { parseImportOptionsFromFormData } from "@/lib/public-markets/import-options";
+import {
+  previewImportForEntity,
+} from "@/lib/public-markets/import-preview";
 import type { BrokerReportFile } from "@/lib/public-markets/types";
 import type { PublicMarket } from "@/lib/generated/prisma/client";
 import { MARKET_CONFIG } from "@/lib/public-markets/constants";
@@ -30,7 +31,7 @@ export async function POST(request: Request): Promise<NextResponse> {
   }
   if (!canWrite(ctx, "ASSETS")) {
     return NextResponse.json(
-      { error: "You do not have permission to import brokerage reports." },
+      { error: "You do not have permission to preview brokerage reports." },
       { status: 403 },
     );
   }
@@ -44,7 +45,7 @@ export async function POST(request: Request): Promise<NextResponse> {
 
   const entityId = String(formData.get("entityId") ?? "").trim();
   const market = parseMarket(String(formData.get("market") ?? "MSX"));
-  const managedPortfolioId = String(formData.get("managedPortfolioId") ?? "").trim() || null;
+  const managedPortfolioId = String(formData.get("managedPortfolioId") ?? "").trim();
 
   if (!entityId) {
     return NextResponse.json({ error: "Entity is required." }, { status: 400 });
@@ -61,7 +62,7 @@ export async function POST(request: Request): Promise<NextResponse> {
   const files = getFilesFromFormData(formData);
   if (files.length === 0) {
     return NextResponse.json(
-      { error: "Select at least one brokerage report to upload." },
+      { error: "Select at least one brokerage report to preview." },
       { status: 400 },
     );
   }
@@ -84,20 +85,15 @@ export async function POST(request: Request): Promise<NextResponse> {
       })),
     );
 
-    const overlapResolution = String(formData.get("overlapResolution") ?? "").trim() || null;
-
-    const results = await importBrokerReportsForEntity(
-      ctx,
+    const preview = await previewImportForEntity(
       entityId,
       market,
       managedPortfolioId,
       reportFiles,
-      parseImportOptionsFromFormData(formData),
-      overlapResolution,
     );
-    return NextResponse.json({ results });
+    return NextResponse.json(preview);
   } catch (error) {
-    const message = error instanceof Error ? error.message : "Failed to import reports.";
+    const message = error instanceof Error ? error.message : "Failed to preview reports.";
     return NextResponse.json({ error: message }, { status: 500 });
   }
 }

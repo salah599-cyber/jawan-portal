@@ -1,10 +1,10 @@
-import { Client } from "pg";
-import { backfillPublicBrokerAccounts } from "@/lib/db/backfill-public-broker-accounts";
+﻿import { Client } from "pg";
 import {
-  PUBLIC_BROKER_ACCOUNTS_FK_STATEMENTS,
-  PUBLIC_BROKER_ACCOUNTS_SCHEMA_COLUMN_CHECK_SQL,
-  PUBLIC_BROKER_ACCOUNTS_SCHEMA_STATEMENTS,
-} from "@/lib/db/public-markets-broker-accounts-schema-statements";
+  isIgnorablePublicMarketsSchemaError,
+  PUBLIC_MARKETS_ENUM_EXPANSION_STATEMENTS,
+  PUBLIC_MARKETS_SCHEMA_COLUMN_CHECK_SQL,
+  PUBLIC_MARKETS_SCHEMA_STATEMENTS,
+} from "@/lib/db/public-markets-schema-statements";
 import {
   PUBLIC_CRYPTO_DETAIL_SCHEMA_STATEMENTS,
   PUBLIC_INSTRUMENTS_ENUM_EXPANSION_STATEMENTS,
@@ -12,11 +12,19 @@ import {
   PUBLIC_INSTRUMENTS_SCHEMA_STATEMENTS,
 } from "@/lib/db/public-markets-instruments-schema-statements";
 import {
-  isIgnorablePublicMarketsSchemaError,
-  PUBLIC_MARKETS_ENUM_EXPANSION_STATEMENTS,
-  PUBLIC_MARKETS_SCHEMA_COLUMN_CHECK_SQL,
-  PUBLIC_MARKETS_SCHEMA_STATEMENTS,
-} from "@/lib/db/public-markets-schema-statements";
+  MANAGED_PORTFOLIO_SCHEMA_COLUMN_CHECK_SQL,
+  MANAGED_PORTFOLIO_SCHEMA_STATEMENTS,
+} from "@/lib/db/managed-portfolio-schema-statements";
+import {
+  PUBLIC_BROKER_ACCOUNTS_SCHEMA_COLUMN_CHECK_SQL,
+  PUBLIC_BROKER_ACCOUNTS_FK_STATEMENTS,
+  PUBLIC_BROKER_ACCOUNTS_SCHEMA_STATEMENTS,
+} from "@/lib/db/public-markets-broker-accounts-schema-statements";
+import { backfillPublicBrokerAccounts } from "@/lib/db/backfill-public-broker-accounts";
+import {
+  backfillLegacyManagedPortfolios,
+  normalizeImportedBrokerNames,
+} from "@/lib/public-markets/backfill-managed-portfolios";
 
 let ensurePromise: Promise<void> | null = null;
 
@@ -40,11 +48,6 @@ async function instrumentsColumnExists(client: Client): Promise<boolean> {
   return Boolean(result.rows[0]?.exists);
 }
 
-async function brokerAccountsColumnExists(client: Client): Promise<boolean> {
-  const result = await client.query(PUBLIC_BROKER_ACCOUNTS_SCHEMA_COLUMN_CHECK_SQL);
-  return Boolean(result.rows[0]?.exists);
-}
-
 async function runStatements(client: Client, statements: string[]) {
   for (const statement of statements) {
     try {
@@ -55,6 +58,16 @@ async function runStatements(client: Client, statements: string[]) {
       throw new Error(`Public markets schema statement failed: ${message}`);
     }
   }
+}
+
+async function managedPortfolioColumnExists(client: Client): Promise<boolean> {
+  const result = await client.query(MANAGED_PORTFOLIO_SCHEMA_COLUMN_CHECK_SQL);
+  return Boolean(result.rows[0]?.exists);
+}
+
+async function brokerAccountsColumnExists(client: Client): Promise<boolean> {
+  const result = await client.query(PUBLIC_BROKER_ACCOUNTS_SCHEMA_COLUMN_CHECK_SQL);
+  return Boolean(result.rows[0]?.exists);
 }
 
 async function applyPublicMarketsSchema() {
@@ -92,6 +105,16 @@ async function applyPublicMarketsSchema() {
     await runStatements(client, PUBLIC_INSTRUMENTS_ENUM_EXPANSION_STATEMENTS);
     await runStatements(client, PUBLIC_CRYPTO_DETAIL_SCHEMA_STATEMENTS);
 
+    if (!(await managedPortfolioColumnExists(client))) {
+      await runStatements(client, MANAGED_PORTFOLIO_SCHEMA_STATEMENTS);
+
+      if (!(await managedPortfolioColumnExists(client))) {
+        throw new Error(
+          "Managed portfolio schema sync finished but PublicEquityHolding.managedPortfolioId is still missing.",
+        );
+      }
+    }
+
     if (!(await brokerAccountsColumnExists(client))) {
       await runStatements(client, PUBLIC_BROKER_ACCOUNTS_SCHEMA_STATEMENTS);
       await runStatements(client, PUBLIC_BROKER_ACCOUNTS_FK_STATEMENTS);
@@ -107,6 +130,9 @@ async function applyPublicMarketsSchema() {
   } finally {
     await client.end();
   }
+
+  await normalizeImportedBrokerNames();
+  await backfillLegacyManagedPortfolios();
 }
 
 export function ensurePublicMarketsSchema() {
