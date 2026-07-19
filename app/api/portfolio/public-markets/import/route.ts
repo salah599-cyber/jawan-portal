@@ -78,7 +78,15 @@ export async function POST(request: Request): Promise<NextResponse> {
       })),
     );
 
-    const results = await importBrokerReportsForEntity(ctx, entityId, market, reportFiles);
+    const overlapResolution = String(formData.get("overlapResolution") ?? "").trim() || null;
+
+    const results = await importBrokerReportsForEntity(
+      ctx,
+      entityId,
+      market,
+      reportFiles,
+      overlapResolution,
+    );
     return NextResponse.json({ results });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Failed to import reports.";

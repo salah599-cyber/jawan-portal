@@ -11,7 +11,15 @@ import { normalizeAndFormatHoldingValues } from "@/lib/public-markets/valuation"
 import { recordAssetValuation } from "@/lib/portfolio/valuations";
 import { refreshPublicMarketPrices } from "@/lib/public-markets/refresh-prices";
 import { hasAutomaticPriceRefresh } from "@/lib/public-markets/prices/symbols";
-import { formatManualOverlapWarning } from "@/lib/public-markets/import-warnings";
+import { formatOverlapResolutionSummary } from "@/lib/public-markets/import-warnings";
+import { getManualEquityHoldings } from "@/lib/public-markets/import-preview";
+import {
+  groupManualEquityHoldings,
+  parseOverlapResolution,
+  resolveImportHoldings,
+  type ManualEquitySnapshot,
+  type OverlapResolutionStrategy,
+} from "@/lib/public-markets/overlap-resolution";
 
 export async function ensurePortfolioAsset(entityId: string, market: PublicMarket) {
   const config = MARKET_CONFIG[market];
@@ -69,26 +77,13 @@ export async function refreshAssetValue(assetId: string) {
   }
 }
 
-async function getManualEquitySymbols(assetId: string, market: PublicMarket): Promise<Set<string>> {
-  const holdings = await db.publicEquityHolding.findMany({
-    where: {
-      assetId,
-      market,
-      source: "MANUAL",
-      instrumentType: "EQUITY",
-    },
-    select: { symbol: true },
-  });
-
-  return new Set(holdings.map((holding) => holding.symbol.toUpperCase()));
-}
-
 async function importSingleReport(
   assetId: string,
   market: PublicMarket,
   userEmail: string,
   file: BrokerReportFile,
-  manualSymbols: Set<string>,
+  manualBySymbol: Map<string, ManualEquitySnapshot[]>,
+  overlapResolution: OverlapResolutionStrategy,
 ): Promise<ImportFileResult> {
   try {
     const parsed = await parseMarketReport(file, market);
@@ -106,11 +101,26 @@ async function importSingleReport(
       };
     }
 
+    const resolution = resolveImportHoldings(
+      parsed.holdings,
+      manualBySymbol,
+      overlapResolution,
+    );
+
+    if (resolution.manualIdsToDelete.length > 0) {
+      await db.publicEquityHolding.deleteMany({
+        where: {
+          assetId,
+          id: { in: resolution.manualIdsToDelete },
+        },
+      });
+    }
+
     const batch = await db.importBatch.create({
       data: {
         fileName: file.fileName,
         uploadedBy: userEmail,
-        rowCount: parsed.holdings.length,
+        rowCount: resolution.holdings.length,
         market,
         broker: parsed.broker,
         accountNumber: parsed.accountNumber,
@@ -129,58 +139,57 @@ async function importSingleReport(
       },
     });
 
-    await db.publicEquityHolding.createMany({
-      data: parsed.holdings.map((holding) => {
-        const { decimals } = normalizeAndFormatHoldingValues({
-          quantity: holding.quantity,
-          costBasis: holding.costBasis,
-          marketPrice: holding.marketPrice,
-          marketValue: holding.marketValue,
-          unrealisedPnl: holding.unrealisedPnl,
-        });
+    if (resolution.holdings.length > 0) {
+      await db.publicEquityHolding.createMany({
+        data: resolution.holdings.map((holding) => {
+          const { decimals } = normalizeAndFormatHoldingValues({
+            quantity: holding.quantity,
+            costBasis: holding.costBasis,
+            marketPrice: holding.marketPrice,
+            marketValue: holding.marketValue,
+            unrealisedPnl: holding.unrealisedPnl,
+          });
 
-        return {
-          assetId,
-          market,
-          symbol: holding.symbol,
-          name: holding.name,
-          quantity: holding.quantity.toFixed(6),
-          costBasis: decimals.costBasis,
-          marketPrice: decimals.marketPrice,
-          marketValue: decimals.marketValue,
-          unrealisedPnl: decimals.unrealisedPnl,
-          priceSource: "BROKER",
-          broker: parsed.broker,
-          accountNumber: parsed.accountNumber,
-          exchange: holding.exchange,
-          isin: holding.isin,
-          cusip: holding.cusip,
-          sedol: holding.sedol,
-          country: holding.country ?? MARKET_CONFIG[market].country,
-          source: "IMPORT",
-          currency: holding.currency ?? MARKET_CONFIG[market].currency,
-          asOfDate: parsed.asOfDate,
-          importBatchId: batch.id,
-        };
-      }),
-    });
+          return {
+            assetId,
+            market,
+            symbol: holding.symbol,
+            name: holding.name,
+            quantity: holding.quantity.toFixed(6),
+            costBasis: decimals.costBasis,
+            marketPrice: decimals.marketPrice,
+            marketValue: decimals.marketValue,
+            unrealisedPnl: decimals.unrealisedPnl,
+            priceSource: "BROKER",
+            broker: parsed.broker,
+            accountNumber: parsed.accountNumber,
+            exchange: holding.exchange,
+            isin: holding.isin,
+            cusip: holding.cusip,
+            sedol: holding.sedol,
+            country: holding.country ?? MARKET_CONFIG[market].country,
+            source: "IMPORT",
+            currency: holding.currency ?? MARKET_CONFIG[market].currency,
+            asOfDate: parsed.asOfDate,
+            importBatchId: batch.id,
+          };
+        }),
+      });
+    }
 
-    const manualOverlaps = [
-      ...new Set(
-        parsed.holdings
-          .map((holding) => holding.symbol.toUpperCase())
-          .filter((symbol) => manualSymbols.has(symbol)),
-      ),
-    ].sort();
-    const overlapWarning = formatManualOverlapWarning(manualOverlaps);
+    const resolutionWarnings = [
+      formatOverlapResolutionSummary(overlapResolution, resolution.skippedSymbols),
+      formatOverlapResolutionSummary("replace_manual", resolution.replacedSymbols),
+      formatOverlapResolutionSummary("merge", resolution.mergedSymbols),
+    ].filter((warning): warning is string => Boolean(warning));
 
     return {
       fileName: file.fileName,
       broker: parsed.broker,
       accountNumber: parsed.accountNumber,
       asOfDate: parsed.asOfDate?.toISOString(),
-      holdingsImported: parsed.holdings.length,
-      warnings: overlapWarning ? [...parsed.warnings, overlapWarning] : parsed.warnings,
+      holdingsImported: resolution.holdings.length,
+      warnings: [...parsed.warnings, ...resolutionWarnings],
       parserId: parsed.parserId,
     };
   } catch (error) {
@@ -199,15 +208,27 @@ export async function importBrokerReportsForEntity(
   entityId: string,
   market: PublicMarket,
   files: BrokerReportFile[],
+  overlapResolutionInput?: string | null,
 ): Promise<ImportFileResult[]> {
   await ensurePublicMarketsSchema();
   const asset = await ensurePortfolioAsset(entityId, market);
+  const overlapResolution = parseOverlapResolution(overlapResolutionInput);
+  const manualHoldings = await getManualEquityHoldings(entityId, market);
+  const manualBySymbol = groupManualEquityHoldings(manualHoldings);
 
-  const manualSymbols = await getManualEquitySymbols(asset.id, market);
-
-  const results = await Promise.all(
-    files.map((file) => importSingleReport(asset.id, market, ctx.email, file, manualSymbols)),
-  );
+  const results: ImportFileResult[] = [];
+  for (const file of files) {
+    results.push(
+      await importSingleReport(
+        asset.id,
+        market,
+        ctx.email,
+        file,
+        manualBySymbol,
+        overlapResolution,
+      ),
+    );
+  }
 
   await refreshAssetValue(asset.id);
 
@@ -232,6 +253,7 @@ export async function importBrokerReportsForEntity(
         market,
         fileCount: files.length,
         holdingsImported: importedCount,
+        overlapResolution,
         results: results.map((result) => ({
           fileName: result.fileName,
           broker: result.broker,

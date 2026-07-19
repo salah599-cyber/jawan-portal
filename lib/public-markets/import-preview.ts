@@ -4,6 +4,12 @@ import { findPortfolioAsset } from "@/lib/data/public-markets";
 import { ensurePublicMarketsSchema } from "@/lib/db/ensure-public-markets-schema";
 import { parseMarketReport } from "@/lib/public-markets/parsers/router";
 import type { BrokerReportFile } from "@/lib/public-markets/types";
+import {
+  buildManualOverlapDetails,
+  groupManualEquityHoldings,
+  type ManualEquitySnapshot,
+  type ManualOverlapDetail,
+} from "@/lib/public-markets/overlap-resolution";
 
 export type ImportPreviewFileResult = {
   fileName: string;
@@ -24,15 +30,22 @@ export type ImportPreviewReplaceScope = {
 export type ImportPreviewResult = {
   files: ImportPreviewFileResult[];
   manualOverlaps: string[];
+  manualOverlapDetails: ManualOverlapDetail[];
   replaceScopes: ImportPreviewReplaceScope[];
 };
 
-async function getManualEquitySymbols(
+function toNumber(value: { toString(): string } | number | null | undefined): number | null {
+  if (value == null) return null;
+  const num = typeof value === "number" ? value : parseFloat(value.toString());
+  return Number.isNaN(num) ? null : num;
+}
+
+async function getManualEquityHoldings(
   entityId: string,
   market: PublicMarket,
-): Promise<Set<string>> {
+): Promise<ManualEquitySnapshot[]> {
   const asset = await findPortfolioAsset(entityId, market);
-  if (!asset) return new Set();
+  if (!asset) return [];
 
   const holdings = await db.publicEquityHolding.findMany({
     where: {
@@ -41,10 +54,28 @@ async function getManualEquitySymbols(
       source: "MANUAL",
       instrumentType: "EQUITY",
     },
-    select: { symbol: true },
+    select: {
+      id: true,
+      symbol: true,
+      quantity: true,
+      costBasis: true,
+      marketPrice: true,
+      marketValue: true,
+      unrealisedPnl: true,
+      name: true,
+    },
   });
 
-  return new Set(holdings.map((holding) => holding.symbol.toUpperCase()));
+  return holdings.map((holding) => ({
+    id: holding.id,
+    symbol: holding.symbol.toUpperCase(),
+    quantity: toNumber(holding.quantity) ?? 0,
+    costBasis: toNumber(holding.costBasis),
+    marketPrice: toNumber(holding.marketPrice),
+    marketValue: toNumber(holding.marketValue),
+    unrealisedPnl: toNumber(holding.unrealisedPnl),
+    name: holding.name,
+  }));
 }
 
 async function getExistingImportCounts(
@@ -91,18 +122,28 @@ export async function previewImportForEntity(
 ): Promise<ImportPreviewResult> {
   await ensurePublicMarketsSchema();
 
-  const manualSymbols = await getManualEquitySymbols(entityId, market);
+  const manualHoldings = await getManualEquityHoldings(entityId, market);
+  const manualBySymbol = groupManualEquityHoldings(manualHoldings);
+  const manualSymbols = new Set(manualBySymbol.keys());
   const fileResults: ImportPreviewFileResult[] = [];
   const uploadedSymbols = new Set<string>();
   const replaceScopeKeys = new Map<string, ImportPreviewReplaceScope>();
+  const overlapDetailsBySymbol = new Map<string, ManualOverlapDetail>();
 
   for (const file of files) {
     try {
       const parsed = await parseMarketReport(file, market);
       const symbols = parsed.holdings.map((holding) => holding.symbol.toUpperCase());
 
-      for (const symbol of symbols) {
+      for (const holding of parsed.holdings) {
+        const symbol = holding.symbol.toUpperCase();
         uploadedSymbols.add(symbol);
+
+        if (manualSymbols.has(symbol)) {
+          for (const detail of buildManualOverlapDetails([holding], manualBySymbol)) {
+            overlapDetailsBySymbol.set(detail.symbol, detail);
+          }
+        }
       }
 
       const scopeKey = `${parsed.broker}::${parsed.accountNumber ?? ""}`;
@@ -148,8 +189,11 @@ export async function previewImportForEntity(
   return {
     files: fileResults,
     manualOverlaps,
+    manualOverlapDetails: [...overlapDetailsBySymbol.values()].sort((a, b) =>
+      a.symbol.localeCompare(b.symbol),
+    ),
     replaceScopes,
   };
 }
 
-import { formatManualOverlapWarning } from "@/lib/public-markets/import-warnings";
+export { getManualEquityHoldings };
