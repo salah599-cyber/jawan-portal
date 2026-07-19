@@ -29,6 +29,7 @@ import {
   DoorOpen,
   Send,
   Download,
+  Bot,
   type LucideIcon,
 } from "lucide-react";
 import type { ModuleName } from "@/lib/permissions/types";
@@ -66,6 +67,7 @@ type NavItem = {
 
 const platformNav: NavItem[] = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard, module: "DASHBOARD" },
+  { href: "/assistant", label: "Assistant", icon: Bot, module: "DASHBOARD" },
   { href: "/calendar", label: "Calendar", icon: CalendarDays, module: "CALENDAR" },
   { href: "/assets", label: "Assets", icon: Building2, module: "ASSETS" },
   { href: "/portfolio/public-markets", label: "Public Markets", icon: TrendingUp, module: "ASSETS" },
