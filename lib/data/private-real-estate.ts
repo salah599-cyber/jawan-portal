@@ -2,13 +2,16 @@ import { db } from "@/lib/db";
 import { ensureRealEstateSchema } from "@/lib/db/ensure-real-estate-schema";
 import { ensureDefaultEntity } from "@/lib/data/entities";
 import { listRePortfolioEntities } from "@/lib/data/real-estate";
-import { loanEntityFilter, rePropertyEntityFilter } from "@/lib/permissions/scoped-queries";
+import { linkableMortgageLoanFilter, rePropertyEntityFilter } from "@/lib/permissions/scoped-queries";
 import { isSuperAdmin } from "@/lib/permissions/access";
 import type { UserContext } from "@/lib/permissions/types";
 import type { RePropertyStatus } from "@/lib/generated/prisma/client";
 import { toNumber } from "@/lib/real-estate/helpers";
 import { fileHref } from "@/lib/files/href";
-import { PRIVATE_RUNNING_COST_CATEGORIES } from "@/lib/real-estate/private-constants";
+import {
+  LINKABLE_MORTGAGE_LIABILITY_TYPES,
+  PRIVATE_RUNNING_COST_CATEGORIES,
+} from "@/lib/real-estate/private-constants";
 
 export type PrivatePropertyFilters = {
   entityId?: string;
@@ -232,9 +235,9 @@ export async function listPrivateMortgageOptions(ctx: UserContext, entityId: str
   return db.liability.findMany({
     where: {
       entityId,
-      type: "MORTGAGE",
+      type: { in: LINKABLE_MORTGAGE_LIABILITY_TYPES },
       status: "ACTIVE",
-      ...loanEntityFilter(ctx),
+      ...linkableMortgageLoanFilter(ctx),
     },
     orderBy: { name: "asc" },
     select: {

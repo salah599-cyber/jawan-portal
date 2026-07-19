@@ -37,6 +37,13 @@ export function loanEntityFilter(ctx: UserContext) {
   return { id: "__none__" };
 }
 
+/** Loans visible when linking a mortgage on a private property (falls back to REAL_ESTATE access). */
+export function linkableMortgageLoanFilter(ctx: UserContext) {
+  const loansLevel = getModulePermission(ctx, "LOANS");
+  if (loansLevel !== "NONE") return loanEntityFilter(ctx);
+  return rePropertyEntityFilter(ctx);
+}
+
 export function chequeEntityFilter(ctx: UserContext) {
   const level = getModulePermission(ctx, "CHEQUES");
   const notDeleted = { deletedAt: null };
