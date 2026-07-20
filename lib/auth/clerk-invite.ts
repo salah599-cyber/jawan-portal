@@ -48,7 +48,7 @@ export async function createClerkInvitation(email: string, pendingInviteId: stri
     return await clerk.invitations.createInvitation({
       emailAddress: email,
       publicMetadata: { pendingInviteId },
-      ...(baseUrl ? { redirectUrl: `${baseUrl}/sign-in` } : {}),
+      ...(baseUrl ? { redirectUrl: `${baseUrl}/sign-up` } : {}),
     });
   } catch (error) {
     throw new Error(getClerkErrorMessage(error, "Failed to send Clerk invitation."));

@@ -4,6 +4,7 @@ import { NextResponse } from "next/server";
 const isPublicRoute = createRouteMatcher([
   "/",
   "/sign-in(.*)",
+  "/sign-up(.*)",
   "/forgot-password",
   "/invite-required",
   "/api/webhooks(.*)",
@@ -14,12 +15,6 @@ const isPublicRoute = createRouteMatcher([
 ]);
 
 export default clerkMiddleware(async (auth, req) => {
-  if (req.nextUrl.pathname.startsWith("/sign-up")) {
-    const url = req.nextUrl.clone();
-    url.pathname = "/sign-in";
-    return NextResponse.redirect(url);
-  }
-
   if (isPublicRoute(req)) {
     if (req.nextUrl.pathname === "/") {
       const { userId } = await auth();

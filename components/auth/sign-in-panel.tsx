@@ -30,7 +30,7 @@ export function SignInPanel({ reason }: { reason?: string }) {
       <SignIn
         routing="path"
         path="/sign-in"
-        signUpUrl="/sign-in"
+        signUpUrl="/sign-up"
         fallbackRedirectUrl="/dashboard"
         forceRedirectUrl="/dashboard"
         appearance={{
