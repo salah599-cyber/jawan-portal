@@ -139,6 +139,8 @@ async function applyCashManagementSchema() {
 
     await runStatements(client, CASH_MANAGEMENT_MIGRATION_STATEMENTS);
 
+    const hasRegion = await columnExists(client, "BankAccount", "region");
+    const hasRoutingNumber = await columnExists(client, "BankAccount", "routingNumber");
     const hasCorrespondentBankName = await columnExists(client, "BankAccount", "correspondentBankName");
     if (!hasRegion || !hasRoutingNumber || !hasCorrespondentBankName) {
       await runStatements(client, [
