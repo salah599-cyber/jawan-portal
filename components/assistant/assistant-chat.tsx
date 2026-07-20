@@ -99,7 +99,7 @@ export function AssistantChat() {
 
             {error ? (
               <p className="rounded-md border border-destructive/30 bg-destructive/5 px-3 py-2 text-sm text-destructive">
-                {error.message}
+                {error.message || "Something went wrong. Try again in a moment."}
               </p>
             ) : null}
 

@@ -15,10 +15,15 @@ import { getCurrentUserContext } from "@/lib/permissions/access";
 export const maxDuration = 60;
 
 function getAssistantModel() {
-  if (!process.env.GOOGLE_GENERATIVE_AI_API_KEY) {
+  const apiKey =
+    process.env.GOOGLE_GENERATIVE_AI_API_KEY ??
+    process.env.GEMINI_API_KEY ??
+    process.env.GOOGLE_API_KEY;
+  if (!apiKey) {
     return null;
   }
-  return google(process.env.GEMINI_MODEL ?? "gemini-2.5-flash-lite");
+  // gemini-2.5-flash-lite is unavailable for new API users; flash-latest works on free tier.
+  return google(process.env.GEMINI_MODEL ?? "gemini-flash-latest", { apiKey });
 }
 
 export async function POST(request: Request) {
@@ -55,6 +60,9 @@ export async function POST(request: Request) {
     messages: await convertToModelMessages(messages),
     tools,
     stopWhen: stepCountIs(5),
+    onError: ({ error }) => {
+      console.error("assistant/chat stream error:", error);
+    },
   });
 
   return createUIMessageStreamResponse({
