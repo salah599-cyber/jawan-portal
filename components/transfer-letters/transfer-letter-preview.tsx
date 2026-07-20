@@ -96,7 +96,9 @@ export function TransferLetterPreview({ data, serialNumber }: TransferLetterPrev
       <div className="mb-4 flex items-start justify-between gap-4">
         {letterDate ? <p>{letterDate}</p> : <span />}
         {serialNumber != null ? (
-          <p className="shrink-0 text-right">Ref: {formatTransferLetterSerialNumber(serialNumber)}</p>
+          <p className="shrink-0 text-right">
+            S.No. {formatTransferLetterSerialNumber(serialNumber)}
+          </p>
         ) : null}
       </div>
 

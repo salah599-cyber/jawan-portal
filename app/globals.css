@@ -140,6 +140,31 @@
     padding: 0 !important;
   }
 
+  body.transfer-letter-print {
+    margin: 0 !important;
+    background: #fff !important;
+  }
+
+  body.transfer-letter-print * {
+    visibility: hidden;
+  }
+
+  body.transfer-letter-print #transfer-letter-preview,
+  body.transfer-letter-print #transfer-letter-preview * {
+    visibility: visible;
+  }
+
+  body.transfer-letter-print #transfer-letter-preview {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    margin: 0 !important;
+    padding: 6em 2cm 2cm !important;
+    color: #000 !important;
+    background: #fff !important;
+  }
+
   #transfer-letter-preview table {
     border-collapse: collapse !important;
   }
