@@ -2,14 +2,16 @@
 
 import { CASH_CURRENCIES } from "@/lib/cash/constants";
 import type { BankAccountNumberInput } from "@/lib/bank/account-numbers";
+import { defaultCurrencyForRegion } from "@/lib/bank/region";
+import type { BankAccountRegion } from "@/lib/generated/prisma/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
-const emptyAccount = (): BankAccountNumberInput => ({
+const emptyAccount = (region: BankAccountRegion): BankAccountNumberInput => ({
   accountNumber: "",
-  currency: "OMR",
+  currency: defaultCurrencyForRegion(region),
   iban: "",
   label: "",
   includeInTransferLetterSource: false,
@@ -18,23 +20,26 @@ const emptyAccount = (): BankAccountNumberInput => ({
 export function BankAccountNumbersFields({
   accounts,
   onChange,
+  region = "OMAN",
 }: {
   accounts: BankAccountNumberInput[];
   onChange: (accounts: BankAccountNumberInput[]) => void;
+  region?: BankAccountRegion;
 }) {
-  const rows = accounts.length > 0 ? accounts : [emptyAccount()];
+  const rows = accounts.length > 0 ? accounts : [emptyAccount(region)];
+  const isUsa = region === "USA";
 
   function updateAccount(index: number, patch: Partial<BankAccountNumberInput>) {
     onChange(rows.map((row, i) => (i === index ? { ...row, ...patch } : row)));
   }
 
   function addAccount() {
-    onChange([...rows, emptyAccount()]);
+    onChange([...rows, emptyAccount(region)]);
   }
 
   function removeAccount(index: number) {
     const next = rows.filter((_, i) => i !== index);
-    onChange(next.length > 0 ? next : [emptyAccount()]);
+    onChange(next.length > 0 ? next : [emptyAccount(region)]);
   }
 
   return (
@@ -43,7 +48,9 @@ export function BankAccountNumbersFields({
         <div>
           <p className="text-sm font-medium">Registered Accounts</p>
           <p className="text-xs text-muted-foreground">
-            Add each account at this bank on its own line — number, currency, and IBAN can differ.
+            {isUsa
+              ? "Add each US account number at this bank on its own line."
+              : "Add each account at this bank on its own line — number, currency, and IBAN can differ."}
           </p>
         </div>
         <Button type="button" variant="outline" size="sm" onClick={addAccount}>
@@ -73,14 +80,14 @@ export function BankAccountNumbersFields({
               <Input
                 value={account.accountNumber}
                 onChange={(e) => updateAccount(index, { accountNumber: e.target.value })}
-                placeholder="1049-485882-001"
+                placeholder={isUsa ? "1234567890" : "1049-485882-001"}
                 required={index === 0}
               />
             </div>
             <div className="space-y-2">
               <Label>Currency</Label>
               <Select
-                value={account.currency || "OMR"}
+                value={account.currency || defaultCurrencyForRegion(region)}
                 onValueChange={(value) => updateAccount(index, { currency: value })}
               >
                 <SelectTrigger><SelectValue /></SelectTrigger>
@@ -91,20 +98,22 @@ export function BankAccountNumbersFields({
                 </SelectContent>
               </Select>
             </div>
-            <div className="space-y-2 md:col-span-2">
-              <Label>IBAN</Label>
-              <Input
-                value={account.iban ?? ""}
-                onChange={(e) => updateAccount(index, { iban: e.target.value })}
-                placeholder="OM00 0000 0000 0000 0000 0000 000"
-              />
-            </div>
+            {!isUsa ? (
+              <div className="space-y-2 md:col-span-2">
+                <Label>IBAN</Label>
+                <Input
+                  value={account.iban ?? ""}
+                  onChange={(e) => updateAccount(index, { iban: e.target.value })}
+                  placeholder="OM00 0000 0000 0000 0000 0000 000"
+                />
+              </div>
+            ) : null}
             <div className="space-y-2 md:col-span-2">
               <Label>Label (optional)</Label>
               <Input
                 value={account.label ?? ""}
                 onChange={(e) => updateAccount(index, { label: e.target.value })}
-                placeholder="Current, savings, USD account…"
+                placeholder={isUsa ? "Checking, savings…" : "Current, savings, USD account…"}
               />
             </div>
             <div className="flex items-start gap-3 md:col-span-2">

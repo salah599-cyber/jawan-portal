@@ -11,7 +11,18 @@ import {
 import { ensureCashManagementSchema } from "@/lib/db/ensure-cash-management-schema";
 import { canAccess, canWrite, getModulePermission, requireModuleAccess } from "@/lib/permissions/access";
 import type { UserContext } from "@/lib/permissions/types";
+import {
+  defaultCurrencyForRegion,
+  normalizeRoutingNumber,
+  parseBankAccountRegion,
+  validateBankAccountRegionFields,
+} from "@/lib/bank/region";
+import type { BankAccountRegion } from "@/lib/generated/prisma/client";
 import { syncBankBalancesToCashAssets } from "@/lib/portfolio/cash-sync";
+
+function currencyForAccountRow(currency: string | undefined, region: BankAccountRegion) {
+  return currency?.trim() || defaultCurrencyForRegion(region);
+}
 
 function includeInTransferLetterSourceFromAccounts(accounts: BankAccountNumberInput[]) {
   return accounts.some((account) => account.includeInTransferLetterSource);
@@ -25,6 +36,8 @@ export type CreateBankAccountInput = {
   iban?: string;
   swiftCode?: string;
   sortCode?: string;
+  routingNumber?: string;
+  region?: BankAccountRegion;
   currency?: string;
   entityId?: string;
   notes?: string;
@@ -66,7 +79,11 @@ async function syncCashIfNeeded(ctx: UserContext) {
   revalidatePath("/cash");
 }
 
-async function replaceBankAccountNumbers(bankAccountId: string, accounts: BankAccountNumberInput[]) {
+async function replaceBankAccountNumbers(
+  bankAccountId: string,
+  accounts: BankAccountNumberInput[],
+  region: BankAccountRegion,
+) {
   await db.bankAccountNumber.deleteMany({ where: { bankAccountId } });
   if (accounts.length === 0) return;
 
@@ -74,7 +91,7 @@ async function replaceBankAccountNumbers(bankAccountId: string, accounts: BankAc
     data: accounts.map((account, index) => ({
       bankAccountId,
       accountNumber: account.accountNumber,
-      currency: account.currency?.trim() || "OMR",
+      currency: currencyForAccountRow(account.currency, region),
       iban: account.iban?.trim() || null,
       label: account.label?.trim() || null,
       sortOrder: index,
@@ -101,6 +118,9 @@ export async function createBankAccount(input: CreateBankAccountInput) {
 
   const accounts = requireBankAccountNumbers(input);
   const legacy = toLegacyBankAccountFields(accounts);
+  const region = parseBankAccountRegion(input.region);
+  const routingNumber = normalizeRoutingNumber(input.routingNumber);
+  validateBankAccountRegionFields(region, routingNumber);
 
   const account = await db.bankAccount.create({
     data: {
@@ -109,8 +129,10 @@ export async function createBankAccount(input: CreateBankAccountInput) {
       accountNumber: legacy.accountNumber,
       iban: legacy.iban,
       swiftCode: input.swiftCode?.trim() || undefined,
-      sortCode: input.sortCode?.trim() || undefined,
-      currency: legacy.currency,
+      sortCode: region === "USA" ? undefined : input.sortCode?.trim() || undefined,
+      routingNumber: region === "USA" ? routingNumber : undefined,
+      region,
+      currency: legacy.currency || defaultCurrencyForRegion(region),
       entityId: input.entityId || undefined,
       notes: input.notes?.trim() || undefined,
       isActive: true,
@@ -119,7 +141,7 @@ export async function createBankAccount(input: CreateBankAccountInput) {
       accountNumbers: {
         create: accounts.map((row, index) => ({
           accountNumber: row.accountNumber,
-          currency: row.currency?.trim() || "OMR",
+          currency: currencyForAccountRow(row.currency, region),
           iban: row.iban?.trim() || null,
           label: row.label?.trim() || null,
           sortOrder: index,
@@ -229,6 +251,9 @@ export async function updateBankAccount(id: string, input: CreateBankAccountInpu
 
   const accounts = requireBankAccountNumbers(input);
   const legacy = toLegacyBankAccountFields(accounts);
+  const region = account.region;
+  const routingNumber = normalizeRoutingNumber(input.routingNumber);
+  validateBankAccountRegionFields(region, routingNumber);
   const includeInCashPosition = input.includeInCashPosition ?? false;
   const usageChanged = account.includeInCashPosition !== includeInCashPosition;
   const includeInTransferLetterSource = includeInTransferLetterSourceFromAccounts(accounts);
@@ -241,8 +266,9 @@ export async function updateBankAccount(id: string, input: CreateBankAccountInpu
       accountNumber: legacy.accountNumber,
       iban: legacy.iban,
       swiftCode: input.swiftCode?.trim() || undefined,
-      sortCode: input.sortCode?.trim() || undefined,
-      currency: legacy.currency,
+      sortCode: region === "USA" ? null : input.sortCode?.trim() || undefined,
+      routingNumber: region === "USA" ? routingNumber ?? null : null,
+      currency: legacy.currency || defaultCurrencyForRegion(region),
       entityId: input.entityId || undefined,
       notes: input.notes?.trim() || undefined,
       includeInCashPosition,
@@ -250,7 +276,7 @@ export async function updateBankAccount(id: string, input: CreateBankAccountInpu
     },
   });
 
-  await replaceBankAccountNumbers(id, accounts);
+  await replaceBankAccountNumbers(id, accounts, region);
 
   const refreshed = await db.bankAccount.findFirst({
     where: { id },

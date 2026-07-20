@@ -197,6 +197,11 @@ export const BANK_ACCOUNT_USAGE_LABELS: Record<string, string> = {
   false: "Info only",
 };
 
+export const BANK_ACCOUNT_REGION_LABELS: Record<string, string> = {
+  OMAN: "Oman & International",
+  USA: "USA",
+};
+
 export const CHEQUE_DIRECTION_LABELS: Record<string, string> = {
   ISSUED: "Issued (outgoing)",
   RECEIVED: "Received (incoming)",

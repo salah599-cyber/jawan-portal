@@ -4,6 +4,8 @@ import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { createBankAccount } from "@/lib/actions/bank-accounts";
 import type { BankAccountNumberInput } from "@/lib/bank/account-numbers";
+import { defaultCurrencyForRegion, parseBankAccountRegion } from "@/lib/bank/region";
+import type { BankAccountRegion } from "@/lib/generated/prisma/client";
 import { BankAccountNumbersFields } from "@/components/bank/bank-account-numbers-fields";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -13,14 +15,28 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { EntitySelect, type EntityOption } from "@/components/platform/entity-select";
 import { BankAccountUsageField } from "@/components/bank/bank-account-usage-field";
 
-export function CreateBankForm({ entities }: { entities: EntityOption[] }) {
+export function CreateBankForm({
+  entities,
+  defaultRegion = "OMAN",
+}: {
+  entities: EntityOption[];
+  defaultRegion?: BankAccountRegion;
+}) {
+  const region = parseBankAccountRegion(defaultRegion);
+  const isUsa = region === "USA";
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
   const [entityId, setEntityId] = useState<string>("none");
   const [includeInCashPosition, setIncludeInCashPosition] = useState(false);
   const [accounts, setAccounts] = useState<BankAccountNumberInput[]>([
-    { accountNumber: "", currency: "OMR", iban: "", label: "", includeInTransferLetterSource: false },
+    {
+      accountNumber: "",
+      currency: defaultCurrencyForRegion(region),
+      iban: "",
+      label: "",
+      includeInTransferLetterSource: false,
+    },
   ]);
 
   function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
@@ -35,7 +51,9 @@ export function CreateBankForm({ entities }: { entities: EntityOption[] }) {
           bankName: String(form.get("bankName") ?? ""),
           accounts,
           swiftCode: String(form.get("swiftCode") ?? ""),
-          sortCode: String(form.get("sortCode") ?? ""),
+          sortCode: isUsa ? undefined : String(form.get("sortCode") ?? ""),
+          routingNumber: isUsa ? String(form.get("routingNumber") ?? "") : undefined,
+          region,
           entityId: entityId === "none" ? undefined : entityId,
           notes: String(form.get("notes") ?? ""),
           includeInCashPosition,
@@ -51,31 +69,54 @@ export function CreateBankForm({ entities }: { entities: EntityOption[] }) {
   return (
     <Card>
       <CardHeader>
-        <CardTitle>New Bank Account</CardTitle>
+        <CardTitle>{isUsa ? "New USA Bank Account" : "New Bank Account"}</CardTitle>
       </CardHeader>
       <CardContent>
         <form onSubmit={handleSubmit} className="grid gap-4 md:grid-cols-2">
           <div className="space-y-2">
             <Label htmlFor="accountName">Account Name</Label>
-            <Input id="accountName" name="accountName" required placeholder="e.g. Salah - NBO" />
+            <Input
+              id="accountName"
+              name="accountName"
+              required
+              placeholder={isUsa ? "e.g. Salah - Chase" : "e.g. Salah - NBO"}
+            />
           </div>
 
           <div className="space-y-2">
             <Label htmlFor="bankName">Bank Name</Label>
-            <Input id="bankName" name="bankName" required placeholder="e.g. National Bank of Oman" />
+            <Input
+              id="bankName"
+              name="bankName"
+              required
+              placeholder={isUsa ? "e.g. JPMorgan Chase" : "e.g. National Bank of Oman"}
+            />
           </div>
 
-          <BankAccountNumbersFields accounts={accounts} onChange={setAccounts} />
+          <BankAccountNumbersFields accounts={accounts} onChange={setAccounts} region={region} />
 
           <div className="space-y-2">
             <Label htmlFor="swiftCode">SWIFT Code</Label>
-            <Input id="swiftCode" name="swiftCode" />
+            <Input id="swiftCode" name="swiftCode" placeholder={isUsa ? "Optional for domestic wires" : undefined} />
           </div>
 
-          <div className="space-y-2">
-            <Label htmlFor="sortCode">Sort Code</Label>
-            <Input id="sortCode" name="sortCode" />
-          </div>
+          {isUsa ? (
+            <div className="space-y-2">
+              <Label htmlFor="routingNumber">Routing Number (ABA)</Label>
+              <Input
+                id="routingNumber"
+                name="routingNumber"
+                required
+                inputMode="numeric"
+                placeholder="021000021"
+              />
+            </div>
+          ) : (
+            <div className="space-y-2">
+              <Label htmlFor="sortCode">Sort Code</Label>
+              <Input id="sortCode" name="sortCode" />
+            </div>
+          )}
 
           <div className="space-y-2">
             <Label>Entity (optional)</Label>

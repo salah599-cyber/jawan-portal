@@ -4,6 +4,8 @@ import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { updateBankAccount } from "@/lib/actions/bank-accounts";
 import { accountNumbersFromLegacy, type BankAccountNumberInput } from "@/lib/bank/account-numbers";
+import { isUsaBankRegion } from "@/lib/bank/region";
+import type { BankAccountRegion } from "@/lib/generated/prisma/client";
 import { BankAccountNumbersFields } from "@/components/bank/bank-account-numbers-fields";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -21,6 +23,8 @@ type BankRecord = {
   iban: string | null;
   swiftCode: string | null;
   sortCode: string | null;
+  routingNumber: string | null;
+  region: BankAccountRegion;
   currency: string;
   entityId: string | null;
   notes: string | null;
@@ -35,6 +39,7 @@ type BankRecord = {
 };
 
 export function EditBankForm({ account, entities }: { account: BankRecord; entities: EntityOption[] }) {
+  const isUsa = isUsaBankRegion(account.region);
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
@@ -56,7 +61,8 @@ export function EditBankForm({ account, entities }: { account: BankRecord; entit
           bankName: String(form.get("bankName") ?? ""),
           accounts,
           swiftCode: String(form.get("swiftCode") ?? ""),
-          sortCode: String(form.get("sortCode") ?? ""),
+          sortCode: isUsa ? undefined : String(form.get("sortCode") ?? ""),
+          routingNumber: isUsa ? String(form.get("routingNumber") ?? "") : undefined,
           entityId: entityId === "none" ? undefined : entityId,
           notes: String(form.get("notes") ?? ""),
           includeInCashPosition,
@@ -71,14 +77,29 @@ export function EditBankForm({ account, entities }: { account: BankRecord; entit
 
   return (
     <Card>
-      <CardHeader><CardTitle>Edit Bank Account</CardTitle></CardHeader>
+      <CardHeader>
+        <CardTitle>{isUsa ? "Edit USA Bank Account" : "Edit Bank Account"}</CardTitle>
+      </CardHeader>
       <CardContent>
         <form onSubmit={handleSubmit} className="grid gap-4 md:grid-cols-2">
           <div className="space-y-2"><Label htmlFor="accountName">Account Name</Label><Input id="accountName" name="accountName" required defaultValue={account.accountName} /></div>
           <div className="space-y-2"><Label htmlFor="bankName">Bank Name</Label><Input id="bankName" name="bankName" required defaultValue={account.bankName} /></div>
-          <BankAccountNumbersFields accounts={accounts} onChange={setAccounts} />
+          <BankAccountNumbersFields accounts={accounts} onChange={setAccounts} region={account.region} />
           <div className="space-y-2"><Label htmlFor="swiftCode">SWIFT Code</Label><Input id="swiftCode" name="swiftCode" defaultValue={account.swiftCode ?? ""} /></div>
-          <div className="space-y-2"><Label htmlFor="sortCode">Sort Code</Label><Input id="sortCode" name="sortCode" defaultValue={account.sortCode ?? ""} /></div>
+          {isUsa ? (
+            <div className="space-y-2">
+              <Label htmlFor="routingNumber">Routing Number (ABA)</Label>
+              <Input
+                id="routingNumber"
+                name="routingNumber"
+                required
+                inputMode="numeric"
+                defaultValue={account.routingNumber ?? ""}
+              />
+            </div>
+          ) : (
+            <div className="space-y-2"><Label htmlFor="sortCode">Sort Code</Label><Input id="sortCode" name="sortCode" defaultValue={account.sortCode ?? ""} /></div>
+          )}
           <div className="space-y-2">
             <Label>Entity (optional)</Label>
             <EntitySelect entities={entities} value={entityId} onValueChange={setEntityId} allowNone />

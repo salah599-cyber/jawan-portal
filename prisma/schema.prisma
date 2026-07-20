@@ -982,6 +982,11 @@ model CustomAssetDetail {
   customFields Json?
 }
 
+enum BankAccountRegion {
+  OMAN
+  USA
+}
+
 model BankAccount {
   id             String              @id @default(cuid())
   entityId       String?
@@ -990,9 +995,11 @@ model BankAccount {
   bankName       String
   accountNumber  String
   sortCode       String?
+  routingNumber  String?
   swiftCode      String?
   iban           String?
   currency       String              @default("OMR")
+  region         BankAccountRegion   @default(OMAN)
   notes          String?
   currentBalance Decimal?            @db.Decimal(18, 3)
   balanceAsOf    DateTime?
@@ -1010,6 +1017,8 @@ model BankAccount {
   exitSettledProceeds    AssetExit[]         @relation("AssetExitSettled")
   createdAt      DateTime            @default(now())
   updatedAt      DateTime            @updatedAt
+
+  @@index([region])
 }
 
 model BankAccountNumber {

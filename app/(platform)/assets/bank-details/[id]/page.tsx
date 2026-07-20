@@ -7,7 +7,8 @@ import { BankAccountNumbersList } from "@/components/bank/bank-account-numbers-l
 import { resolveBankAccountNumberRows } from "@/lib/bank/account-numbers";
 import { getBankAccount, deleteBankAccount } from "@/lib/actions/bank-accounts";
 import { canWrite, requireModuleAccess } from "@/lib/permissions/access";
-import { CHEQUE_DIRECTION_LABELS, CHEQUE_STATUS_LABELS } from "@/lib/labels";
+import { CHEQUE_DIRECTION_LABELS, CHEQUE_STATUS_LABELS, BANK_ACCOUNT_REGION_LABELS } from "@/lib/labels";
+import { isUsaBankRegion } from "@/lib/bank/region";
 import { BankAccountUsageBadge } from "@/components/bank/bank-account-usage-badge";
 import { formatMoney, formatDate } from "@/lib/format";
 import { Badge } from "@/components/ui/badge";
@@ -30,6 +31,7 @@ export default async function BankAccountDetailPage({ params }: { params: Promis
 
   const showActions = canWrite(ctx, "ASSETS");
   const registeredAccounts = resolveBankAccountNumberRows(account.accountNumbers, account);
+  const isUsa = isUsaBankRegion(account.region);
 
   return (
     <>
@@ -67,6 +69,8 @@ export default async function BankAccountDetailPage({ params }: { params: Promis
               {registeredAccounts.length > 0
                 ? ` · ${registeredAccounts.length} registered account${registeredAccounts.length === 1 ? "" : "s"}`
                 : ""}
+              {" · "}
+              {BANK_ACCOUNT_REGION_LABELS[account.region] ?? account.region}
             </CardDescription>
           </CardHeader>
           <CardContent className="grid gap-4 sm:grid-cols-2">
@@ -92,7 +96,11 @@ export default async function BankAccountDetailPage({ params }: { params: Promis
             />
             <Detail label="Entity" value={account.entity?.name} />
             <Detail label="SWIFT / BIC" value={account.swiftCode} />
-            <Detail label="Sort Code" value={account.sortCode} />
+            {isUsa ? (
+              <Detail label="Routing Number (ABA)" value={account.routingNumber} />
+            ) : (
+              <Detail label="Sort Code" value={account.sortCode} />
+            )}
             <Detail label="Created" value={formatDate(account.createdAt)} />
             <Detail label="Last Updated" value={formatDate(account.updatedAt)} />
             {account.notes ? (
@@ -107,7 +115,9 @@ export default async function BankAccountDetailPage({ params }: { params: Promis
           <CardHeader>
             <CardTitle>Registered Accounts</CardTitle>
             <CardDescription>
-              Each line is a separate account at this bank. Account number, currency, and IBAN are listed individually.
+              {isUsa
+                ? "Each line is a separate US account number at this bank."
+                : "Each line is a separate account at this bank. Account number, currency, and IBAN are listed individually."}
             </CardDescription>
           </CardHeader>
           <CardContent>
