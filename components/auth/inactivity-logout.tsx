@@ -4,8 +4,10 @@ import { useAuth, useClerk } from "@clerk/nextjs";
 import { useEffect, useRef } from "react";
 import {
   INACTIVITY_LOGOUT_MS,
+  LAST_ACTIVITY_COOKIE,
   LAST_ACTIVITY_STORAGE_KEY,
 } from "@/lib/auth/constants";
+import { isInactiveBeyondThreshold } from "@/lib/auth/inactivity";
 
 const CHECK_INTERVAL_MS = 60 * 1000;
 const WINDOW_ACTIVITY_EVENTS = ["mousedown", "keydown", "touchstart", "click"] as const;
@@ -17,16 +19,16 @@ function readLastActivity() {
 }
 
 function recordActivity() {
-  localStorage.setItem(LAST_ACTIVITY_STORAGE_KEY, String(Date.now()));
+  const now = String(Date.now());
+  localStorage.setItem(LAST_ACTIVITY_STORAGE_KEY, now);
+
+  const secure = process.env.NODE_ENV === "production" ? "; secure" : "";
+  document.cookie = `${LAST_ACTIVITY_COOKIE}=${now}; path=/; max-age=${Math.ceil(
+    INACTIVITY_LOGOUT_MS / 1000,
+  )}; samesite=lax${secure}`;
 }
 
-export function isInactiveBeyondThreshold(
-  lastActivityMs: number,
-  nowMs: number,
-  thresholdMs: number = INACTIVITY_LOGOUT_MS,
-) {
-  return nowMs - lastActivityMs >= thresholdMs;
-}
+export { isInactiveBeyondThreshold };
 
 export function InactivityLogout() {
   const { isSignedIn } = useAuth();
@@ -57,6 +59,7 @@ export function InactivityLogout() {
       if (signingOut.current) return;
       signingOut.current = true;
       localStorage.removeItem(LAST_ACTIVITY_STORAGE_KEY);
+      document.cookie = `${LAST_ACTIVITY_COOKIE}=; path=/; max-age=0`;
       void signOutRef.current({ redirectUrl: "/sign-in?reason=session_timeout" });
     }
 

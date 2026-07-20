@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { MIN_PASSWORD_LENGTH } from "@/lib/auth/constants";
 
 type Step = "email" | "code" | "password";
 
@@ -101,7 +102,7 @@ export function ForgotPasswordForm() {
             ? "Enter your account email and we will send you a verification code."
             : step === "code"
               ? "Enter the verification code sent to your email."
-              : "Choose a new password for your account."}
+              : "Choose a new password for your account (minimum 12 characters)."}
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
@@ -161,7 +162,7 @@ export function ForgotPasswordForm() {
                 required
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                minLength={8}
+                minLength={MIN_PASSWORD_LENGTH}
               />
             </div>
             {error ? <p className="text-sm text-destructive">{error}</p> : null}

@@ -1,5 +1,11 @@
-import { clerkMiddleware, createRouteMatcher } from "@clerk/nextjs/server";
-import { NextResponse } from "next/server";
+import { clerkClient, clerkMiddleware, createRouteMatcher } from "@clerk/nextjs/server";
+import { NextResponse, type NextRequest } from "next/server";
+import { LAST_ACTIVITY_COOKIE } from "@/lib/auth/constants";
+import {
+  activityCookieOptions,
+  isInactiveBeyondThreshold,
+  parseLastActivity,
+} from "@/lib/auth/inactivity";
 
 const isPublicRoute = createRouteMatcher([
   "/",
@@ -14,6 +20,26 @@ const isPublicRoute = createRouteMatcher([
   "/api/cron/(.*)",
 ]);
 
+async function revokeSession(sessionId: string | null | undefined) {
+  if (!sessionId) return;
+  try {
+    const clerk = await clerkClient();
+    await clerk.sessions.revokeSession(sessionId);
+  } catch {
+    // Session may already be revoked.
+  }
+}
+
+function inactivityResponse(req: NextRequest) {
+  if (req.nextUrl.pathname.startsWith("/api/")) {
+    return NextResponse.json({ error: "Session expired due to inactivity." }, { status: 401 });
+  }
+
+  const url = new URL("/sign-in", req.url);
+  url.searchParams.set("reason", "session_timeout");
+  return NextResponse.redirect(url);
+}
+
 export default clerkMiddleware(async (auth, req) => {
   if (isPublicRoute(req)) {
     if (req.nextUrl.pathname === "/") {
@@ -26,6 +52,23 @@ export default clerkMiddleware(async (auth, req) => {
   }
 
   await auth.protect();
+
+  const { userId, sessionId } = await auth();
+  if (!userId) return;
+
+  const now = Date.now();
+  const lastActivity = parseLastActivity(req.cookies.get(LAST_ACTIVITY_COOKIE)?.value);
+
+  if (lastActivity !== null && isInactiveBeyondThreshold(lastActivity, now)) {
+    await revokeSession(sessionId);
+    const response = inactivityResponse(req);
+    response.cookies.delete(LAST_ACTIVITY_COOKIE);
+    return response;
+  }
+
+  const response = NextResponse.next();
+  response.cookies.set(LAST_ACTIVITY_COOKIE, String(now), activityCookieOptions());
+  return response;
 });
 
 export const config = {

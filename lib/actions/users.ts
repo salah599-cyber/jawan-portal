@@ -5,6 +5,7 @@ import { revalidatePath } from "next/cache";
 import { db } from "@/lib/db";
 import { applyUserAccess, type InviteConfig } from "@/lib/auth/apply-invite";
 import { createClerkInvitation } from "@/lib/auth/clerk-invite";
+import { restoreClerkUser, suspendClerkUser } from "@/lib/auth/clerk-user-access";
 import { logAudit } from "@/lib/audit/log";
 import { ensureUsersSchema } from "@/lib/db/ensure-users-schema";
 import { requireSuperAdmin } from "@/lib/permissions/access";
@@ -163,6 +164,8 @@ export async function deactivateUser(userId: string) {
     data: { isActive: false },
   });
 
+  await suspendClerkUser(user.clerkId);
+
   await logAudit({
     userId: ctx.id,
     action: "DEACTIVATE",
@@ -184,6 +187,8 @@ export async function reactivateUser(userId: string) {
     where: { id: userId },
     data: { isActive: true },
   });
+
+  await restoreClerkUser(user.clerkId);
 
   await logAudit({
     userId: ctx.id,

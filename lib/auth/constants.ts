@@ -20,3 +20,9 @@ export function isBootstrapSuperAdminEmail(email: string | null | undefined): bo
 export const INACTIVITY_LOGOUT_MS = 30 * 60 * 1000;
 
 export const LAST_ACTIVITY_STORAGE_KEY = "jawan_last_activity";
+
+/** Cookie mirrored by the client and refreshed on each authenticated request. */
+export const LAST_ACTIVITY_COOKIE = "jawan_last_activity";
+
+/** Minimum password length enforced in custom auth forms (Clerk enforces its own policy too). */
+export const MIN_PASSWORD_LENGTH = 12;

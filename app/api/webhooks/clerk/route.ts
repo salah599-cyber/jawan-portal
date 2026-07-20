@@ -14,10 +14,12 @@ function getWebhookSigningSecret() {
 export async function POST(req: NextRequest) {
   try {
     const signingSecret = getWebhookSigningSecret();
-    const event = await verifyWebhook(
-      req,
-      signingSecret ? { signingSecret } : undefined,
-    );
+    if (!signingSecret) {
+      console.error("Clerk webhook signing secret is not configured.");
+      return NextResponse.json({ error: "Webhook not configured" }, { status: 500 });
+    }
+
+    const event = await verifyWebhook(req, { signingSecret });
 
     switch (event.type) {
       case "user.created":
