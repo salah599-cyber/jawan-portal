@@ -13,8 +13,11 @@ import { canAccess, canWrite, getModulePermission, requireModuleAccess } from "@
 import type { UserContext } from "@/lib/permissions/types";
 import {
   defaultCurrencyForRegion,
+  emptyCorrespondentBankFields,
+  normalizeCorrespondentBankFields,
   normalizeRoutingNumber,
   parseBankAccountRegion,
+  type CorrespondentBankInput,
   validateBankAccountRegionFields,
 } from "@/lib/bank/region";
 import type { BankAccountRegion } from "@/lib/generated/prisma/client";
@@ -42,7 +45,12 @@ export type CreateBankAccountInput = {
   entityId?: string;
   notes?: string;
   includeInCashPosition?: boolean;
-};
+} & CorrespondentBankInput;
+
+function correspondentDataForRegion(region: BankAccountRegion, input: CorrespondentBankInput) {
+  if (region !== "USA") return emptyCorrespondentBankFields();
+  return normalizeCorrespondentBankFields(input);
+}
 
 const bankAccountInclude = {
   entity: true,
@@ -121,6 +129,7 @@ export async function createBankAccount(input: CreateBankAccountInput) {
   const region = parseBankAccountRegion(input.region);
   const routingNumber = normalizeRoutingNumber(input.routingNumber);
   validateBankAccountRegionFields(region, routingNumber);
+  const correspondent = correspondentDataForRegion(region, input);
 
   const account = await db.bankAccount.create({
     data: {
@@ -131,6 +140,7 @@ export async function createBankAccount(input: CreateBankAccountInput) {
       swiftCode: input.swiftCode?.trim() || undefined,
       sortCode: region === "USA" ? undefined : input.sortCode?.trim() || undefined,
       routingNumber: region === "USA" ? routingNumber : undefined,
+      ...correspondent,
       region,
       currency: legacy.currency || defaultCurrencyForRegion(region),
       entityId: input.entityId || undefined,
@@ -254,6 +264,7 @@ export async function updateBankAccount(id: string, input: CreateBankAccountInpu
   const region = account.region;
   const routingNumber = normalizeRoutingNumber(input.routingNumber);
   validateBankAccountRegionFields(region, routingNumber);
+  const correspondent = correspondentDataForRegion(region, input);
   const includeInCashPosition = input.includeInCashPosition ?? false;
   const usageChanged = account.includeInCashPosition !== includeInCashPosition;
   const includeInTransferLetterSource = includeInTransferLetterSourceFromAccounts(accounts);
@@ -268,6 +279,7 @@ export async function updateBankAccount(id: string, input: CreateBankAccountInpu
       swiftCode: input.swiftCode?.trim() || undefined,
       sortCode: region === "USA" ? null : input.sortCode?.trim() || undefined,
       routingNumber: region === "USA" ? routingNumber ?? null : null,
+      ...correspondent,
       currency: legacy.currency || defaultCurrencyForRegion(region),
       entityId: input.entityId || undefined,
       notes: input.notes?.trim() || undefined,

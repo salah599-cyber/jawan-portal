@@ -111,6 +111,29 @@ export default async function BankAccountDetailPage({ params }: { params: Promis
           </CardContent>
         </Card>
 
+        {isUsa ? (
+          <Card>
+            <CardHeader>
+              <CardTitle>Correspondent Bank</CardTitle>
+              <CardDescription>
+                Intermediary bank details for international USD wires to this account.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="grid gap-4 sm:grid-cols-2">
+              <Detail label="Correspondent Bank Name" value={account.correspondentBankName} />
+              <Detail label="Correspondent SWIFT / BIC" value={account.correspondentSwiftCode} />
+              <Detail label="Correspondent Routing Number (ABA)" value={account.correspondentRoutingNumber} />
+              {account.correspondentFfcInstructions ? (
+                <div className="sm:col-span-2">
+                  <Detail label="FFC Instructions" value={account.correspondentFfcInstructions} />
+                </div>
+              ) : (
+                <Detail label="FFC Instructions" value={null} />
+              )}
+            </CardContent>
+          </Card>
+        ) : null}
+
         <Card>
           <CardHeader>
             <CardTitle>Registered Accounts</CardTitle>

@@ -139,9 +139,8 @@ async function applyCashManagementSchema() {
 
     await runStatements(client, CASH_MANAGEMENT_MIGRATION_STATEMENTS);
 
-    const hasRegion = await columnExists(client, "BankAccount", "region");
-    const hasRoutingNumber = await columnExists(client, "BankAccount", "routingNumber");
-    if (!hasRegion || !hasRoutingNumber) {
+    const hasCorrespondentBankName = await columnExists(client, "BankAccount", "correspondentBankName");
+    if (!hasRegion || !hasRoutingNumber || !hasCorrespondentBankName) {
       await runStatements(client, [
         `DO $$ BEGIN
           CREATE TYPE "BankAccountRegion" AS ENUM ('OMAN', 'USA');
@@ -149,6 +148,10 @@ async function applyCashManagementSchema() {
         `ALTER TABLE "BankAccount" ADD COLUMN IF NOT EXISTS "region" "BankAccountRegion" NOT NULL DEFAULT 'OMAN'`,
         `ALTER TABLE "BankAccount" ADD COLUMN IF NOT EXISTS "routingNumber" TEXT`,
         `CREATE INDEX IF NOT EXISTS "BankAccount_region_idx" ON "BankAccount" ("region")`,
+        `ALTER TABLE "BankAccount" ADD COLUMN IF NOT EXISTS "correspondentBankName" TEXT`,
+        `ALTER TABLE "BankAccount" ADD COLUMN IF NOT EXISTS "correspondentSwiftCode" TEXT`,
+        `ALTER TABLE "BankAccount" ADD COLUMN IF NOT EXISTS "correspondentRoutingNumber" TEXT`,
+        `ALTER TABLE "BankAccount" ADD COLUMN IF NOT EXISTS "correspondentFfcInstructions" TEXT`,
       ]);
     }
   } finally {

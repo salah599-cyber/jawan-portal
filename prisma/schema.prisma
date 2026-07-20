@@ -996,6 +996,10 @@ model BankAccount {
   accountNumber  String
   sortCode       String?
   routingNumber  String?
+  correspondentBankName String?
+  correspondentSwiftCode String?
+  correspondentRoutingNumber String?
+  correspondentFfcInstructions String?
   swiftCode      String?
   iban           String?
   currency       String              @default("OMR")

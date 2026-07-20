@@ -7,6 +7,7 @@ import { accountNumbersFromLegacy, type BankAccountNumberInput } from "@/lib/ban
 import { isUsaBankRegion } from "@/lib/bank/region";
 import type { BankAccountRegion } from "@/lib/generated/prisma/client";
 import { BankAccountNumbersFields } from "@/components/bank/bank-account-numbers-fields";
+import { CorrespondentBankFields } from "@/components/bank/correspondent-bank-fields";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -24,6 +25,10 @@ type BankRecord = {
   swiftCode: string | null;
   sortCode: string | null;
   routingNumber: string | null;
+  correspondentBankName: string | null;
+  correspondentSwiftCode: string | null;
+  correspondentRoutingNumber: string | null;
+  correspondentFfcInstructions: string | null;
   region: BankAccountRegion;
   currency: string;
   entityId: string | null;
@@ -63,6 +68,14 @@ export function EditBankForm({ account, entities }: { account: BankRecord; entit
           swiftCode: String(form.get("swiftCode") ?? ""),
           sortCode: isUsa ? undefined : String(form.get("sortCode") ?? ""),
           routingNumber: isUsa ? String(form.get("routingNumber") ?? "") : undefined,
+          correspondentBankName: isUsa ? String(form.get("correspondentBankName") ?? "") : undefined,
+          correspondentSwiftCode: isUsa ? String(form.get("correspondentSwiftCode") ?? "") : undefined,
+          correspondentRoutingNumber: isUsa
+            ? String(form.get("correspondentRoutingNumber") ?? "")
+            : undefined,
+          correspondentFfcInstructions: isUsa
+            ? String(form.get("correspondentFfcInstructions") ?? "")
+            : undefined,
           entityId: entityId === "none" ? undefined : entityId,
           notes: String(form.get("notes") ?? ""),
           includeInCashPosition,
@@ -100,6 +113,16 @@ export function EditBankForm({ account, entities }: { account: BankRecord; entit
           ) : (
             <div className="space-y-2"><Label htmlFor="sortCode">Sort Code</Label><Input id="sortCode" name="sortCode" defaultValue={account.sortCode ?? ""} /></div>
           )}
+          {isUsa ? (
+            <CorrespondentBankFields
+              values={{
+                correspondentBankName: account.correspondentBankName,
+                correspondentSwiftCode: account.correspondentSwiftCode,
+                correspondentRoutingNumber: account.correspondentRoutingNumber,
+                correspondentFfcInstructions: account.correspondentFfcInstructions,
+              }}
+            />
+          ) : null}
           <div className="space-y-2">
             <Label>Entity (optional)</Label>
             <EntitySelect entities={entities} value={entityId} onValueChange={setEntityId} allowNone />

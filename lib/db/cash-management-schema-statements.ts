@@ -64,4 +64,8 @@ export const CASH_MANAGEMENT_MIGRATION_STATEMENTS = [
   `ALTER TABLE "BankAccount" ADD COLUMN IF NOT EXISTS "region" "BankAccountRegion" NOT NULL DEFAULT 'OMAN'`,
   `ALTER TABLE "BankAccount" ADD COLUMN IF NOT EXISTS "routingNumber" TEXT`,
   `CREATE INDEX IF NOT EXISTS "BankAccount_region_idx" ON "BankAccount" ("region")`,
+  `ALTER TABLE "BankAccount" ADD COLUMN IF NOT EXISTS "correspondentBankName" TEXT`,
+  `ALTER TABLE "BankAccount" ADD COLUMN IF NOT EXISTS "correspondentSwiftCode" TEXT`,
+  `ALTER TABLE "BankAccount" ADD COLUMN IF NOT EXISTS "correspondentRoutingNumber" TEXT`,
+  `ALTER TABLE "BankAccount" ADD COLUMN IF NOT EXISTS "correspondentFfcInstructions" TEXT`,
 ];

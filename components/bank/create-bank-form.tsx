@@ -13,6 +13,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { EntitySelect, type EntityOption } from "@/components/platform/entity-select";
+import { CorrespondentBankFields } from "@/components/bank/correspondent-bank-fields";
 import { BankAccountUsageField } from "@/components/bank/bank-account-usage-field";
 
 export function CreateBankForm({
@@ -53,6 +54,14 @@ export function CreateBankForm({
           swiftCode: String(form.get("swiftCode") ?? ""),
           sortCode: isUsa ? undefined : String(form.get("sortCode") ?? ""),
           routingNumber: isUsa ? String(form.get("routingNumber") ?? "") : undefined,
+          correspondentBankName: isUsa ? String(form.get("correspondentBankName") ?? "") : undefined,
+          correspondentSwiftCode: isUsa ? String(form.get("correspondentSwiftCode") ?? "") : undefined,
+          correspondentRoutingNumber: isUsa
+            ? String(form.get("correspondentRoutingNumber") ?? "")
+            : undefined,
+          correspondentFfcInstructions: isUsa
+            ? String(form.get("correspondentFfcInstructions") ?? "")
+            : undefined,
           region,
           entityId: entityId === "none" ? undefined : entityId,
           notes: String(form.get("notes") ?? ""),
@@ -117,6 +126,8 @@ export function CreateBankForm({
               <Input id="sortCode" name="sortCode" />
             </div>
           )}
+
+          {isUsa ? <CorrespondentBankFields /> : null}
 
           <div className="space-y-2">
             <Label>Entity (optional)</Label>

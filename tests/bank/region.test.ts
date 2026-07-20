@@ -1,9 +1,11 @@
 import { describe, expect, it } from "vitest";
 import {
   defaultCurrencyForRegion,
+  normalizeCorrespondentBankFields,
   normalizeRoutingNumber,
   parseBankAccountRegion,
   validateBankAccountRegionFields,
+  validateCorrespondentRoutingNumber,
 } from "@/lib/bank/region";
 
 describe("parseBankAccountRegion", () => {
@@ -43,5 +45,49 @@ describe("validateBankAccountRegionFields", () => {
 
   it("does not require routing numbers for Oman accounts", () => {
     expect(() => validateBankAccountRegionFields("OMAN", undefined)).not.toThrow();
+  });
+});
+
+describe("validateCorrespondentRoutingNumber", () => {
+  it("allows empty correspondent routing numbers", () => {
+    expect(() => validateCorrespondentRoutingNumber(undefined)).not.toThrow();
+    expect(() => validateCorrespondentRoutingNumber("")).not.toThrow();
+  });
+
+  it("requires 9 digits when a correspondent routing number is provided", () => {
+    expect(() => validateCorrespondentRoutingNumber("12345")).toThrow(
+      "Correspondent routing number must be 9 digits when provided.",
+    );
+  });
+
+  it("accepts valid correspondent routing numbers", () => {
+    expect(() => validateCorrespondentRoutingNumber("021000021")).not.toThrow();
+  });
+});
+
+describe("normalizeCorrespondentBankFields", () => {
+  it("trims and normalizes correspondent fields", () => {
+    expect(
+      normalizeCorrespondentBankFields({
+        correspondentBankName: "  JPMorgan Chase  ",
+        correspondentSwiftCode: " CHASUS33 ",
+        correspondentRoutingNumber: "021-000-021",
+        correspondentFfcInstructions: " FFC Account #123 ",
+      }),
+    ).toEqual({
+      correspondentBankName: "JPMorgan Chase",
+      correspondentSwiftCode: "CHASUS33",
+      correspondentRoutingNumber: "021000021",
+      correspondentFfcInstructions: "FFC Account #123",
+    });
+  });
+
+  it("returns nulls for empty correspondent fields", () => {
+    expect(normalizeCorrespondentBankFields({})).toEqual({
+      correspondentBankName: null,
+      correspondentSwiftCode: null,
+      correspondentRoutingNumber: null,
+      correspondentFfcInstructions: null,
+    });
   });
 });
