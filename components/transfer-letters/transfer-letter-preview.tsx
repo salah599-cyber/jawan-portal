@@ -165,7 +165,7 @@ export function TransferLetterPreview({ data, serialNumber }: TransferLetterPrev
         <p className={BLOCK_SPACING}>All Charges to be Deducted from Beneficiary account.</p>
       ) : null}
 
-      <div className="pt-1 print:pt-0">
+      <div className="transfer-letter-closing pt-1 print:pt-0">
         <p>Yours faithfully,</p>
         <p className="pt-6 print:pt-4">Authorized Signatory</p>
       </div>
