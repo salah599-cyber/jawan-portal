@@ -160,9 +160,28 @@
     left: 0;
     width: 100%;
     margin: 0 !important;
-    padding: 6em 2cm 2cm !important;
+    padding: 8.5em 2cm 5cm !important;
     color: #000 !important;
     background: #fff !important;
+    font-size: 11pt !important;
+    line-height: 1.25 !important;
+    page-break-inside: avoid;
+    break-inside: avoid;
+  }
+
+  body.transfer-letter-print #transfer-letter-preview p {
+    margin-top: 0;
+    margin-bottom: 0.35em !important;
+  }
+
+  body.transfer-letter-print #transfer-letter-preview table {
+    margin-bottom: 0.5em !important;
+  }
+
+  body.transfer-letter-print #transfer-letter-preview td {
+    padding: 0.15em 0.35em !important;
+    font-size: 10.5pt !important;
+    line-height: 1.2 !important;
   }
 
   #transfer-letter-preview table {

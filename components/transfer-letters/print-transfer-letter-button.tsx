@@ -14,7 +14,7 @@ function printTransferLetter() {
   if (!pageStyle) {
     pageStyle = document.createElement("style");
     pageStyle.id = PRINT_PAGE_STYLE_ID;
-    pageStyle.textContent = "@page { margin: 0; size: A4; }";
+    pageStyle.textContent = "@page { margin: 0; size: A4 portrait; }";
     document.head.appendChild(pageStyle);
   }
 
