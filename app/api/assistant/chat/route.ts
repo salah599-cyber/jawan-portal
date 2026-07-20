@@ -6,7 +6,7 @@ import {
   toUIMessageStream,
   type UIMessage,
 } from "ai";
-import { google } from "@ai-sdk/google";
+import { createGoogle } from "@ai-sdk/google";
 import { NextResponse } from "next/server";
 import { ASSISTANT_SYSTEM_PROMPT } from "@/lib/assistant/system-prompt";
 import { createAssistantTools } from "@/lib/assistant/tools";
@@ -23,7 +23,8 @@ function getAssistantModel() {
     return null;
   }
   // gemini-2.5-flash-lite is unavailable for new API users; flash-latest works on free tier.
-  return google(process.env.GEMINI_MODEL ?? "gemini-flash-latest", { apiKey });
+  const provider = createGoogle({ apiKey });
+  return provider(process.env.GEMINI_MODEL ?? "gemini-flash-latest");
 }
 
 export async function POST(request: Request) {
