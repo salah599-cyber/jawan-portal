@@ -229,6 +229,11 @@ enum TransferLetterType {
   UK
 }
 
+enum TransferLetterStatus {
+  PENDING
+  COMPLETE
+}
+
 enum PaymentFrequency {
   MONTHLY
   QUARTERLY
@@ -1226,7 +1231,8 @@ model TransferLetter {
   mobileNo                 String?
   email                    String?
   specialInstructions      String?
-  chargesOnBeneficiary     Boolean            @default(false)
+  chargesOnBeneficiary     Boolean                @default(false)
+  status                   TransferLetterStatus   @default(PENDING)
   createdById              String?
   createdBy                User?              @relation(fields: [createdById], references: [id], onDelete: SetNull)
   deletedAt                DateTime?
@@ -1235,6 +1241,7 @@ model TransferLetter {
 
   @@index([entityId, letterDate])
   @@index([type])
+  @@index([status])
   @@index([deletedAt])
 }
 

@@ -1,5 +1,6 @@
 export const TRANSFER_LETTERS_SCHEMA_STATEMENTS = [
   `CREATE TYPE "TransferLetterType" AS ENUM ('LOCAL', 'INTERNATIONAL', 'UK')`,
+  `CREATE TYPE "TransferLetterStatus" AS ENUM ('PENDING', 'COMPLETE')`,
   `CREATE TABLE IF NOT EXISTS "TransferLetter" (
     "id" TEXT NOT NULL,
     "serialNumber" SERIAL NOT NULL,
@@ -26,6 +27,7 @@ export const TRANSFER_LETTERS_SCHEMA_STATEMENTS = [
     "email" TEXT,
     "specialInstructions" TEXT,
     "chargesOnBeneficiary" BOOLEAN NOT NULL DEFAULT false,
+    "status" "TransferLetterStatus" NOT NULL DEFAULT 'PENDING',
     "createdById" TEXT,
     "deletedAt" TIMESTAMP(3),
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -35,6 +37,7 @@ export const TRANSFER_LETTERS_SCHEMA_STATEMENTS = [
   `CREATE INDEX IF NOT EXISTS "TransferLetter_entityId_letterDate_idx" ON "TransferLetter" ("entityId", "letterDate")`,
   `CREATE UNIQUE INDEX IF NOT EXISTS "TransferLetter_serialNumber_key" ON "TransferLetter" ("serialNumber")`,
   `CREATE INDEX IF NOT EXISTS "TransferLetter_type_idx" ON "TransferLetter" ("type")`,
+  `CREATE INDEX IF NOT EXISTS "TransferLetter_status_idx" ON "TransferLetter" ("status")`,
   `CREATE INDEX IF NOT EXISTS "TransferLetter_deletedAt_idx" ON "TransferLetter" ("deletedAt")`,
   `DO $$ BEGIN
     ALTER TABLE "TransferLetter" ADD CONSTRAINT "TransferLetter_entityId_fkey"
@@ -55,6 +58,11 @@ export const TRANSFER_LETTERS_SCHEMA_STATEMENTS = [
 ];
 
 export const TRANSFER_LETTERS_MIGRATION_STATEMENTS = [
+  `DO $$ BEGIN
+    CREATE TYPE "TransferLetterStatus" AS ENUM ('PENDING', 'COMPLETE');
+  EXCEPTION WHEN duplicate_object THEN NULL; END $$`,
+  `ALTER TABLE "TransferLetter" ADD COLUMN IF NOT EXISTS "status" "TransferLetterStatus" NOT NULL DEFAULT 'PENDING'`,
+  `CREATE INDEX IF NOT EXISTS "TransferLetter_status_idx" ON "TransferLetter" ("status")`,
   `ALTER TABLE "TransferLetter" ADD COLUMN IF NOT EXISTS "notes" TEXT`,
   `ALTER TABLE "TransferLetter" ADD COLUMN IF NOT EXISTS "beneficiaryBankAccountId" TEXT`,
   `ALTER TABLE "TransferLetter" ADD COLUMN IF NOT EXISTS "serialNumber" INTEGER`,

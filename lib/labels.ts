@@ -224,6 +224,11 @@ export const TRANSFER_LETTER_TYPE_LABELS: Record<string, string> = {
   UK: "UK Transfer",
 };
 
+export const TRANSFER_LETTER_STATUS_LABELS: Record<string, string> = {
+  PENDING: "Pending",
+  COMPLETE: "Complete",
+};
+
 export const PROPOSAL_STATUS_LABELS: Record<string, string> = {
   DRAFT: "Draft",
   PENDING: "Pending Approval",

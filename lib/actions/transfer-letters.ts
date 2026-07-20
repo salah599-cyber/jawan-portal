@@ -15,9 +15,10 @@ import {
   zRequiredDecimal,
   zRequiredString,
 } from "@/lib/validation/primitives";
-import type { TransferLetterType } from "@/lib/generated/prisma/client";
+import type { TransferLetterStatus, TransferLetterType } from "@/lib/generated/prisma/client";
 
 const TRANSFER_LETTER_TYPE_VALUES = ["LOCAL", "INTERNATIONAL", "UK"] as const satisfies readonly TransferLetterType[];
+const TRANSFER_LETTER_STATUS_VALUES = ["PENDING", "COMPLETE"] as const satisfies readonly TransferLetterStatus[];
 
 const transferLetterInclude = {
   entity: { select: { id: true, name: true } },
@@ -252,4 +253,34 @@ export async function deleteTransferLetter(id: string) {
   });
 
   revalidatePath("/transfer-letters");
+}
+
+export async function updateTransferLetterStatus(id: string, status: TransferLetterStatus) {
+  const ctx = await requireModuleAccess("ASSETS");
+  if (!canWrite(ctx, "ASSETS")) {
+    throw new Error("You do not have permission to update transfer letters.");
+  }
+
+  assertEnumValue(status, TRANSFER_LETTER_STATUS_VALUES, "Status");
+
+  await ensureTransferLettersSchema();
+  const existing = await getTransferLetter(id);
+  if (!existing) throw new Error("Transfer letter not found.");
+
+  const letter = await db.transferLetter.update({
+    where: { id },
+    data: { status },
+  });
+
+  await logAudit({
+    userId: ctx.id,
+    action: "TRANSFER_LETTER_STATUS_UPDATED",
+    resource: "TransferLetter",
+    resourceId: letter.id,
+    metadata: { status },
+  });
+
+  revalidatePath("/transfer-letters");
+  revalidatePath("/transfer-letters/" + id);
+  return letter;
 }

@@ -5,9 +5,10 @@ import { DeleteEntryButton } from "@/components/platform/delete-entry-button";
 import { EditLinkButton } from "@/components/platform/edit-link-button";
 import { TransferLetterPreview } from "@/components/transfer-letters/transfer-letter-preview";
 import { PrintTransferLetterButton } from "@/components/transfer-letters/print-transfer-letter-button";
+import { TransferLetterCompleteToggle } from "@/components/transfer-letters/transfer-letter-complete-toggle";
 import { deleteTransferLetter, getTransferLetter } from "@/lib/actions/transfer-letters";
 import { canWrite, requireModuleAccess } from "@/lib/permissions/access";
-import { TRANSFER_LETTER_TYPE_LABELS } from "@/lib/labels";
+import { TRANSFER_LETTER_STATUS_LABELS, TRANSFER_LETTER_TYPE_LABELS } from "@/lib/labels";
 import { formatMoney, formatDate } from "@/lib/format";
 import { formatTransferLetterSerialNumber } from "@/lib/transfer/format-serial-number";
 import { transferLetterToFormData } from "@/lib/transfer/serialize";
@@ -59,12 +60,32 @@ export default async function TransferLetterDetailPage({
               <Badge variant="outline">
                 {TRANSFER_LETTER_TYPE_LABELS[letter.type] ?? letter.type}
               </Badge>
+              <Badge variant={letter.status === "COMPLETE" ? "default" : "secondary"}>
+                {TRANSFER_LETTER_STATUS_LABELS[letter.status] ?? letter.status}
+              </Badge>
             </CardTitle>
             <CardDescription>
               {formatTransferLetterSerialNumber(letter.serialNumber)} · {formatDate(letter.letterDate)} · {letter.entity.name} · {formatMoney(letter.amount, letter.currency)}
             </CardDescription>
           </CardHeader>
           <CardContent className="grid gap-4 sm:grid-cols-2">
+            <div className="sm:col-span-2 flex items-center gap-3 rounded-lg border bg-muted/30 p-3">
+              <TransferLetterCompleteToggle
+                letterId={letter.id}
+                status={letter.status}
+                canEdit={showActions}
+              />
+              <div>
+                <p className="text-sm font-medium">
+                  {letter.status === "COMPLETE" ? "Transfer completed" : "Mark transfer as complete"}
+                </p>
+                <p className="text-xs text-muted-foreground">
+                  {letter.status === "COMPLETE"
+                    ? "This transfer has been marked complete. Click the tick to mark it pending again."
+                    : "Click the circle when the bank transfer has been executed."}
+                </p>
+              </div>
+            </div>
             <Detail label="Reference" value={formatTransferLetterSerialNumber(letter.serialNumber)} />
             <Detail label="Source Bank" value={letter.sourceBankName} />
             <Detail label="Branch" value={letter.sourceBranch} />

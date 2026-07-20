@@ -8,9 +8,10 @@ import { TableSearchInput } from "@/components/platform/table-search-input";
 import { TablePagination } from "@/components/platform/table-pagination";
 import { RowActions } from "@/components/platform/row-actions";
 import { deleteTransferLetter, type listTransferLetters } from "@/lib/actions/transfer-letters";
-import { TRANSFER_LETTER_TYPE_LABELS } from "@/lib/labels";
+import { TRANSFER_LETTER_STATUS_LABELS, TRANSFER_LETTER_TYPE_LABELS } from "@/lib/labels";
 import { formatMoney, formatDate } from "@/lib/format";
 import { formatTransferLetterSerialNumber } from "@/lib/transfer/format-serial-number";
+import { TransferLetterCompleteToggle } from "@/components/transfer-letters/transfer-letter-complete-toggle";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 
@@ -32,6 +33,7 @@ export function TransferLettersTable({
         letter.sourceBankName,
         letter.entity.name,
         letter.type,
+        letter.status,
         letter.currency,
         letter.purpose,
       ]
@@ -62,6 +64,7 @@ export function TransferLettersTable({
               <TableHead>Entity</TableHead>
               <TableHead>Source Bank</TableHead>
               <TableHead className="text-right">Amount</TableHead>
+              <TableHead>Status</TableHead>
               {showActions ? <TableHead className="w-[60px]">Actions</TableHead> : null}
             </TableRow>
           </TableHeader>
@@ -87,6 +90,18 @@ export function TransferLettersTable({
                 <TableCell>{letter.entity.name}</TableCell>
                 <TableCell>{letter.sourceBankName}</TableCell>
                 <TableCell className="text-right">{formatMoney(letter.amount, letter.currency)}</TableCell>
+                <TableCell>
+                  <div className="flex items-center gap-2">
+                    <TransferLetterCompleteToggle
+                      letterId={letter.id}
+                      status={letter.status}
+                      canEdit={showActions}
+                    />
+                    <Badge variant={letter.status === "COMPLETE" ? "default" : "secondary"}>
+                      {TRANSFER_LETTER_STATUS_LABELS[letter.status] ?? letter.status}
+                    </Badge>
+                  </div>
+                </TableCell>
                 {showActions ? (
                   <TableCell>
                     <RowActions
