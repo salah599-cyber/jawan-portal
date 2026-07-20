@@ -1,4 +1,5 @@
 import type { TransferLetterType } from "@/lib/generated/prisma/client";
+import { defaultCurrencyForType } from "@/lib/transfer/amount-in-words";
 
 export type TransferLetterFormData = {
   type: TransferLetterType;
@@ -19,6 +20,11 @@ export type TransferLetterFormData = {
   beneficiaryIban: string;
   beneficiarySortCode: string;
   beneficiarySwiftCode: string;
+  beneficiaryRoutingNumber: string;
+  correspondentBankName: string;
+  correspondentSwiftCode: string;
+  correspondentRoutingNumber: string;
+  correspondentFfcInstructions: string;
   amount: string;
   currency: string;
   purpose: string;
@@ -37,6 +43,11 @@ export type TransferLetterBankOption = {
   iban: string | null;
   sortCode: string | null;
   swiftCode: string | null;
+  routingNumber: string | null;
+  correspondentBankName: string | null;
+  correspondentSwiftCode: string | null;
+  correspondentRoutingNumber: string | null;
+  correspondentFfcInstructions: string | null;
   entityId: string | null;
   currency: string;
   notes: string | null;
@@ -62,6 +73,11 @@ export type TransferLetterAccountPickOption = {
   iban: string | null;
   sortCode: string | null;
   swiftCode: string | null;
+  routingNumber: string | null;
+  correspondentBankName: string | null;
+  correspondentSwiftCode: string | null;
+  correspondentRoutingNumber: string | null;
+  correspondentFfcInstructions: string | null;
   notes: string | null;
   entityId: string | null;
   label: string | null;
@@ -91,8 +107,13 @@ export function emptyTransferLetterForm(
     beneficiaryIban: overrides.beneficiaryIban ?? "",
     beneficiarySortCode: overrides.beneficiarySortCode ?? "",
     beneficiarySwiftCode: overrides.beneficiarySwiftCode ?? "",
+    beneficiaryRoutingNumber: overrides.beneficiaryRoutingNumber ?? "",
+    correspondentBankName: overrides.correspondentBankName ?? "",
+    correspondentSwiftCode: overrides.correspondentSwiftCode ?? "",
+    correspondentRoutingNumber: overrides.correspondentRoutingNumber ?? "",
+    correspondentFfcInstructions: overrides.correspondentFfcInstructions ?? "",
     amount: overrides.amount ?? "",
-    currency: overrides.currency ?? "OMR",
+    currency: overrides.currency ?? defaultCurrencyForType(type),
     purpose: overrides.purpose ?? "",
     notes: overrides.notes ?? "",
     mobileNo: overrides.mobileNo ?? "",

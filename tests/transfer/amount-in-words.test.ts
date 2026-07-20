@@ -79,4 +79,16 @@ describe("formatAmountLine", () => {
       "OMR One thousand five hundred & 235/1000",
     );
   });
+
+  it("formats USA USD whole numbers like international", () => {
+    expect(formatAmountLine(200000, "USD", "USA")).toBe(
+      "USD 200,000 (USD: Two Hundred thousand Only)",
+    );
+  });
+
+  it("formats USA USD with cents", () => {
+    expect(formatAmountLine("1500.25", "USD", "USA")).toBe(
+      "USD 1,500.25 (USD: One thousand five hundred & 25/100)",
+    );
+  });
 });

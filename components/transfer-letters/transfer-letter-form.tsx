@@ -9,6 +9,7 @@ import {
 import { TRANSFER_LETTER_TYPE_LABELS } from "@/lib/labels";
 import {
   amountHasValue,
+  defaultCurrencyForType,
   formatAmountLine,
   getMaxDecimalPlaces,
 } from "@/lib/transfer/amount-in-words";
@@ -36,6 +37,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { EntitySelect, type EntityOption } from "@/components/platform/entity-select";
+import { TransferCorrespondentBankFields } from "@/components/transfer-letters/transfer-correspondent-bank-fields";
 
 type TransferLetterFormProps = {
   entities: EntityOption[];
@@ -173,6 +175,7 @@ export function TransferLetterForm({
     setForm((current) => ({
       ...current,
       type,
+      currency: defaultCurrencyForType(type),
       chargesOnBeneficiary: type === "UK",
     }));
   }
@@ -416,15 +419,17 @@ export function TransferLetterForm({
               />
             </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="beneficiaryIban">IBAN</Label>
-              <Input
-                id="beneficiaryIban"
-                name="beneficiaryIban"
-                value={form.beneficiaryIban}
-                onChange={(e) => updateField("beneficiaryIban", e.target.value)}
-              />
-            </div>
+            {form.type !== "USA" ? (
+              <div className="space-y-2">
+                <Label htmlFor="beneficiaryIban">IBAN</Label>
+                <Input
+                  id="beneficiaryIban"
+                  name="beneficiaryIban"
+                  value={form.beneficiaryIban}
+                  onChange={(e) => updateField("beneficiaryIban", e.target.value)}
+                />
+              </div>
+            ) : null}
 
             {form.type === "UK" ? (
               <>
@@ -446,6 +451,39 @@ export function TransferLetterForm({
                     onChange={(e) => updateField("beneficiarySwiftCode", e.target.value)}
                   />
                 </div>
+              </>
+            ) : null}
+
+            {form.type === "USA" ? (
+              <>
+                <div className="space-y-2">
+                  <Label htmlFor="beneficiaryRoutingNumber">Routing Number (ABA)</Label>
+                  <Input
+                    id="beneficiaryRoutingNumber"
+                    name="beneficiaryRoutingNumber"
+                    inputMode="numeric"
+                    value={form.beneficiaryRoutingNumber}
+                    onChange={(e) => updateField("beneficiaryRoutingNumber", e.target.value)}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="beneficiarySwiftCode">Swift/BIC</Label>
+                  <Input
+                    id="beneficiarySwiftCode"
+                    name="beneficiarySwiftCode"
+                    value={form.beneficiarySwiftCode}
+                    onChange={(e) => updateField("beneficiarySwiftCode", e.target.value)}
+                  />
+                </div>
+                <TransferCorrespondentBankFields
+                  values={{
+                    correspondentBankName: form.correspondentBankName,
+                    correspondentSwiftCode: form.correspondentSwiftCode,
+                    correspondentRoutingNumber: form.correspondentRoutingNumber,
+                    correspondentFfcInstructions: form.correspondentFfcInstructions,
+                  }}
+                  onChange={(field, value) => updateField(field, value)}
+                />
               </>
             ) : null}
 

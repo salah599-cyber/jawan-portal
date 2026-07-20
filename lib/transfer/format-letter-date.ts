@@ -28,7 +28,7 @@ export function formatTransferLetterDate(date: Date | string, type: TransferLett
   }
 
   const dayWithSuffix = `${day}${ordinalSuffix(day)}`;
-  if (type === "INTERNATIONAL") {
+  if (type === "INTERNATIONAL" || type === "USA") {
     return `${month} ${dayWithSuffix}, ${year}`;
   }
 

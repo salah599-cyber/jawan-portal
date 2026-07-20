@@ -17,7 +17,7 @@ import {
 } from "@/lib/validation/primitives";
 import type { TransferLetterStatus, TransferLetterType } from "@/lib/generated/prisma/client";
 
-const TRANSFER_LETTER_TYPE_VALUES = ["LOCAL", "INTERNATIONAL", "UK"] as const satisfies readonly TransferLetterType[];
+const TRANSFER_LETTER_TYPE_VALUES = ["LOCAL", "INTERNATIONAL", "UK", "USA"] as const satisfies readonly TransferLetterType[];
 const TRANSFER_LETTER_STATUS_VALUES = ["PENDING", "COMPLETE"] as const satisfies readonly TransferLetterStatus[];
 
 const transferLetterInclude = {
@@ -97,6 +97,11 @@ function readTransferLetterFormData(formData: FormData) {
     beneficiaryIban: String(formData.get("beneficiaryIban") ?? "").trim() || null,
     beneficiarySortCode: String(formData.get("beneficiarySortCode") ?? "").trim() || null,
     beneficiarySwiftCode: String(formData.get("beneficiarySwiftCode") ?? "").trim() || null,
+    beneficiaryRoutingNumber: String(formData.get("beneficiaryRoutingNumber") ?? "").trim() || null,
+    correspondentBankName: String(formData.get("correspondentBankName") ?? "").trim() || null,
+    correspondentSwiftCode: String(formData.get("correspondentSwiftCode") ?? "").trim() || null,
+    correspondentRoutingNumber: String(formData.get("correspondentRoutingNumber") ?? "").trim() || null,
+    correspondentFfcInstructions: String(formData.get("correspondentFfcInstructions") ?? "").trim() || null,
     purpose: String(formData.get("purpose") ?? "").trim() || null,
     notes: String(formData.get("notes") ?? "").trim() || null,
     mobileNo: String(formData.get("mobileNo") ?? "").trim() || null,
@@ -146,6 +151,11 @@ export async function listTransferLetterBankAccountOptions() {
       iban: true,
       sortCode: true,
       swiftCode: true,
+      routingNumber: true,
+      correspondentBankName: true,
+      correspondentSwiftCode: true,
+      correspondentRoutingNumber: true,
+      correspondentFfcInstructions: true,
       entityId: true,
       currency: true,
       notes: true,

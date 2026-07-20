@@ -227,6 +227,7 @@ enum TransferLetterType {
   LOCAL
   INTERNATIONAL
   UK
+  USA
 }
 
 enum TransferLetterStatus {
@@ -1236,6 +1237,11 @@ model TransferLetter {
   beneficiaryIban          String?
   beneficiarySortCode      String?
   beneficiarySwiftCode     String?
+  beneficiaryRoutingNumber String?
+  correspondentBankName    String?
+  correspondentSwiftCode   String?
+  correspondentRoutingNumber String?
+  correspondentFfcInstructions String?
   amount                   Decimal            @db.Decimal(18, 2)
   currency                 String
   amountInWords            String

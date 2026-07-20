@@ -1,5 +1,5 @@
 export const TRANSFER_LETTERS_SCHEMA_STATEMENTS = [
-  `CREATE TYPE "TransferLetterType" AS ENUM ('LOCAL', 'INTERNATIONAL', 'UK')`,
+  `CREATE TYPE "TransferLetterType" AS ENUM ('LOCAL', 'INTERNATIONAL', 'UK', 'USA')`,
   `CREATE TYPE "TransferLetterStatus" AS ENUM ('PENDING', 'COMPLETE')`,
   `CREATE TABLE IF NOT EXISTS "TransferLetter" (
     "id" TEXT NOT NULL,
@@ -96,4 +96,10 @@ export const TRANSFER_LETTERS_MIGRATION_STATEMENTS = [
     ALTER TABLE "TransferLetter" ADD CONSTRAINT "TransferLetter_beneficiaryBankAccountId_fkey"
       FOREIGN KEY ("beneficiaryBankAccountId") REFERENCES "BankAccount"("id") ON DELETE SET NULL ON UPDATE CASCADE;
   EXCEPTION WHEN duplicate_object THEN NULL; END $$`,
+  `ALTER TYPE "TransferLetterType" ADD VALUE IF NOT EXISTS 'USA'`,
+  `ALTER TABLE "TransferLetter" ADD COLUMN IF NOT EXISTS "beneficiaryRoutingNumber" TEXT`,
+  `ALTER TABLE "TransferLetter" ADD COLUMN IF NOT EXISTS "correspondentBankName" TEXT`,
+  `ALTER TABLE "TransferLetter" ADD COLUMN IF NOT EXISTS "correspondentSwiftCode" TEXT`,
+  `ALTER TABLE "TransferLetter" ADD COLUMN IF NOT EXISTS "correspondentRoutingNumber" TEXT`,
+  `ALTER TABLE "TransferLetter" ADD COLUMN IF NOT EXISTS "correspondentFfcInstructions" TEXT`,
 ];

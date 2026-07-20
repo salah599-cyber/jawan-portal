@@ -33,12 +33,26 @@ function TransferFieldTable({ rows }: { rows: TransferFieldRow[] }) {
   );
 }
 
+function hasCorrespondentBankDetails(data: TransferLetterFormData) {
+  return Boolean(
+    data.correspondentBankName?.trim() ||
+      data.correspondentSwiftCode?.trim() ||
+      data.correspondentRoutingNumber?.trim() ||
+      data.correspondentFfcInstructions?.trim(),
+  );
+}
+
 function buildTransferFieldRows(
   type: TransferLetterType,
   data: TransferLetterFormData,
   amountLine: string | null,
 ): TransferFieldRow[] {
   const amountRow = { label: "Amount", value: amountLine };
+  const contactRows = [
+    { label: "Purpose", value: data.purpose },
+    { label: "Mobile No", value: data.mobileNo },
+    { label: "Email", value: data.email },
+  ];
 
   if (type === "LOCAL") {
     return [
@@ -47,9 +61,7 @@ function buildTransferFieldRows(
       { label: "For credit of", value: data.beneficiaryName },
       { label: "Account NO", value: data.beneficiaryAccountNumber },
       { label: "IBAN", value: data.beneficiaryIban },
-      { label: "Purpose", value: data.purpose },
-      { label: "Mobile No", value: data.mobileNo },
-      { label: "Email", value: data.email },
+      ...contactRows,
     ];
   }
 
@@ -60,9 +72,19 @@ function buildTransferFieldRows(
       { label: "For credit of", value: data.beneficiaryName },
       { label: "IBAN", value: data.beneficiaryIban },
       { label: "Account NO", value: data.beneficiaryAccountNumber },
-      { label: "Purpose", value: data.purpose },
-      { label: "Mobile No", value: data.mobileNo },
-      { label: "Email", value: data.email },
+      ...contactRows,
+    ];
+  }
+
+  if (type === "USA") {
+    return [
+      amountRow,
+      { label: "Bank", value: data.beneficiaryBankName },
+      { label: "For credit of", value: data.beneficiaryName },
+      { label: "Routing Number (ABA)", value: data.beneficiaryRoutingNumber },
+      { label: "Swift/BIC", value: data.beneficiarySwiftCode },
+      { label: "Account NO", value: data.beneficiaryAccountNumber },
+      ...contactRows,
     ];
   }
 
@@ -74,9 +96,7 @@ function buildTransferFieldRows(
     { label: "Sort Code", value: data.beneficiarySortCode },
     { label: "Swift/BIC", value: data.beneficiarySwiftCode },
     { label: "Account NO", value: data.beneficiaryAccountNumber },
-    { label: "Purpose", value: data.purpose },
-    { label: "Mobile No", value: data.mobileNo },
-    { label: "Email", value: data.email },
+    ...contactRows,
   ];
 }
 
@@ -87,6 +107,7 @@ export function TransferLetterPreview({ data, serialNumber }: TransferLetterPrev
   const hasAmount = amountHasValue(data.amount, data.currency);
   const amountLine = hasAmount ? formatAmountLine(data.amount, data.currency, type) : null;
   const fieldRows = buildTransferFieldRows(type, data, amountLine);
+  const showCorrespondentBlock = type === "USA" && hasCorrespondentBankDetails(data);
 
   return (
     <article
@@ -112,6 +133,20 @@ export function TransferLetterPreview({ data, serialNumber }: TransferLetterPrev
       <p className="mb-4">Please make the following wire transfer:</p>
 
       <TransferFieldTable rows={fieldRows} />
+
+      {showCorrespondentBlock ? (
+        <div className="mb-4">
+          <p className="mb-2 font-medium">Correspondent Bank</p>
+          <TransferFieldTable
+            rows={[
+              { label: "Correspondent Bank Name", value: data.correspondentBankName },
+              { label: "Correspondent SWIFT / BIC", value: data.correspondentSwiftCode },
+              { label: "Correspondent Routing Number (ABA)", value: data.correspondentRoutingNumber },
+              { label: "FFC Instructions", value: data.correspondentFfcInstructions },
+            ]}
+          />
+        </div>
+      ) : null}
 
       <p className="mb-4">
         You may debit the above amount to our Account No. {debitAccountNumber} with you, under advice to us.

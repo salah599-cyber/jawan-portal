@@ -227,6 +227,7 @@ export const TRANSFER_LETTER_TYPE_LABELS: Record<string, string> = {
   LOCAL: "Local Transfer",
   INTERNATIONAL: "International Transfer",
   UK: "UK Transfer",
+  USA: "US Transfer",
 };
 
 export const TRANSFER_LETTER_STATUS_LABELS: Record<string, string> = {

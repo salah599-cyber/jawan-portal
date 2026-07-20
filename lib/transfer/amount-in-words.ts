@@ -184,7 +184,7 @@ export function formatAmountWords(
     return `${currencyLabel} ${numberToEnglishWords(whole)} Only`;
   }
 
-  if (type === "INTERNATIONAL") {
+  if (type === "INTERNATIONAL" || type === "USA") {
     if (hasFraction) {
       return `${currency}: ${formatWordsWithFraction(whole, fraction, fractionDenominator)}`;
     }
@@ -228,5 +228,6 @@ export function maskAccountNumber(accountNumber: string): string {
 export function defaultCurrencyForType(type: TransferLetterType): string {
   if (type === "UK") return "GBP";
   if (type === "INTERNATIONAL") return "AED";
+  if (type === "USA") return "USD";
   return "OMR";
 }
