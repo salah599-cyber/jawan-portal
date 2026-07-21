@@ -40,8 +40,8 @@ async function columnExists(client: Client, tableName: string, columnName: strin
       SELECT 1
       FROM information_schema.columns
       WHERE table_schema = 'public'
-        AND table_name = $1
-        AND column_name = $2
+        AND lower(table_name) = lower($1)
+        AND lower(column_name) = lower($2)
     )`,
     [tableName, columnName],
   );

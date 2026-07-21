@@ -96,8 +96,8 @@ async function columnExists(client, tableName, columnName) {
       SELECT 1
       FROM information_schema.columns
       WHERE table_schema = 'public'
-        AND table_name = $1
-        AND column_name = $2
+        AND lower(table_name) = lower($1)
+        AND lower(column_name) = lower($2)
     )`,
     [tableName, columnName],
   );
@@ -128,12 +128,7 @@ async function main() {
 
   try {
     await runStatements(client, BASE_SCHEMA_STATEMENTS);
-
-    const hasNumberBalance = await columnExists(client, "BankAccountNumber", "currentBalance");
-    const hasEntryAccountNumberId = await columnExists(client, "BankBalanceEntry", "bankAccountNumberId");
-    if (!hasNumberBalance || !hasEntryAccountNumberId) {
-      await runStatements(client, PER_ACCOUNT_BALANCE_STATEMENTS);
-    }
+    await runStatements(client, PER_ACCOUNT_BALANCE_STATEMENTS);
 
     if (!(await tableExists(client, "BankBalanceEntry"))) {
       throw new Error("Cash management schema sync finished but BankBalanceEntry table is still missing.");
