@@ -158,7 +158,8 @@ async function applyCashManagementSchema() {
     }
 
     const hasNumberBalance = await columnExists(client, "BankAccountNumber", "currentBalance");
-    if (!hasNumberBalance) {
+    const hasEntryAccountNumberId = await columnExists(client, "BankBalanceEntry", "bankAccountNumberId");
+    if (!hasNumberBalance || !hasEntryAccountNumberId) {
       await runStatements(client, [
         `ALTER TABLE "BankAccountNumber" ADD COLUMN IF NOT EXISTS "currentBalance" DECIMAL(18,3)`,
         `ALTER TABLE "BankAccountNumber" ADD COLUMN IF NOT EXISTS "balanceAsOf" TIMESTAMP(3)`,
