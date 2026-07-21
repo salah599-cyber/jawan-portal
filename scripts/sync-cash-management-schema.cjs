@@ -5,7 +5,7 @@ require("./load-env.cjs");
 
 const { Client } = require("pg");
 
-const statements = [
+const CASH_MANAGEMENT_SCHEMA_STATEMENTS = [
   `ALTER TYPE "ModuleName" ADD VALUE IF NOT EXISTS 'CASH_MANAGEMENT'`,
   `ALTER TABLE "BankAccount" ADD COLUMN IF NOT EXISTS "currentBalance" DECIMAL(18,3)`,
   `ALTER TABLE "BankAccount" ADD COLUMN IF NOT EXISTS "balanceAsOf" TIMESTAMP(3)`,
@@ -21,6 +21,116 @@ const statements = [
     CONSTRAINT "BankBalanceEntry_pkey" PRIMARY KEY ("id")
   )`,
   `CREATE INDEX IF NOT EXISTS "BankBalanceEntry_bankAccountId_balanceDate_idx" ON "BankBalanceEntry"("bankAccountId", "balanceDate")`,
+  `ALTER TABLE "BankAccount" ADD COLUMN IF NOT EXISTS "includeInCashPosition" BOOLEAN NOT NULL DEFAULT true`,
+  `ALTER TABLE "BankAccount" ADD COLUMN IF NOT EXISTS "includeInTransferLetterSource" BOOLEAN NOT NULL DEFAULT true`,
+  `ALTER TABLE "BankAccountNumber" ADD COLUMN IF NOT EXISTS "includeInTransferLetterSource" BOOLEAN NOT NULL DEFAULT true`,
+];
+
+const CASH_STATEMENT_IMPORT_SCHEMA_STATEMENTS = [
+  `DO $$ BEGIN
+    CREATE TYPE "CashStatementImportStatus" AS ENUM ('PARSED', 'APPLIED', 'FAILED');
+  EXCEPTION WHEN duplicate_object THEN NULL; END $$`,
+  `CREATE TABLE IF NOT EXISTS "CashStatementImport" (
+    "id" TEXT NOT NULL,
+    "fileName" TEXT NOT NULL,
+    "uploadedBy" TEXT NOT NULL,
+    "bankAccountId" TEXT,
+    "parserId" TEXT,
+    "extractedJson" JSONB,
+    "balance" DECIMAL(18,3),
+    "balanceDate" TIMESTAMP(3),
+    "currency" TEXT,
+    "bankName" TEXT,
+    "accountNumber" TEXT,
+    "iban" TEXT,
+    "warnings" JSONB,
+    "status" "CashStatementImportStatus" NOT NULL DEFAULT 'PARSED',
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT "CashStatementImport_pkey" PRIMARY KEY ("id")
+  )`,
+  `CREATE INDEX IF NOT EXISTS "CashStatementImport_bankAccountId_createdAt_idx" ON "CashStatementImport"("bankAccountId", "createdAt")`,
+  `CREATE INDEX IF NOT EXISTS "CashStatementImport_status_createdAt_idx" ON "CashStatementImport"("status", "createdAt")`,
+  `ALTER TABLE "BankBalanceEntry" ADD COLUMN IF NOT EXISTS "statementImportId" TEXT`,
+  `CREATE INDEX IF NOT EXISTS "BankBalanceEntry_statementImportId_idx" ON "BankBalanceEntry"("statementImportId")`,
+];
+
+const CASH_MANAGEMENT_MIGRATION_STATEMENTS = [
+  `CREATE TABLE IF NOT EXISTS "BankAccountNumber" (
+    "id" TEXT NOT NULL,
+    "bankAccountId" TEXT NOT NULL,
+    "accountNumber" TEXT NOT NULL,
+    "currency" TEXT NOT NULL DEFAULT 'OMR',
+    "label" TEXT,
+    "sortOrder" INTEGER NOT NULL DEFAULT 0,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT "BankAccountNumber_pkey" PRIMARY KEY ("id")
+  )`,
+  `CREATE INDEX IF NOT EXISTS "BankAccountNumber_bankAccountId_idx" ON "BankAccountNumber" ("bankAccountId")`,
+  `CREATE INDEX IF NOT EXISTS "BankAccountNumber_accountNumber_idx" ON "BankAccountNumber" ("accountNumber")`,
+  `ALTER TABLE "BankAccountNumber" ADD COLUMN IF NOT EXISTS "iban" TEXT`,
+  `DO $$ BEGIN
+    ALTER TABLE "BankAccountNumber" ADD CONSTRAINT "BankAccountNumber_bankAccountId_fkey"
+      FOREIGN KEY ("bankAccountId") REFERENCES "BankAccount"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+  EXCEPTION WHEN duplicate_object THEN NULL; END $$`,
+  `UPDATE "BankAccountNumber" n
+    SET iban = b.iban
+    FROM "BankAccount" b
+    WHERE n."bankAccountId" = b.id
+      AND n."sortOrder" = 0
+      AND n.iban IS NULL
+      AND b.iban IS NOT NULL`,
+  `INSERT INTO "BankAccountNumber" ("id", "bankAccountId", "accountNumber", "currency", "sortOrder", "createdAt")
+    SELECT
+      'ban_' || substr(md5(b.id || b."accountNumber" || b."createdAt"::text), 1, 24),
+      b.id,
+      TRIM(b."accountNumber"),
+      COALESCE(NULLIF(TRIM(b.currency), ''), 'OMR'),
+      0,
+      CURRENT_TIMESTAMP
+    FROM "BankAccount" b
+    WHERE b."accountNumber" IS NOT NULL
+      AND TRIM(b."accountNumber") <> ''
+      AND NOT EXISTS (
+        SELECT 1 FROM "BankAccountNumber" n WHERE n."bankAccountId" = b.id
+      )`,
+  `DO $$ BEGIN
+    CREATE TYPE "BankAccountRegion" AS ENUM ('OMAN', 'USA');
+  EXCEPTION WHEN duplicate_object THEN NULL; END $$`,
+  `ALTER TABLE "BankAccount" ADD COLUMN IF NOT EXISTS "region" "BankAccountRegion" NOT NULL DEFAULT 'OMAN'`,
+  `ALTER TABLE "BankAccount" ADD COLUMN IF NOT EXISTS "routingNumber" TEXT`,
+  `CREATE INDEX IF NOT EXISTS "BankAccount_region_idx" ON "BankAccount" ("region")`,
+  `ALTER TABLE "BankAccount" ADD COLUMN IF NOT EXISTS "correspondentBankName" TEXT`,
+  `ALTER TABLE "BankAccount" ADD COLUMN IF NOT EXISTS "correspondentSwiftCode" TEXT`,
+  `ALTER TABLE "BankAccount" ADD COLUMN IF NOT EXISTS "correspondentRoutingNumber" TEXT`,
+  `ALTER TABLE "BankAccount" ADD COLUMN IF NOT EXISTS "correspondentFfcInstructions" TEXT`,
+  `ALTER TABLE "BankAccountNumber" ADD COLUMN IF NOT EXISTS "currentBalance" DECIMAL(18,3)`,
+  `ALTER TABLE "BankAccountNumber" ADD COLUMN IF NOT EXISTS "balanceAsOf" TIMESTAMP(3)`,
+  `ALTER TABLE "BankBalanceEntry" ADD COLUMN IF NOT EXISTS "bankAccountNumberId" TEXT`,
+  `CREATE INDEX IF NOT EXISTS "BankBalanceEntry_bankAccountNumberId_balanceDate_idx" ON "BankBalanceEntry"("bankAccountNumberId", "balanceDate")`,
+  `DO $$ BEGIN
+    ALTER TABLE "BankBalanceEntry" ADD CONSTRAINT "BankBalanceEntry_bankAccountNumberId_fkey"
+      FOREIGN KEY ("bankAccountNumberId") REFERENCES "BankAccountNumber"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+  EXCEPTION WHEN duplicate_object THEN NULL; END $$`,
+  `UPDATE "BankAccountNumber" n
+    SET "currentBalance" = b."currentBalance",
+        "balanceAsOf" = b."balanceAsOf"
+    FROM "BankAccount" b
+    WHERE n."bankAccountId" = b.id
+      AND n."sortOrder" = 0
+      AND b."currentBalance" IS NOT NULL
+      AND n."currentBalance" IS NULL`,
+  `UPDATE "BankBalanceEntry" e
+    SET "bankAccountNumberId" = n.id
+    FROM "BankAccountNumber" n
+    WHERE e."bankAccountId" = n."bankAccountId"
+      AND n."sortOrder" = 0
+      AND e."bankAccountNumberId" IS NULL`,
+];
+
+const statements = [
+  ...CASH_MANAGEMENT_SCHEMA_STATEMENTS,
+  ...CASH_STATEMENT_IMPORT_SCHEMA_STATEMENTS,
+  ...CASH_MANAGEMENT_MIGRATION_STATEMENTS,
 ];
 
 function getDatabaseUrl() {
