@@ -3,8 +3,7 @@ import { notFound } from "next/navigation";
 import { PlatformHeader } from "@/components/platform/platform-header";
 import { EditLinkButton } from "@/components/platform/edit-link-button";
 import { BankAccountNumbersList } from "@/components/bank/bank-account-numbers-list";
-import { resolveBankAccountNumberRows } from "@/lib/bank/account-numbers";
-import { RecordBalanceForm } from "@/components/cash/record-balance-form";
+import { RecordBalanceForms } from "@/components/cash/record-balance-form";
 import { UploadStatementForm } from "@/components/cash/upload-statement-form";
 import { StatementImportHistory } from "@/components/cash/statement-import-history";
 import { BalanceHistory } from "@/components/cash/balance-history";
@@ -38,7 +37,8 @@ export default async function CashAccountDetailPage({
   if (!account) notFound();
 
   const canEdit = canWrite(ctx, "CASH_MANAGEMENT");
-  const registeredAccounts = resolveBankAccountNumberRows(account.accountNumbers, account);
+  const registeredAccounts = account.registeredAccounts;
+  const hasMultipleAccounts = registeredAccounts.length > 1;
 
   return (
     <>
@@ -70,7 +70,10 @@ export default async function CashAccountDetailPage({
             <CardContent className="space-y-6">
               <div className="grid gap-4 sm:grid-cols-2">
                 <Detail label="Entity" value={account.entityName ?? "—"} />
-                <Detail label="Primary Currency" value={account.currency} />
+                <Detail
+                  label="Primary Currency"
+                  value={hasMultipleAccounts ? "Multiple currencies" : account.currency}
+                />
                 <Detail
                   label="Usage"
                   value={
@@ -84,19 +87,21 @@ export default async function CashAccountDetailPage({
                     </div>
                   }
                 />
-                <Detail
-                  label="Current Balance"
-                  value={
-                    account.currentBalance != null
-                      ? formatMoney(account.currentBalance, account.currency)
-                      : "—"
-                  }
-                />
+                {!hasMultipleAccounts ? (
+                  <Detail
+                    label="Current Balance"
+                    value={
+                      account.currentBalance != null
+                        ? formatMoney(account.currentBalance, account.currency)
+                        : "—"
+                    }
+                  />
+                ) : null}
                 <Detail
                   label="OMR Equivalent"
                   value={account.balanceOmr != null ? formatOmr(account.balanceOmr) : "—"}
                 />
-                <Detail label="Balance As Of" value={formatDate(account.balanceAsOf)} />
+                <Detail label="Latest Balance Update" value={formatDate(account.balanceAsOf)} />
                 {account.notes ? (
                   <div className="sm:col-span-2">
                     <p className="text-sm font-medium text-muted-foreground">Account Notes</p>
@@ -106,7 +111,14 @@ export default async function CashAccountDetailPage({
               </div>
               <div>
                 <p className="mb-3 text-sm font-medium text-muted-foreground">Registered Accounts</p>
-                <BankAccountNumbersList accounts={registeredAccounts} variant="compact" />
+                <p className="mb-3 text-sm text-muted-foreground">
+                  Each account number below has its own balance in its own currency.
+                </p>
+                <BankAccountNumbersList
+                  accounts={registeredAccounts}
+                  variant="compact"
+                  showBalances
+                />
               </div>
             </CardContent>
           </Card>
@@ -117,12 +129,11 @@ export default async function CashAccountDetailPage({
                 accounts={accountCandidates}
                 preferredAccountId={account.id}
                 title="Import Statement"
-                description="Upload a PDF statement for this account. Parsed balance and date can be reviewed before applying."
+                description="Upload a PDF statement for a specific registered account. Parsed balance and date can be reviewed before applying."
               />
-              <RecordBalanceForm
+              <RecordBalanceForms
                 bankAccountId={account.id}
-                currency={account.currency}
-                currentBalance={account.currentBalance}
+                accounts={account.accountNumbers}
               />
             </div>
           ) : null}
@@ -130,7 +141,7 @@ export default async function CashAccountDetailPage({
 
         {canEdit ? <StatementImportHistory imports={importHistory} /> : null}
 
-        <BalanceHistory entries={history} currency={account.currency} />
+        <BalanceHistory entries={history} showAccountColumn={hasMultipleAccounts} />
       </main>
     </>
   );

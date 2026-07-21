@@ -12,10 +12,14 @@ import { formatMoney } from "@/lib/format";
 
 export function RecordBalanceForm({
   bankAccountId,
+  bankAccountNumberId,
+  accountLabel,
   currency,
   currentBalance,
 }: {
   bankAccountId: string;
+  bankAccountNumberId: string;
+  accountLabel: string;
   currency: string;
   currentBalance?: number | null;
 }) {
@@ -29,6 +33,7 @@ export function RecordBalanceForm({
     setError(null);
     const formData = new FormData(e.currentTarget);
     formData.set("bankAccountId", bankAccountId);
+    formData.set("bankAccountNumberId", bankAccountNumberId);
 
     startTransition(async () => {
       try {
@@ -43,19 +48,9 @@ export function RecordBalanceForm({
 
   if (!expanded) {
     return (
-      <Card className="border-dashed">
-        <CardHeader className="pb-3">
-          <CardTitle className="text-base">Update Balance</CardTitle>
-          <CardDescription>
-            Record the current balance as of a specific date. This becomes the account&apos;s latest position.
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <Button type="button" onClick={() => setExpanded(true)}>
-            Update Balance
-          </Button>
-        </CardContent>
-      </Card>
+      <Button type="button" variant="outline" size="sm" onClick={() => setExpanded(true)}>
+        Update Balance
+      </Button>
     );
   }
 
@@ -63,24 +58,29 @@ export function RecordBalanceForm({
 
   return (
     <Card>
-      <CardHeader>
-        <CardTitle>Update Balance</CardTitle>
+      <CardHeader className="pb-3">
+        <CardTitle className="text-base">Update Balance</CardTitle>
         <CardDescription>
-          {currentBalance != null
-            ? `Current: ${formatMoney(currentBalance, currency)}`
-            : "No balance recorded yet."}
+          {accountLabel} · {currency}
+          {currentBalance != null ? ` · Current: ${formatMoney(currentBalance, currency)}` : ""}
         </CardDescription>
       </CardHeader>
       <CardContent>
-        <form onSubmit={handleSubmit} className="grid gap-4 sm:grid-cols-2">
+        <form onSubmit={handleSubmit} className="grid gap-4">
           <div className="space-y-2">
-            <Label htmlFor="balanceDate">Balance Date</Label>
-            <Input id="balanceDate" name="balanceDate" type="date" defaultValue={today} required />
+            <Label htmlFor={`balanceDate-${bankAccountNumberId}`}>Balance Date</Label>
+            <Input
+              id={`balanceDate-${bankAccountNumberId}`}
+              name="balanceDate"
+              type="date"
+              defaultValue={today}
+              required
+            />
           </div>
           <div className="space-y-2">
-            <Label htmlFor="balance">Balance ({currency})</Label>
+            <Label htmlFor={`balance-${bankAccountNumberId}`}>Balance ({currency})</Label>
             <Input
-              id="balance"
+              id={`balance-${bankAccountNumberId}`}
               name="balance"
               type="number"
               step="0.001"
@@ -88,17 +88,17 @@ export function RecordBalanceForm({
               defaultValue={currentBalance ?? undefined}
             />
           </div>
-          <div className="space-y-2 sm:col-span-2">
-            <Label htmlFor="notes">Notes (optional)</Label>
+          <div className="space-y-2">
+            <Label htmlFor={`notes-${bankAccountNumberId}`}>Notes (optional)</Label>
             <Textarea
-              id="notes"
+              id={`notes-${bankAccountNumberId}`}
               name="notes"
               rows={2}
               placeholder="e.g. Statement received, reconciled with online banking"
             />
           </div>
-          {error ? <p className="text-sm text-destructive sm:col-span-2">{error}</p> : null}
-          <div className="flex gap-2 sm:col-span-2">
+          {error ? <p className="text-sm text-destructive">{error}</p> : null}
+          <div className="flex gap-2">
             <Button type="submit" disabled={pending}>
               {pending ? "Saving..." : "Save Balance"}
             </Button>
@@ -107,6 +107,88 @@ export function RecordBalanceForm({
             </Button>
           </div>
         </form>
+      </CardContent>
+    </Card>
+  );
+}
+
+export function RecordBalanceForms({
+  bankAccountId,
+  accounts,
+}: {
+  bankAccountId: string;
+  accounts: Array<{
+    id?: string;
+    accountNumber: string;
+    currency: string;
+    label: string | null;
+    currentBalance: number | null;
+  }>;
+}) {
+  if (accounts.length === 0) {
+    return (
+      <Card className="border-dashed">
+        <CardHeader className="pb-3">
+          <CardTitle className="text-base">Update Balance</CardTitle>
+          <CardDescription>
+            Add at least one registered account number before recording balances.
+          </CardDescription>
+        </CardHeader>
+      </Card>
+    );
+  }
+
+  if (accounts.length === 1) {
+    const account = accounts[0]!;
+    return (
+      <RecordBalanceForm
+        bankAccountId={bankAccountId}
+        bankAccountNumberId={account.id!}
+        accountLabel={account.label ? `${account.accountNumber} · ${account.label}` : account.accountNumber}
+        currency={account.currency}
+        currentBalance={account.currentBalance}
+      />
+    );
+  }
+
+  return (
+    <Card>
+      <CardHeader className="pb-3">
+        <CardTitle className="text-base">Update Balance</CardTitle>
+        <CardDescription>
+          Each registered account has its own balance. Choose the account to update.
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        {accounts.map((account) => (
+          <div key={account.id ?? account.accountNumber} className="rounded-md border p-3">
+            <div className="mb-3 flex flex-wrap items-start justify-between gap-2">
+              <div>
+                <p className="font-medium tabular-nums">{account.accountNumber}</p>
+                <p className="text-xs text-muted-foreground">
+                  {account.currency}
+                  {account.label ? ` · ${account.label}` : ""}
+                </p>
+              </div>
+              <p className="text-sm tabular-nums">
+                {account.currentBalance != null
+                  ? formatMoney(account.currentBalance, account.currency)
+                  : "No balance recorded"}
+              </p>
+            </div>
+            {account.id ? (
+              <RecordBalanceForm
+                bankAccountId={bankAccountId}
+                bankAccountNumberId={account.id}
+                accountLabel={
+                  account.label ? `${account.accountNumber} · ${account.label}` : account.accountNumber
+                }
+                currency={account.currency}
+                currentBalance={account.currentBalance}
+              />
+            ) : null}
+          </div>
+        ))}
       </CardContent>
     </Card>
   );

@@ -1,3 +1,5 @@
+import { isStaleBalance, toNumber } from "@/lib/cash/helpers";
+
 export type BankAccountNumberInput = {
   accountNumber: string;
   currency?: string;
@@ -7,19 +9,26 @@ export type BankAccountNumberInput = {
 };
 
 export type BankAccountNumberRecord = {
+  id?: string;
   accountNumber: string;
   currency: string;
   iban?: string | null;
   label?: string | null;
   includeInTransferLetterSource?: boolean;
+  currentBalance?: { toString(): string } | number | null;
+  balanceAsOf?: Date | null;
 };
 
 export type BankAccountNumberDisplay = {
+  id?: string;
   accountNumber: string;
   currency: string;
   label: string | null;
   iban: string | null;
   includeInTransferLetterSource: boolean;
+  currentBalance: number | null;
+  balanceAsOf: Date | null;
+  isStale: boolean;
 };
 
 export function normalizeBankAccountNumbers(input: {
@@ -119,25 +128,35 @@ export function resolveBankAccountNumberRows(
     accountNumber?: string | null;
     currency?: string | null;
     iban?: string | null;
+    currentBalance?: { toString(): string } | number | null;
+    balanceAsOf?: Date | null;
   },
 ): BankAccountNumberDisplay[] {
   if (accountNumbers.length > 0) {
     return accountNumbers.map((row, index) => ({
+      id: row.id,
       accountNumber: row.accountNumber,
       currency: row.currency,
       label: row.label ?? null,
       iban: row.iban ?? (index === 0 ? fallback?.iban ?? null : null),
       includeInTransferLetterSource: row.includeInTransferLetterSource ?? false,
+      currentBalance: toNumber(row.currentBalance),
+      balanceAsOf: row.balanceAsOf ?? null,
+      isStale: isStaleBalance(row.balanceAsOf),
     }));
   }
 
   if (fallback?.accountNumber) {
     return [{
+      id: undefined,
       accountNumber: fallback.accountNumber,
       currency: fallback.currency ?? "OMR",
       label: null,
       iban: fallback.iban ?? null,
       includeInTransferLetterSource: false,
+      currentBalance: toNumber(fallback.currentBalance),
+      balanceAsOf: fallback.balanceAsOf ?? null,
+      isStale: isStaleBalance(fallback.balanceAsOf),
     }];
   }
 
