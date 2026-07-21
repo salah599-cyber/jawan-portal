@@ -385,8 +385,8 @@ export async function addManualOption(formData: FormData) {
   if (!input.strikePrice || Number.isNaN(input.strikePrice) || input.strikePrice <= 0) {
     throw new Error("Strike price must be a positive number.");
   }
-  if (!input.contracts || Number.isNaN(input.contracts) || input.contracts <= 0) {
-    throw new Error("Contracts must be a positive number.");
+  if (!input.contracts || Number.isNaN(input.contracts) || input.contracts === 0) {
+    throw new Error("Contracts must be a non-zero number (negative for written/short positions).");
   }
 
   if (ctx.entityIds.length > 0 && !ctx.entityIds.includes(entityId)) {

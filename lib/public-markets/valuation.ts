@@ -147,12 +147,12 @@ export function normalizeOptionHoldingValues(input: {
   contractMultiplier?: number;
 }) {
   const multiplier = input.contractMultiplier && input.contractMultiplier > 0 ? input.contractMultiplier : 100;
-  const contracts = input.contracts > 0 ? input.contracts : 0;
+  const contracts = input.contracts !== 0 && !Number.isNaN(input.contracts) ? input.contracts : 0;
   const marketPrice = finiteOrNull(input.marketPrice);
   let marketValue = finiteOrNull(input.marketValue);
   const costBasis = finiteOrNull(input.premiumPaid);
 
-  if (marketValue == null && marketPrice != null && contracts > 0) {
+  if (marketValue == null && marketPrice != null && contracts !== 0) {
     marketValue = marketPrice * contracts * multiplier;
   }
 

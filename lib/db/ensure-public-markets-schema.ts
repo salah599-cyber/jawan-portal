@@ -6,6 +6,7 @@ import {
   PUBLIC_MARKETS_SCHEMA_STATEMENTS,
 } from "@/lib/db/public-markets-schema-statements";
 import {
+  PUBLIC_BOND_DETAIL_SCHEMA_STATEMENTS,
   PUBLIC_CRYPTO_DETAIL_SCHEMA_STATEMENTS,
   PUBLIC_INSTRUMENTS_ENUM_EXPANSION_STATEMENTS,
   PUBLIC_INSTRUMENTS_SCHEMA_COLUMN_CHECK_SQL,
@@ -104,6 +105,7 @@ async function applyPublicMarketsSchema() {
 
     await runStatements(client, PUBLIC_INSTRUMENTS_ENUM_EXPANSION_STATEMENTS);
     await runStatements(client, PUBLIC_CRYPTO_DETAIL_SCHEMA_STATEMENTS);
+    await runStatements(client, PUBLIC_BOND_DETAIL_SCHEMA_STATEMENTS);
 
     if (!(await managedPortfolioColumnExists(client))) {
       await runStatements(client, MANAGED_PORTFOLIO_SCHEMA_STATEMENTS);

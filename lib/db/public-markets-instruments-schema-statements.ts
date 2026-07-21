@@ -47,6 +47,19 @@ export const PUBLIC_INSTRUMENTS_SCHEMA_STATEMENTS = [
 
 export const PUBLIC_INSTRUMENTS_ENUM_EXPANSION_STATEMENTS = [
   `ALTER TYPE "PublicInstrumentType" ADD VALUE IF NOT EXISTS 'CRYPTO'`,
+  `ALTER TYPE "PublicInstrumentType" ADD VALUE IF NOT EXISTS 'BOND'`,
+];
+
+export const PUBLIC_BOND_DETAIL_SCHEMA_STATEMENTS = [
+  `CREATE TABLE IF NOT EXISTS "PublicBondDetail" (
+    "id" TEXT NOT NULL,
+    "holdingId" TEXT NOT NULL,
+    "bondName" TEXT NOT NULL,
+    "faceValue" DECIMAL(18,2) NOT NULL,
+    "pricePercent" DECIMAL(8,4),
+    CONSTRAINT "PublicBondDetail_pkey" PRIMARY KEY ("id")
+  )`,
+  `CREATE UNIQUE INDEX IF NOT EXISTS "PublicBondDetail_holdingId_key" ON "PublicBondDetail"("holdingId")`,
 ];
 
 export const PUBLIC_CRYPTO_DETAIL_SCHEMA_STATEMENTS = [

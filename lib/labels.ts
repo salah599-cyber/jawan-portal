@@ -391,6 +391,7 @@ export const PUBLIC_INSTRUMENT_TYPE_LABELS: Record<string, string> = {
   OPTION: "Options",
   STRUCTURED_NOTE: "Structured notes",
   CRYPTO: "Crypto",
+  BOND: "Bonds",
 };
 
 export const PUBLIC_OPTION_TYPE_LABELS: Record<string, string> = {

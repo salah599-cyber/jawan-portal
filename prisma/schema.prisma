@@ -104,6 +104,7 @@ enum PublicInstrumentType {
   OPTION
   STRUCTURED_NOTE
   CRYPTO
+  BOND
 }
 
 enum PublicOptionType {
@@ -854,6 +855,7 @@ model PublicEquityHolding {
   optionDetail  PublicOptionDetail?
   structuredNoteDetail PublicStructuredNoteDetail?
   cryptoDetail  PublicCryptoDetail?
+  bondDetail    PublicBondDetail?
   createdAt     DateTime            @default(now())
   updatedAt     DateTime            @updatedAt
   @@index([assetId, symbol])
@@ -930,6 +932,15 @@ model PublicCryptoDetail {
   holding     PublicEquityHolding @relation(fields: [holdingId], references: [id], onDelete: Cascade)
   coinGeckoId String
   custodian   String?
+}
+
+model PublicBondDetail {
+  id           String              @id @default(cuid())
+  holdingId    String              @unique
+  holding      PublicEquityHolding @relation(fields: [holdingId], references: [id], onDelete: Cascade)
+  bondName     String
+  faceValue    Decimal             @db.Decimal(18, 2)
+  pricePercent Decimal?            @db.Decimal(8, 4)
 }
 
 model FixedAssetDetail {

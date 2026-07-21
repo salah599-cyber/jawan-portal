@@ -587,7 +587,6 @@ function OptionFields({
           id={`contracts-${holding.id}`}
           type="number"
           step="any"
-          min="0"
           required
           value={quantity}
           onChange={(e) => {

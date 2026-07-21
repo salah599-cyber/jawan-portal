@@ -36,6 +36,9 @@ function emptyMessage(instrumentType?: PublicInstrumentType | null): string {
   if (instrumentType === "CRYPTO") {
     return "No crypto holdings yet. Add positions manually.";
   }
+  if (instrumentType === "BOND") {
+    return "No bonds yet. Import via consolidated portfolio or add manually.";
+  }
   return "No holdings yet. Upload brokerage reports or add positions manually.";
 }
 

@@ -334,17 +334,20 @@ export const COLUMN_ALIASES: Record<string, string[]> = {
   cusip: ["cusip"],
   sedol: ["sedol"],
   exchange: ["exchange", "market", "listing"],
+  localCurrency: ["local currency", "currency"],
+  localMarketPrice: ["local market price", "local price"],
 };
 
 export const PUBLIC_MARKETS_PATH = "/portfolio/public-markets";
 
-export type PublicInstrumentSlug = "equity" | "options" | "structured-notes" | "crypto" | "all";
+export type PublicInstrumentSlug = "equity" | "options" | "structured-notes" | "crypto" | "bonds" | "all";
 
 export const PUBLIC_INSTRUMENT_SLUGS: PublicInstrumentSlug[] = [
   "equity",
   "options",
   "structured-notes",
   "crypto",
+  "bonds",
 ];
 
 export function instrumentTypeFromSlug(slug: PublicInstrumentSlug): PublicInstrumentType | null {
@@ -357,6 +360,8 @@ export function instrumentTypeFromSlug(slug: PublicInstrumentSlug): PublicInstru
       return "STRUCTURED_NOTE";
     case "crypto":
       return "CRYPTO";
+    case "bonds":
+      return "BOND";
     default:
       return null;
   }
@@ -375,6 +380,9 @@ export function resolveInstrumentFromSearchParam(param?: string | null): {
   }
   if (normalized === "crypto") {
     return { slug: "crypto", instrumentType: "CRYPTO" };
+  }
+  if (normalized === "bonds" || normalized === "bond") {
+    return { slug: "bonds", instrumentType: "BOND" };
   }
   if (normalized === "all") {
     return { slug: "all", instrumentType: null };

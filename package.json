@@ -16,6 +16,7 @@
     "db:push": "prisma db push",
     "db:studio": "prisma studio",
     "templates:public-markets": "npx tsx scripts/generate-public-markets-upload-template.ts --all",
+    "portfolio:split-consolidated": "npx tsx scripts/split-consolidated-portfolio.ts",
     "postinstall": "prisma generate"
   },
   "dependencies": {

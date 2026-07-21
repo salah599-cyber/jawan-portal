@@ -28,6 +28,7 @@ import {
   resolveMarketFromSearchParam,
 } from "@/lib/data/public-markets";
 import { UploadPublicMarketReportsForm } from "@/components/public-markets/upload-reports-form";
+import { UploadConsolidatedPortfolioForm } from "@/components/public-markets/upload-consolidated-portfolio-form";
 import {
   getManagedPortfolioSummaries,
   listManagedPortfolios,
@@ -133,7 +134,9 @@ export default async function PublicMarketsPage({
         ? "Structured notes with issuer, notional, maturity, and manual MTM values."
         : instrumentSlug === "crypto"
           ? "Cryptocurrency positions priced via CoinGecko in USD, with optional manual overrides."
-          : isAllMarkets
+          : instrumentSlug === "bonds"
+            ? "Fixed-income bond positions imported from consolidated portfolio or custodian statements."
+            : isAllMarkets
           ? "All positions across markets and portfolios, with values converted to OMR where applicable."
           : "Positions for the selected portfolio. The same symbol can exist separately under different managers or in private holdings.";
 
@@ -253,6 +256,11 @@ export default async function PublicMarketsPage({
                   market={market}
                   portfolios={managedPortfolios}
                   brokerAccounts={brokerAccounts}
+                />
+                <UploadConsolidatedPortfolioForm
+                  entities={entities}
+                  defaultEntityId={entityId}
+                  portfolios={managedPortfolios}
                 />
                 <AddManualHoldingForm
                   entities={entities}

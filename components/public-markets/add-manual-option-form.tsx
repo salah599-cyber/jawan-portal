@@ -40,7 +40,7 @@ export function AddManualOptionForm({
     premium: number | null,
     multiplier: number,
   ) {
-    if (qty == null || qty <= 0) {
+    if (qty == null || qty === 0) {
       setMarketValue(null);
       setUnrealisedPnl(null);
       return;
@@ -91,8 +91,9 @@ export function AddManualOptionForm({
           Add Option Manually
         </CardTitle>
         <CardDescription>
-          Record an options position for {config.label}. Enter mark-to-market value manually — live
-          option pricing is not available in v1.
+          Record an options position for {config.label}. Use negative contracts for written/short
+          positions. Enter mark-to-market value manually — live option pricing is not available in
+          v1.
         </CardDescription>
       </CardHeader>
       <CardContent>
@@ -150,7 +151,6 @@ export function AddManualOptionForm({
               name="contracts"
               type="number"
               step="any"
-              min="0"
               required
               onChange={(e) => {
                 const qty = parseFloat(e.target.value);

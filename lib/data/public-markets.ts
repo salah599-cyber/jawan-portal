@@ -69,6 +69,11 @@ export type PublicHoldingRow = {
     coinGeckoId: string;
     custodian: string | null;
   } | null;
+  bond: {
+    bondName: string;
+    faceValue: number;
+    pricePercent: number | null;
+  } | null;
 };
 
 export type PublicImportBatchRow = {
@@ -178,6 +183,11 @@ async function mapHoldingRow(
       coinGeckoId: string;
       custodian: string | null;
     } | null;
+    bondDetail?: {
+      bondName: string;
+      faceValue: { toString(): string };
+      pricePercent: { toString(): string } | null;
+    } | null;
     brokerAccount?: {
       label: string | null;
       broker: string;
@@ -260,6 +270,13 @@ async function mapHoldingRow(
           custodian: holding.cryptoDetail.custodian,
         }
       : null,
+    bond: holding.bondDetail
+      ? {
+          bondName: holding.bondDetail.bondName,
+          faceValue: toNumber(holding.bondDetail.faceValue) ?? 0,
+          pricePercent: toNumber(holding.bondDetail.pricePercent),
+        }
+      : null,
   };
 }
 
@@ -267,7 +284,7 @@ function resolveHoldingsAssetMarket(
   market: PublicMarket | null | undefined,
   instrumentType: PublicInstrumentType | null | undefined,
 ): PublicMarket | null {
-  if (instrumentType === "STRUCTURED_NOTE" || instrumentType === "CRYPTO") {
+  if (instrumentType === "STRUCTURED_NOTE" || instrumentType === "CRYPTO" || instrumentType === "BOND") {
     return "OTHER";
   }
   return market ?? null;
@@ -315,7 +332,7 @@ export async function getPublicHoldings(
     where: {
       assetId: { in: assets.map((asset) => asset.id) },
       ...portfolioFilter,
-      ...(instrumentType === "STRUCTURED_NOTE" || instrumentType === "CRYPTO"
+      ...(instrumentType === "STRUCTURED_NOTE" || instrumentType === "CRYPTO" || instrumentType === "BOND"
         ? {}
         : market
           ? { market }
@@ -332,6 +349,7 @@ export async function getPublicHoldings(
       optionDetail: true,
       structuredNoteDetail: true,
       cryptoDetail: true,
+      bondDetail: true,
       asset: {
         select: {
           entityId: true,
