@@ -119,6 +119,7 @@ export function UploadConsolidatedPortfolioForm({
       return;
     }
 
+    formData.set("importType", "consolidated");
     formData.set("entityId", entityId);
     formData.set("managedPortfolioId", managedPortfolioId);
     formData.set("brokerAccountSafra", brokerAccountSafra);
@@ -127,7 +128,7 @@ export function UploadConsolidatedPortfolioForm({
 
     startTransition(async () => {
       try {
-        const response = await fetch("/api/portfolio/public-markets/import/consolidated", {
+        const response = await fetch("/api/portfolio/public-markets/import", {
           method: "POST",
           body: formData,
           credentials: "same-origin",

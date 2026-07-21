@@ -1,5 +1,6 @@
 import fs from "node:fs";
 import path from "node:path";
+import * as XLSX from "xlsx";
 import { describe, expect, it } from "vitest";
 import {
   parseConsolidatedPortfolioSheets,
@@ -10,7 +11,8 @@ import { normalizeOptionHoldingValues } from "@/lib/public-markets/valuation";
 import { readSpreadsheetRows } from "@/lib/msx/read-workbook";
 
 const SOURCE_PATH = path.resolve(
-  "C:/Users/salah/OneDrive/Desktop/for jawaninvest upload/consolidated_portfolio.xlsx",
+  process.cwd(),
+  "public/templates/jawan-international/consolidated_portfolio.xlsx",
 );
 
 function loadSourceSheets(): Record<string, unknown[][]> {
@@ -18,8 +20,8 @@ function loadSourceSheets(): Record<string, unknown[][]> {
     return {};
   }
 
-  const XLSX = require("xlsx") as typeof import("xlsx");
-  const workbook = XLSX.readFile(SOURCE_PATH);
+  const buffer = fs.readFileSync(SOURCE_PATH);
+  const workbook = XLSX.read(buffer, { type: "buffer", cellDates: true });
   const sheetsByName: Record<string, unknown[][]> = {};
 
   for (const sheetName of workbook.SheetNames) {
