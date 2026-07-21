@@ -31,6 +31,32 @@ function includeInTransferLetterSourceFromAccounts(accounts: BankAccountNumberIn
   return accounts.some((account) => account.includeInTransferLetterSource);
 }
 
+async function syncParentBalanceFromNumbers(bankAccountId: string) {
+  const numbers = await db.bankAccountNumber.findMany({
+    where: { bankAccountId },
+    orderBy: { sortOrder: "asc" },
+  });
+
+  if (numbers.length === 0) return;
+
+  const primary = numbers[0]!;
+  const isMultiCurrency = new Set(numbers.map((row) => row.currency)).size > 1;
+  const latestBalanceAsOf = numbers.reduce<Date | null>((latest, row) => {
+    if (!row.balanceAsOf) return latest;
+    if (!latest || row.balanceAsOf > latest) return row.balanceAsOf;
+    return latest;
+  }, null);
+
+  await db.bankAccount.update({
+    where: { id: bankAccountId },
+    data: {
+      currency: primary.currency,
+      currentBalance: isMultiCurrency ? null : primary.currentBalance,
+      balanceAsOf: latestBalanceAsOf,
+    },
+  });
+}
+
 async function replaceBankAccountNumbers(bankAccountId: string, accounts: BankAccountNumberInput[]) {
   await db.bankAccountNumber.deleteMany({ where: { bankAccountId } });
   if (accounts.length === 0) return;
@@ -238,11 +264,13 @@ export async function recordCashBalance(formData: FormData) {
   await ensureCashManagementSchema();
 
   const bankAccountId = String(formData.get("bankAccountId") ?? "").trim();
+  const bankAccountNumberId = String(formData.get("bankAccountNumberId") ?? "").trim();
   const balanceRaw = String(formData.get("balance") ?? "").trim();
   const balanceDateRaw = String(formData.get("balanceDate") ?? "").trim();
   const notes = String(formData.get("notes") ?? "").trim() || undefined;
 
   if (!bankAccountId) throw new Error("Bank account is required.");
+  if (!bankAccountNumberId) throw new Error("Registered account is required.");
   const balance = parseDecimal(balanceRaw);
   if (!balance) throw new Error("Balance is required.");
   const balanceDate = parseDate(balanceDateRaw);
@@ -253,9 +281,15 @@ export async function recordCashBalance(formData: FormData) {
   });
   if (!account) throw new Error("Bank account not found.");
 
+  const accountNumber = await db.bankAccountNumber.findFirst({
+    where: { id: bankAccountNumberId, bankAccountId },
+  });
+  if (!accountNumber) throw new Error("Registered account not found.");
+
   const entry = await db.bankBalanceEntry.create({
     data: {
       bankAccountId,
+      bankAccountNumberId,
       balance,
       balanceDate,
       notes,
@@ -263,13 +297,15 @@ export async function recordCashBalance(formData: FormData) {
     },
   });
 
-  await db.bankAccount.update({
-    where: { id: bankAccountId },
+  await db.bankAccountNumber.update({
+    where: { id: bankAccountNumberId },
     data: {
       currentBalance: balance,
       balanceAsOf: balanceDate,
     },
   });
+
+  await syncParentBalanceFromNumbers(bankAccountId);
 
   await logAudit({
     userId: ctx.id,
@@ -278,6 +314,7 @@ export async function recordCashBalance(formData: FormData) {
     resourceId: entry.id,
     metadata: {
       bankAccountId,
+      bankAccountNumberId,
       balance,
       balanceDate: balanceDate.toISOString(),
     },
@@ -320,6 +357,7 @@ export async function deactivateCashAccount(id: string) {
 export async function applyCashStatementImport(input: {
   importId: string;
   bankAccountId: string;
+  bankAccountNumberId?: string;
   balance: string;
   balanceDate: string;
 }) {
@@ -349,12 +387,42 @@ export async function applyCashStatementImport(input: {
 
   const account = await db.bankAccount.findFirst({
     where: { id: bankAccountId, ...cashPositionBankAccountFilter(ctx) },
+    include: {
+      accountNumbers: { orderBy: { sortOrder: "asc" } },
+    },
   });
   if (!account) throw new Error("Bank account not found.");
+
+  let bankAccountNumberId = input.bankAccountNumberId?.trim() || "";
+  if (!bankAccountNumberId) {
+    const statementCurrency = statementImport.currency?.trim().toUpperCase();
+    const statementAccountNumber = statementImport.accountNumber?.trim();
+    const matchedByNumber = statementAccountNumber
+      ? account.accountNumbers.find(
+          (row) => row.accountNumber.replace(/\s+/g, "") === statementAccountNumber.replace(/\s+/g, ""),
+        )
+      : null;
+    const matchedByCurrency = statementCurrency
+      ? account.accountNumbers.find((row) => row.currency.toUpperCase() === statementCurrency)
+      : null;
+    bankAccountNumberId =
+      matchedByNumber?.id ??
+      matchedByCurrency?.id ??
+      account.accountNumbers[0]?.id ??
+      "";
+  }
+
+  if (!bankAccountNumberId) {
+    throw new Error("Select the registered account to update.");
+  }
+
+  const accountNumber = account.accountNumbers.find((row) => row.id === bankAccountNumberId);
+  if (!accountNumber) throw new Error("Registered account not found.");
 
   const entry = await db.bankBalanceEntry.create({
     data: {
       bankAccountId,
+      bankAccountNumberId,
       balance,
       balanceDate,
       notes: `Imported from ${statementImport.fileName}`,
@@ -363,13 +431,15 @@ export async function applyCashStatementImport(input: {
     },
   });
 
-  await db.bankAccount.update({
-    where: { id: bankAccountId },
+  await db.bankAccountNumber.update({
+    where: { id: bankAccountNumberId },
     data: {
       currentBalance: balance,
       balanceAsOf: balanceDate,
     },
   });
+
+  await syncParentBalanceFromNumbers(bankAccountId);
 
   await db.cashStatementImport.update({
     where: { id: statementImport.id },
@@ -378,7 +448,7 @@ export async function applyCashStatementImport(input: {
       bankAccountId,
       balance,
       balanceDate,
-      currency: account.currency,
+      currency: accountNumber.currency,
     },
   });
 
@@ -389,6 +459,7 @@ export async function applyCashStatementImport(input: {
     resourceId: statementImport.id,
     metadata: {
       bankAccountId,
+      bankAccountNumberId,
       fileName: statementImport.fileName,
       balanceEntryId: entry.id,
     },

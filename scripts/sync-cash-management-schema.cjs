@@ -5,7 +5,7 @@ require("./load-env.cjs");
 
 const { Client } = require("pg");
 
-const statements = [
+const BASE_SCHEMA_STATEMENTS = [
   `ALTER TYPE "ModuleName" ADD VALUE IF NOT EXISTS 'CASH_MANAGEMENT'`,
   `ALTER TABLE "BankAccount" ADD COLUMN IF NOT EXISTS "currentBalance" DECIMAL(18,3)`,
   `ALTER TABLE "BankAccount" ADD COLUMN IF NOT EXISTS "balanceAsOf" TIMESTAMP(3)`,
@@ -21,6 +21,25 @@ const statements = [
     CONSTRAINT "BankBalanceEntry_pkey" PRIMARY KEY ("id")
   )`,
   `CREATE INDEX IF NOT EXISTS "BankBalanceEntry_bankAccountId_balanceDate_idx" ON "BankBalanceEntry"("bankAccountId", "balanceDate")`,
+  `ALTER TABLE "BankAccount" ADD COLUMN IF NOT EXISTS "includeInCashPosition" BOOLEAN NOT NULL DEFAULT true`,
+  `ALTER TABLE "BankAccount" ADD COLUMN IF NOT EXISTS "includeInTransferLetterSource" BOOLEAN NOT NULL DEFAULT true`,
+];
+
+const PER_ACCOUNT_BALANCE_STATEMENTS = [
+  `CREATE TABLE IF NOT EXISTS "BankAccountNumber" (
+    "id" TEXT NOT NULL,
+    "bankAccountId" TEXT NOT NULL,
+    "accountNumber" TEXT NOT NULL,
+    "currency" TEXT NOT NULL DEFAULT 'OMR',
+    "label" TEXT,
+    "sortOrder" INTEGER NOT NULL DEFAULT 0,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT "BankAccountNumber_pkey" PRIMARY KEY ("id")
+  )`,
+  `ALTER TABLE "BankAccountNumber" ADD COLUMN IF NOT EXISTS "currentBalance" DECIMAL(18,3)`,
+  `ALTER TABLE "BankAccountNumber" ADD COLUMN IF NOT EXISTS "balanceAsOf" TIMESTAMP(3)`,
+  `ALTER TABLE "BankBalanceEntry" ADD COLUMN IF NOT EXISTS "bankAccountNumberId" TEXT`,
+  `CREATE INDEX IF NOT EXISTS "BankBalanceEntry_bankAccountNumberId_balanceDate_idx" ON "BankBalanceEntry"("bankAccountNumberId", "balanceDate")`,
 ];
 
 function getDatabaseUrl() {
@@ -53,6 +72,32 @@ async function tableExists(client, tableName) {
   return Boolean(result.rows[0]?.exists);
 }
 
+async function columnExists(client, tableName, columnName) {
+  const result = await client.query(
+    `SELECT EXISTS (
+      SELECT 1
+      FROM information_schema.columns
+      WHERE table_schema = 'public'
+        AND lower(table_name) = lower($1)
+        AND lower(column_name) = lower($2)
+    )`,
+    [tableName, columnName],
+  );
+  return Boolean(result.rows[0]?.exists);
+}
+
+async function runStatements(client, statements) {
+  for (const statement of statements) {
+    try {
+      await client.query(statement);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      if (isIgnorableSchemaError(message)) continue;
+      throw error;
+    }
+  }
+}
+
 async function main() {
   const connectionString = getDatabaseUrl();
   if (!connectionString) {
@@ -64,15 +109,8 @@ async function main() {
   await client.connect();
 
   try {
-    for (const statement of statements) {
-      try {
-        await client.query(statement);
-      } catch (error) {
-        const message = error instanceof Error ? error.message : String(error);
-        if (isIgnorableSchemaError(message)) continue;
-        throw error;
-      }
-    }
+    await runStatements(client, BASE_SCHEMA_STATEMENTS);
+    await runStatements(client, PER_ACCOUNT_BALANCE_STATEMENTS);
 
     if (!(await tableExists(client, "BankBalanceEntry"))) {
       throw new Error("Cash management schema sync finished but BankBalanceEntry table is still missing.");

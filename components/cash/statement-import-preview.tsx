@@ -33,6 +33,31 @@ function confidenceVariant(
   }
 }
 
+function resolveRegisteredAccount(
+  registeredAccounts: NonNullable<StatementAccountCandidate["accountNumbers"]>,
+  bankAccountNumberId: string,
+  preview: StatementParsePreview,
+) {
+  if (bankAccountNumberId) {
+    return registeredAccounts.find((account) => account.id === bankAccountNumberId) ?? null;
+  }
+
+  return (
+    registeredAccounts.find(
+      (account) =>
+        preview.accountNumber &&
+        account.accountNumber.replace(/\s+/g, "") === preview.accountNumber.replace(/\s+/g, ""),
+    ) ??
+    registeredAccounts.find(
+      (account) =>
+        preview.currency &&
+        account.currency.toUpperCase() === preview.currency.toUpperCase(),
+    ) ??
+    registeredAccounts[0] ??
+    null
+  );
+}
+
 export function StatementImportPreview({
   preview,
   accounts,
@@ -46,10 +71,24 @@ export function StatementImportPreview({
   const [error, setError] = useState<string | null>(null);
   const [applied, setApplied] = useState(false);
   const [bankAccountId, setBankAccountId] = useState(preview.matchedAccountId ?? "");
+  const [bankAccountNumberId, setBankAccountNumberId] = useState("");
   const [balance, setBalance] = useState(
     preview.balance != null ? preview.balance.toFixed(3) : "",
   );
   const [balanceDate, setBalanceDate] = useState(preview.balanceDate ?? "");
+
+  const selectedAccount = accounts.find((account) => account.id === bankAccountId);
+  const registeredAccounts = selectedAccount?.accountNumbers ?? [];
+  const selectedRegisteredAccount = resolveRegisteredAccount(
+    registeredAccounts,
+    bankAccountNumberId,
+    preview,
+  );
+  const currency =
+    selectedRegisteredAccount?.currency ??
+    selectedAccount?.currency ??
+    preview.currency ??
+    "OMR";
 
   if (preview.status === "failed") {
     return (
@@ -74,16 +113,15 @@ export function StatementImportPreview({
     );
   }
 
-  const currency =
-    accounts.find((account) => account.id === bankAccountId)?.currency ??
-    preview.currency ??
-    "OMR";
-
   function handleApply() {
     setError(null);
 
     if (!bankAccountId) {
       setError("Select the bank account to update.");
+      return;
+    }
+    if (registeredAccounts.length > 0 && !selectedRegisteredAccount) {
+      setError("Select the registered account to update.");
       return;
     }
     if (!balance.trim()) {
@@ -100,6 +138,7 @@ export function StatementImportPreview({
         await applyCashStatementImport({
           importId: preview.importId,
           bankAccountId,
+          bankAccountNumberId: selectedRegisteredAccount?.id,
           balance,
           balanceDate,
         });
@@ -157,7 +196,13 @@ export function StatementImportPreview({
       <div className="grid gap-4 sm:grid-cols-2">
         <div className="space-y-2 sm:col-span-2">
           <Label>Bank account</Label>
-          <Select value={bankAccountId} onValueChange={setBankAccountId}>
+          <Select
+            value={bankAccountId}
+            onValueChange={(value) => {
+              setBankAccountId(value);
+              setBankAccountNumberId("");
+            }}
+          >
             <SelectTrigger>
               <SelectValue placeholder="Select account" />
             </SelectTrigger>
@@ -170,6 +215,28 @@ export function StatementImportPreview({
             </SelectContent>
           </Select>
         </div>
+
+        {registeredAccounts.length > 1 ? (
+          <div className="space-y-2 sm:col-span-2">
+            <Label>Registered account</Label>
+            <Select
+              value={bankAccountNumberId || selectedRegisteredAccount?.id || ""}
+              onValueChange={setBankAccountNumberId}
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="Select registered account" />
+              </SelectTrigger>
+              <SelectContent>
+                {registeredAccounts.map((account) => (
+                  <SelectItem key={account.id} value={account.id}>
+                    {account.accountNumber} ({account.currency})
+                    {account.label ? ` · ${account.label}` : ""}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        ) : null}
 
         <div className="space-y-2">
           <Label htmlFor={`balance-${preview.importId}`}>Closing balance ({currency})</Label>

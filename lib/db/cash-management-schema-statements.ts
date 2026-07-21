@@ -16,7 +16,6 @@ export const CASH_MANAGEMENT_SCHEMA_STATEMENTS = [
   `CREATE INDEX IF NOT EXISTS "BankBalanceEntry_bankAccountId_balanceDate_idx" ON "BankBalanceEntry"("bankAccountId", "balanceDate")`,
   `ALTER TABLE "BankAccount" ADD COLUMN IF NOT EXISTS "includeInCashPosition" BOOLEAN NOT NULL DEFAULT true`,
   `ALTER TABLE "BankAccount" ADD COLUMN IF NOT EXISTS "includeInTransferLetterSource" BOOLEAN NOT NULL DEFAULT true`,
-  `ALTER TABLE "BankAccountNumber" ADD COLUMN IF NOT EXISTS "includeInTransferLetterSource" BOOLEAN NOT NULL DEFAULT true`,
 ];
 
 export const CASH_MANAGEMENT_MIGRATION_STATEMENTS = [
@@ -33,6 +32,7 @@ export const CASH_MANAGEMENT_MIGRATION_STATEMENTS = [
   `CREATE INDEX IF NOT EXISTS "BankAccountNumber_bankAccountId_idx" ON "BankAccountNumber" ("bankAccountId")`,
   `CREATE INDEX IF NOT EXISTS "BankAccountNumber_accountNumber_idx" ON "BankAccountNumber" ("accountNumber")`,
   `ALTER TABLE "BankAccountNumber" ADD COLUMN IF NOT EXISTS "iban" TEXT`,
+  `ALTER TABLE "BankAccountNumber" ADD COLUMN IF NOT EXISTS "includeInTransferLetterSource" BOOLEAN NOT NULL DEFAULT true`,
   `DO $$ BEGIN
     ALTER TABLE "BankAccountNumber" ADD CONSTRAINT "BankAccountNumber_bankAccountId_fkey"
       FOREIGN KEY ("bankAccountId") REFERENCES "BankAccount"("id") ON DELETE CASCADE ON UPDATE CASCADE;
@@ -68,4 +68,26 @@ export const CASH_MANAGEMENT_MIGRATION_STATEMENTS = [
   `ALTER TABLE "BankAccount" ADD COLUMN IF NOT EXISTS "correspondentSwiftCode" TEXT`,
   `ALTER TABLE "BankAccount" ADD COLUMN IF NOT EXISTS "correspondentRoutingNumber" TEXT`,
   `ALTER TABLE "BankAccount" ADD COLUMN IF NOT EXISTS "correspondentFfcInstructions" TEXT`,
+  `ALTER TABLE "BankAccountNumber" ADD COLUMN IF NOT EXISTS "currentBalance" DECIMAL(18,3)`,
+  `ALTER TABLE "BankAccountNumber" ADD COLUMN IF NOT EXISTS "balanceAsOf" TIMESTAMP(3)`,
+  `ALTER TABLE "BankBalanceEntry" ADD COLUMN IF NOT EXISTS "bankAccountNumberId" TEXT`,
+  `CREATE INDEX IF NOT EXISTS "BankBalanceEntry_bankAccountNumberId_balanceDate_idx" ON "BankBalanceEntry"("bankAccountNumberId", "balanceDate")`,
+  `DO $$ BEGIN
+    ALTER TABLE "BankBalanceEntry" ADD CONSTRAINT "BankBalanceEntry_bankAccountNumberId_fkey"
+      FOREIGN KEY ("bankAccountNumberId") REFERENCES "BankAccountNumber"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+  EXCEPTION WHEN duplicate_object THEN NULL; END $$`,
+  `UPDATE "BankAccountNumber" n
+    SET "currentBalance" = b."currentBalance",
+        "balanceAsOf" = b."balanceAsOf"
+    FROM "BankAccount" b
+    WHERE n."bankAccountId" = b.id
+      AND n."sortOrder" = 0
+      AND b."currentBalance" IS NOT NULL
+      AND n."currentBalance" IS NULL`,
+  `UPDATE "BankBalanceEntry" e
+    SET "bankAccountNumberId" = n.id
+    FROM "BankAccountNumber" n
+    WHERE e."bankAccountId" = n."bankAccountId"
+      AND n."sortOrder" = 0
+      AND e."bankAccountNumberId" IS NULL`,
 ];

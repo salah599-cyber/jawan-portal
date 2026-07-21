@@ -1,5 +1,6 @@
 import { db } from "@/lib/db";
-import { formatBankAccountNumbers } from "@/lib/bank/account-numbers";
+import { formatBankAccountNumbers, type BankAccountNumberDisplay } from "@/lib/bank/account-numbers";
+import { resolveBankAccountNumberRows } from "@/lib/bank/account-numbers";
 import { ensureCashManagementSchema } from "@/lib/db/ensure-cash-management-schema";
 import { isStaleBalance, toNumber } from "@/lib/cash/helpers";
 import type { StatementAccountPrefill, StatementImportRow } from "@/lib/cash/statements/types";
@@ -12,7 +13,18 @@ export type CashAccountRow = {
   accountName: string;
   bankName: string;
   accountNumber: string;
-  accountNumbers: Array<{ accountNumber: string; currency: string; iban: string | null; label: string | null }>;
+  accountNumbers: Array<{
+    id?: string;
+    accountNumber: string;
+    currency: string;
+    iban: string | null;
+    label: string | null;
+    currentBalance: number | null;
+    balanceOmr: number | null;
+    balanceAsOf: Date | null;
+    isStale: boolean;
+  }>;
+  registeredAccounts: BankAccountNumberDisplay[];
   accountNumbersLabel: string;
   iban: string | null;
   currency: string;
@@ -24,6 +36,7 @@ export type CashAccountRow = {
   isStale: boolean;
   notes: string | null;
   includeInCashPosition: boolean;
+  isMultiCurrency: boolean;
 };
 
 export type CashBreakdownRow = {
@@ -47,6 +60,9 @@ export type CashBalanceHistoryEntry = {
   id: string;
   balance: number;
   balanceDate: Date;
+  currency: string;
+  accountNumber: string | null;
+  accountLabel: string | null;
   notes: string | null;
   recordedByName: string | null;
   createdAt: Date;
@@ -71,17 +87,58 @@ async function accountToRow(
     notes: string | null;
     includeInCashPosition: boolean;
     accountNumbers?: Array<{
+      id: string;
       accountNumber: string;
       currency: string;
       iban: string | null;
       label: string | null;
+      currentBalance: { toString(): string } | null;
+      balanceAsOf: Date | null;
     }>;
   },
 ): Promise<CashAccountRow> {
-  const currentBalance = toNumber(account.currentBalance);
-  const balanceOmr =
-    currentBalance != null ? await convertToOmr(currentBalance, account.currency) : null;
-  const accountNumbers = account.accountNumbers ?? [];
+  const registeredAccounts = resolveBankAccountNumberRows(account.accountNumbers ?? [], account);
+  const accountNumbers = await Promise.all(
+    registeredAccounts.map(async (row) => ({
+      id: row.id,
+      accountNumber: row.accountNumber,
+      currency: row.currency,
+      iban: row.iban,
+      label: row.label,
+      currentBalance: row.currentBalance,
+      balanceOmr:
+        row.currentBalance != null
+          ? await convertToOmr(row.currentBalance, row.currency)
+          : null,
+      balanceAsOf: row.balanceAsOf,
+      isStale: row.isStale,
+    })),
+  );
+
+  const currencies = new Set(accountNumbers.map((row) => row.currency));
+  const isMultiCurrency = currencies.size > 1;
+
+  let balanceOmr = 0;
+  let hasAnyBalance = false;
+  let latestBalanceAsOf: Date | null = null;
+  let anyStale = false;
+
+  for (const row of accountNumbers) {
+    if (row.currentBalance != null) {
+      hasAnyBalance = true;
+      balanceOmr += (await convertToOmr(row.currentBalance, row.currency)) ?? 0;
+    }
+    if (row.balanceAsOf && (!latestBalanceAsOf || row.balanceAsOf > latestBalanceAsOf)) {
+      latestBalanceAsOf = row.balanceAsOf;
+    }
+    if (row.isStale) anyStale = true;
+  }
+
+  const primaryAccount = accountNumbers[0];
+  const currentBalance =
+    !isMultiCurrency && primaryAccount
+      ? primaryAccount.currentBalance ?? toNumber(account.currentBalance)
+      : null;
 
   return {
     id: account.id,
@@ -89,17 +146,19 @@ async function accountToRow(
     bankName: account.bankName,
     accountNumber: account.accountNumber,
     accountNumbers,
-    accountNumbersLabel: formatBankAccountNumbers(accountNumbers, account),
+    registeredAccounts,
+    accountNumbersLabel: formatBankAccountNumbers(account.accountNumbers ?? [], account),
     iban: account.iban,
     currency: account.currency,
     entityId: account.entityId,
     entityName: account.entity?.name ?? null,
     currentBalance,
-    balanceOmr,
-    balanceAsOf: account.balanceAsOf,
-    isStale: isStaleBalance(account.balanceAsOf),
+    balanceOmr: hasAnyBalance ? balanceOmr : null,
+    balanceAsOf: latestBalanceAsOf ?? account.balanceAsOf,
+    isStale: accountNumbers.length > 0 ? anyStale : isStaleBalance(account.balanceAsOf),
     notes: account.notes,
     includeInCashPosition: account.includeInCashPosition,
+    isMultiCurrency,
   };
 }
 
@@ -156,16 +215,18 @@ export async function getCashSummary(ctx: UserContext): Promise<CashSummary> {
     entityEntry.accountCount += 1;
     byEntity.set(entityLabel, entityEntry);
 
-    const currencyEntry = byCurrency.get(row.currency) ?? {
-      label: row.currency,
-      totalOmr: 0,
-      totalNative: 0,
-      accountCount: 0,
-    };
-    currencyEntry.totalOmr += omr;
-    currencyEntry.totalNative += row.currentBalance ?? 0;
-    currencyEntry.accountCount += 1;
-    byCurrency.set(row.currency, currencyEntry);
+    for (const accountNumber of row.accountNumbers) {
+      const currencyEntry = byCurrency.get(accountNumber.currency) ?? {
+        label: accountNumber.currency,
+        totalOmr: 0,
+        totalNative: 0,
+        accountCount: 0,
+      };
+      currencyEntry.totalOmr += accountNumber.balanceOmr ?? 0;
+      currencyEntry.totalNative += accountNumber.currentBalance ?? 0;
+      currencyEntry.accountCount += 1;
+      byCurrency.set(accountNumber.currency, currencyEntry);
+    }
   }
 
   return {
@@ -213,6 +274,9 @@ export async function getCashBalanceHistory(
       recordedBy: {
         select: { firstName: true, lastName: true, email: true },
       },
+      bankAccountNumber: {
+        select: { accountNumber: true, currency: true, label: true },
+      },
     },
     orderBy: [{ balanceDate: "desc" }, { createdAt: "desc" }],
   });
@@ -221,6 +285,16 @@ export async function getCashBalanceHistory(
     id: entry.id,
     balance: toNumber(entry.balance) ?? 0,
     balanceDate: entry.balanceDate,
+    currency: entry.bankAccountNumber?.currency ?? "OMR",
+    accountNumber: entry.bankAccountNumber?.accountNumber ?? null,
+    accountLabel: entry.bankAccountNumber
+      ? [
+          entry.bankAccountNumber.accountNumber,
+          entry.bankAccountNumber.label,
+        ]
+          .filter(Boolean)
+          .join(" · ")
+      : null,
     notes: entry.notes,
     recordedByName: entry.recordedBy
       ? [entry.recordedBy.firstName, entry.recordedBy.lastName].filter(Boolean).join(" ") ||
@@ -348,7 +422,7 @@ export async function listCashAccountCandidates(ctx: UserContext) {
       entityId: true,
       accountNumbers: {
         orderBy: { sortOrder: "asc" },
-        select: { accountNumber: true, currency: true },
+        select: { id: true, accountNumber: true, currency: true, label: true },
       },
     },
     orderBy: [{ bankName: "asc" }, { accountName: "asc" }],

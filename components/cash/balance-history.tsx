@@ -12,10 +12,10 @@ import {
 
 export function BalanceHistory({
   entries,
-  currency,
+  showAccountColumn = false,
 }: {
   entries: CashBalanceHistoryEntry[];
-  currency: string;
+  showAccountColumn?: boolean;
 }) {
   return (
     <Card>
@@ -31,6 +31,7 @@ export function BalanceHistory({
             <TableHeader>
               <TableRow>
                 <TableHead>Date</TableHead>
+                {showAccountColumn ? <TableHead>Account</TableHead> : null}
                 <TableHead className="text-right">Balance</TableHead>
                 <TableHead>Notes</TableHead>
                 <TableHead>Recorded By</TableHead>
@@ -41,8 +42,13 @@ export function BalanceHistory({
               {entries.map((entry) => (
                 <TableRow key={entry.id}>
                   <TableCell>{formatDate(entry.balanceDate)}</TableCell>
+                  {showAccountColumn ? (
+                    <TableCell>
+                      {entry.accountLabel ?? entry.accountNumber ?? "—"}
+                    </TableCell>
+                  ) : null}
                   <TableCell className="text-right tabular-nums">
-                    {formatMoney(entry.balance, currency)}
+                    {formatMoney(entry.balance, entry.currency)}
                   </TableCell>
                   <TableCell className="max-w-[240px] truncate">{entry.notes ?? "—"}</TableCell>
                   <TableCell>{entry.recordedByName ?? "—"}</TableCell>

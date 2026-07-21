@@ -40,8 +40,8 @@ async function columnExists(client: Client, tableName: string, columnName: strin
       SELECT 1
       FROM information_schema.columns
       WHERE table_schema = 'public'
-        AND table_name = $1
-        AND column_name = $2
+        AND lower(table_name) = lower($1)
+        AND lower(column_name) = lower($2)
     )`,
     [tableName, columnName],
   );
@@ -154,6 +154,35 @@ async function applyCashManagementSchema() {
         `ALTER TABLE "BankAccount" ADD COLUMN IF NOT EXISTS "correspondentSwiftCode" TEXT`,
         `ALTER TABLE "BankAccount" ADD COLUMN IF NOT EXISTS "correspondentRoutingNumber" TEXT`,
         `ALTER TABLE "BankAccount" ADD COLUMN IF NOT EXISTS "correspondentFfcInstructions" TEXT`,
+      ]);
+    }
+
+    const hasNumberBalance = await columnExists(client, "BankAccountNumber", "currentBalance");
+    const hasEntryAccountNumberId = await columnExists(client, "BankBalanceEntry", "bankAccountNumberId");
+    if (!hasNumberBalance || !hasEntryAccountNumberId) {
+      await runStatements(client, [
+        `ALTER TABLE "BankAccountNumber" ADD COLUMN IF NOT EXISTS "currentBalance" DECIMAL(18,3)`,
+        `ALTER TABLE "BankAccountNumber" ADD COLUMN IF NOT EXISTS "balanceAsOf" TIMESTAMP(3)`,
+        `ALTER TABLE "BankBalanceEntry" ADD COLUMN IF NOT EXISTS "bankAccountNumberId" TEXT`,
+        `CREATE INDEX IF NOT EXISTS "BankBalanceEntry_bankAccountNumberId_balanceDate_idx" ON "BankBalanceEntry"("bankAccountNumberId", "balanceDate")`,
+        `DO $$ BEGIN
+          ALTER TABLE "BankBalanceEntry" ADD CONSTRAINT "BankBalanceEntry_bankAccountNumberId_fkey"
+            FOREIGN KEY ("bankAccountNumberId") REFERENCES "BankAccountNumber"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+        EXCEPTION WHEN duplicate_object THEN NULL; END $$`,
+        `UPDATE "BankAccountNumber" n
+          SET "currentBalance" = b."currentBalance",
+              "balanceAsOf" = b."balanceAsOf"
+          FROM "BankAccount" b
+          WHERE n."bankAccountId" = b.id
+            AND n."sortOrder" = 0
+            AND b."currentBalance" IS NOT NULL
+            AND n."currentBalance" IS NULL`,
+        `UPDATE "BankBalanceEntry" e
+          SET "bankAccountNumberId" = n.id
+          FROM "BankAccountNumber" n
+          WHERE e."bankAccountId" = n."bankAccountId"
+            AND n."sortOrder" = 0
+            AND e."bankAccountNumberId" IS NULL`,
       ]);
     }
   } finally {
