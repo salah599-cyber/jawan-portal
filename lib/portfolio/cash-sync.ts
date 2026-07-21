@@ -28,7 +28,10 @@ export type CashGroup = {
 export async function buildCashGroups(ctx: UserContext): Promise<CashGroup[]> {
   const accounts = await db.bankAccount.findMany({
     where: cashBankAccountFilter(ctx),
-    include: { entity: { select: { name: true } } },
+    include: {
+      entity: { select: { name: true } },
+      accountNumbers: { orderBy: { sortOrder: "asc" } },
+    },
   });
 
   const defaultEntity = await ensureDefaultEntity();
@@ -36,32 +39,47 @@ export async function buildCashGroups(ctx: UserContext): Promise<CashGroup[]> {
 
   for (const account of accounts) {
     if (!account.includeInCashPosition) continue;
-    if (!account.currentBalance) continue;
 
-    const balance = parseFloat(account.currentBalance.toString());
-    if (Number.isNaN(balance) || balance <= 0) continue;
+    const balanceRows =
+      account.accountNumbers.length > 0
+        ? account.accountNumbers.map((row) => ({
+            currency: row.currency,
+            balance: row.currentBalance ? parseFloat(row.currentBalance.toString()) : null,
+            balanceAsOf: row.balanceAsOf,
+          }))
+        : account.currentBalance
+          ? [{
+              currency: account.currency,
+              balance: parseFloat(account.currentBalance.toString()),
+              balanceAsOf: account.balanceAsOf,
+            }]
+          : [];
 
-    const entityId = account.entityId ?? defaultEntity.id;
-    const entityName = account.entity?.name ?? defaultEntity.name;
-    const key = `${entityId}:${account.currency}`;
-    const existing = groups.get(key);
+    for (const row of balanceRows) {
+      if (!row.balance || Number.isNaN(row.balance) || row.balance <= 0) continue;
 
-    if (existing) {
-      existing.totalBalance += balance;
-      if (
-        account.balanceAsOf &&
-        (!existing.latestBalanceAsOf || account.balanceAsOf > existing.latestBalanceAsOf)
-      ) {
-        existing.latestBalanceAsOf = account.balanceAsOf;
+      const entityId = account.entityId ?? defaultEntity.id;
+      const entityName = account.entity?.name ?? defaultEntity.name;
+      const key = `${entityId}:${row.currency}`;
+      const existing = groups.get(key);
+
+      if (existing) {
+        existing.totalBalance += row.balance;
+        if (
+          row.balanceAsOf &&
+          (!existing.latestBalanceAsOf || row.balanceAsOf > existing.latestBalanceAsOf)
+        ) {
+          existing.latestBalanceAsOf = row.balanceAsOf;
+        }
+      } else {
+        groups.set(key, {
+          entityId,
+          entityName,
+          currency: row.currency,
+          totalBalance: row.balance,
+          latestBalanceAsOf: row.balanceAsOf,
+        });
       }
-    } else {
-      groups.set(key, {
-        entityId,
-        entityName,
-        currency: account.currency,
-        totalBalance: balance,
-        latestBalanceAsOf: account.balanceAsOf,
-      });
     }
   }
 

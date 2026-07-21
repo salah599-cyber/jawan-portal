@@ -53,9 +53,18 @@ export function CashAccountsTable({
               <BankAccountUsageBadge includeInCashPosition={account.includeInCashPosition} />
             </TableCell>
             <TableCell className="text-right tabular-nums">
-              {account.currentBalance != null
-                ? formatMoney(account.currentBalance, account.currency)
-                : "—"}
+              {account.isMultiCurrency ? (
+                <div>
+                  <p>{account.balanceOmr != null ? formatOmr(account.balanceOmr) : "—"}</p>
+                  <p className="text-xs text-muted-foreground">
+                    {account.accountNumbers.length} accounts
+                  </p>
+                </div>
+              ) : account.currentBalance != null ? (
+                formatMoney(account.currentBalance, account.currency)
+              ) : (
+                "—"
+              )}
             </TableCell>
             <TableCell className="text-right tabular-nums">
               {account.balanceOmr != null ? formatOmr(account.balanceOmr) : "—"}

@@ -1047,6 +1047,9 @@ model BankAccountNumber {
   label                         String?
   sortOrder                     Int         @default(0)
   includeInTransferLetterSource Boolean     @default(true)
+  currentBalance                Decimal?    @db.Decimal(18, 3)
+  balanceAsOf                   DateTime?
+  balanceEntries                BankBalanceEntry[]
   createdAt                     DateTime    @default(now())
 
   @@index([bankAccountId])
@@ -1054,19 +1057,22 @@ model BankAccountNumber {
 }
 
 model BankBalanceEntry {
-  id            String      @id @default(cuid())
-  bankAccountId String
-  bankAccount   BankAccount @relation(fields: [bankAccountId], references: [id], onDelete: Cascade)
-  balance       Decimal     @db.Decimal(18, 3)
-  balanceDate   DateTime
-  notes         String?
-  recordedById  String?
-  recordedBy    User?       @relation(fields: [recordedById], references: [id], onDelete: SetNull)
-  statementImportId String?
-  statementImport   CashStatementImport? @relation(fields: [statementImportId], references: [id], onDelete: SetNull)
-  createdAt     DateTime    @default(now())
+  id                  String             @id @default(cuid())
+  bankAccountId       String
+  bankAccount         BankAccount        @relation(fields: [bankAccountId], references: [id], onDelete: Cascade)
+  bankAccountNumberId String?
+  bankAccountNumber   BankAccountNumber? @relation(fields: [bankAccountNumberId], references: [id], onDelete: SetNull)
+  balance             Decimal            @db.Decimal(18, 3)
+  balanceDate         DateTime
+  notes               String?
+  recordedById        String?
+  recordedBy          User?              @relation(fields: [recordedById], references: [id], onDelete: SetNull)
+  statementImportId   String?
+  statementImport     CashStatementImport? @relation(fields: [statementImportId], references: [id], onDelete: SetNull)
+  createdAt           DateTime           @default(now())
 
   @@index([bankAccountId, balanceDate])
+  @@index([bankAccountNumberId, balanceDate])
 }
 
 enum CashStatementImportStatus {
