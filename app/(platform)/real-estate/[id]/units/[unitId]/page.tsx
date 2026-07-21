@@ -3,7 +3,7 @@ import { notFound } from "next/navigation";
 import { PlatformHeader } from "@/components/platform/platform-header";
 import { UnitDetailView } from "@/components/real-estate/unit-detail-view";
 import { getUnitDetail } from "@/lib/data/real-estate";
-import { canWrite, requireModuleAccess } from "@/lib/permissions/access";
+import { requireModuleAccess } from "@/lib/permissions/access";
 import { Button } from "@/components/ui/button";
 
 export default async function UnitDetailPage({
@@ -16,8 +16,6 @@ export default async function UnitDetailPage({
 
   const unit = await getUnitDetail(unitId, ctx);
   if (!unit || unit.property.id !== id) notFound();
-
-  const canEdit = canWrite(ctx, "REAL_ESTATE");
 
   return (
     <>

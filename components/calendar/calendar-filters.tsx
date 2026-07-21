@@ -16,7 +16,6 @@ const VIEW_OPTIONS = [
 
 export function CalendarFilters({
   view,
-  date,
   entityId,
   entities,
   currentParams,

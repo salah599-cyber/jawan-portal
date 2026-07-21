@@ -1,5 +1,4 @@
 import Link from "next/link";
-import { notFound } from "next/navigation";
 import { PlatformHeader } from "@/components/platform/platform-header";
 import { AddLinkButton } from "@/components/platform/add-link-button";
 import { RePortfolioClient } from "@/components/real-estate/re-portfolio-client";

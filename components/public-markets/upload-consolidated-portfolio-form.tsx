@@ -1,11 +1,10 @@
 "use client";
 
-import { useEffect, useState, useTransition } from "react";
+import { useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import type { ConsolidatedImportResult } from "@/lib/public-markets/consolidated-import";
 import type { ManagedPortfolioRow } from "@/lib/data/managed-portfolios";
 import type { PublicBrokerAccountRow } from "@/lib/public-markets/broker-accounts";
-import { listPublicBrokerAccounts } from "@/lib/actions/public-markets";
 import { EntitySelect, type EntityOption } from "@/components/platform/entity-select";
 import { ManagedPortfolioSelect } from "@/components/public-markets/managed-portfolio-select";
 import { Button } from "@/components/ui/button";
@@ -23,37 +22,19 @@ function formatBrokerAccountLabel(account: PublicBrokerAccountRow) {
 
 function BrokerAccountPicker({
   label,
-  entityId,
+  accounts,
   value,
   onValueChange,
   required = false,
+  disabled = false,
 }: {
   label: string;
-  entityId: string;
+  accounts: PublicBrokerAccountRow[];
   value: string;
   onValueChange: (value: string) => void;
   required?: boolean;
+  disabled?: boolean;
 }) {
-  const [accounts, setAccounts] = useState<PublicBrokerAccountRow[]>([]);
-  const [pending, startTransition] = useTransition();
-
-  useEffect(() => {
-    if (!entityId) {
-      setAccounts([]);
-      return;
-    }
-
-    let cancelled = false;
-    startTransition(async () => {
-      const rows = await listPublicBrokerAccounts(entityId);
-      if (!cancelled) setAccounts(rows);
-    });
-
-    return () => {
-      cancelled = true;
-    };
-  }, [entityId]);
-
   return (
     <div className="space-y-2">
       <Label>{label}</Label>
@@ -61,10 +42,10 @@ function BrokerAccountPicker({
         value={value}
         required={required}
         onChange={(event) => onValueChange(event.target.value)}
-        disabled={!entityId || pending}
+        disabled={disabled}
         className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
       >
-        <option value="">{pending ? "Loading..." : required ? "Select account" : "Optional"}</option>
+        <option value="">{required ? "Select account" : "Optional"}</option>
         {accounts.map((account) => (
           <option key={account.id} value={account.id}>
             {formatBrokerAccountLabel(account)}
@@ -79,10 +60,12 @@ export function UploadConsolidatedPortfolioForm({
   entities,
   defaultEntityId,
   portfolios,
+  brokerAccounts = [],
 }: {
   entities: EntityOption[];
   defaultEntityId?: string;
   portfolios: ManagedPortfolioRow[];
+  brokerAccounts?: PublicBrokerAccountRow[];
 }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
@@ -93,6 +76,11 @@ export function UploadConsolidatedPortfolioForm({
   const [brokerAccountSafra, setBrokerAccountSafra] = useState("");
   const [brokerAccountKristalK18518750, setBrokerAccountKristalK18518750] = useState("");
   const [brokerAccountKristalK15875750, setBrokerAccountKristalK15875750] = useState("");
+
+  const entityBrokerAccounts = useMemo(
+    () => brokerAccounts.filter((account) => account.entityId === entityId),
+    [brokerAccounts, entityId],
+  );
 
   function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -172,7 +160,12 @@ export function UploadConsolidatedPortfolioForm({
             <EntitySelect
               entities={entities}
               value={entityId}
-              onValueChange={setEntityId}
+              onValueChange={(nextEntityId) => {
+                setEntityId(nextEntityId);
+                setBrokerAccountSafra("");
+                setBrokerAccountKristalK18518750("");
+                setBrokerAccountKristalK15875750("");
+              }}
               allowAdd={false}
               placeholder="Select entity"
             />
@@ -190,25 +183,28 @@ export function UploadConsolidatedPortfolioForm({
           <div className="space-y-2 md:col-span-2">
             <BrokerAccountPicker
               label="Safra Sarasin broker account"
-              entityId={entityId}
+              accounts={entityBrokerAccounts}
               value={brokerAccountSafra}
               onValueChange={setBrokerAccountSafra}
               required
+              disabled={!entityId}
             />
           </div>
 
           <BrokerAccountPicker
             label="Kristal K18518750 account"
-            entityId={entityId}
+            accounts={entityBrokerAccounts}
             value={brokerAccountKristalK18518750}
             onValueChange={setBrokerAccountKristalK18518750}
+            disabled={!entityId}
           />
 
           <BrokerAccountPicker
             label="Kristal K15875750 account"
-            entityId={entityId}
+            accounts={entityBrokerAccounts}
             value={brokerAccountKristalK15875750}
             onValueChange={setBrokerAccountKristalK15875750}
+            disabled={!entityId}
           />
 
           <div className="space-y-2 md:col-span-2">

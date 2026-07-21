@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { toggleSuccessionChecklistItem } from "@/lib/actions/succession";
 import { formatDate } from "@/lib/format";
