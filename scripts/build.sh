@@ -8,7 +8,7 @@ if [ -n "$DB_URL" ]; then
   node scripts/sync-public-markets-schema.cjs || echo "WARNING: Public markets schema sync failed during build; runtime sync will retry."
   node scripts/sync-real-estate-schema.cjs || echo "WARNING: Real estate schema sync failed during build; runtime sync will retry."
   node scripts/sync-asset-types-schema.cjs || echo "WARNING: Asset types schema sync failed during build; runtime sync will retry."
-  node scripts/sync-cash-management-schema.cjs || echo "WARNING: Cash management schema sync failed during build; runtime sync will retry."
+  node scripts/sync-cash-management-schema.cjs || { echo "ERROR: Cash management schema sync failed during build."; exit 1; }
   node scripts/sync-calendar-schema.cjs || echo "WARNING: Calendar schema sync failed during build; runtime sync will retry."
   node scripts/sync-lp-fund-schema.cjs || echo "WARNING: LP fund schema sync failed during build; runtime sync will retry."
   node scripts/sync-insurance-schema.cjs || echo "WARNING: Insurance schema sync failed during build; runtime sync will retry."

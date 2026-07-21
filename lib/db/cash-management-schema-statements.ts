@@ -16,7 +16,6 @@ export const CASH_MANAGEMENT_SCHEMA_STATEMENTS = [
   `CREATE INDEX IF NOT EXISTS "BankBalanceEntry_bankAccountId_balanceDate_idx" ON "BankBalanceEntry"("bankAccountId", "balanceDate")`,
   `ALTER TABLE "BankAccount" ADD COLUMN IF NOT EXISTS "includeInCashPosition" BOOLEAN NOT NULL DEFAULT true`,
   `ALTER TABLE "BankAccount" ADD COLUMN IF NOT EXISTS "includeInTransferLetterSource" BOOLEAN NOT NULL DEFAULT true`,
-  `ALTER TABLE "BankAccountNumber" ADD COLUMN IF NOT EXISTS "includeInTransferLetterSource" BOOLEAN NOT NULL DEFAULT true`,
 ];
 
 export const CASH_MANAGEMENT_MIGRATION_STATEMENTS = [
@@ -33,6 +32,7 @@ export const CASH_MANAGEMENT_MIGRATION_STATEMENTS = [
   `CREATE INDEX IF NOT EXISTS "BankAccountNumber_bankAccountId_idx" ON "BankAccountNumber" ("bankAccountId")`,
   `CREATE INDEX IF NOT EXISTS "BankAccountNumber_accountNumber_idx" ON "BankAccountNumber" ("accountNumber")`,
   `ALTER TABLE "BankAccountNumber" ADD COLUMN IF NOT EXISTS "iban" TEXT`,
+  `ALTER TABLE "BankAccountNumber" ADD COLUMN IF NOT EXISTS "includeInTransferLetterSource" BOOLEAN NOT NULL DEFAULT true`,
   `DO $$ BEGIN
     ALTER TABLE "BankAccountNumber" ADD CONSTRAINT "BankAccountNumber_bankAccountId_fkey"
       FOREIGN KEY ("bankAccountId") REFERENCES "BankAccount"("id") ON DELETE CASCADE ON UPDATE CASCADE;

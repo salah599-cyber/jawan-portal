@@ -23,7 +23,6 @@ const CASH_MANAGEMENT_SCHEMA_STATEMENTS = [
   `CREATE INDEX IF NOT EXISTS "BankBalanceEntry_bankAccountId_balanceDate_idx" ON "BankBalanceEntry"("bankAccountId", "balanceDate")`,
   `ALTER TABLE "BankAccount" ADD COLUMN IF NOT EXISTS "includeInCashPosition" BOOLEAN NOT NULL DEFAULT true`,
   `ALTER TABLE "BankAccount" ADD COLUMN IF NOT EXISTS "includeInTransferLetterSource" BOOLEAN NOT NULL DEFAULT true`,
-  `ALTER TABLE "BankAccountNumber" ADD COLUMN IF NOT EXISTS "includeInTransferLetterSource" BOOLEAN NOT NULL DEFAULT true`,
 ];
 
 const CASH_STATEMENT_IMPORT_SCHEMA_STATEMENTS = [
@@ -68,6 +67,7 @@ const CASH_MANAGEMENT_MIGRATION_STATEMENTS = [
   `CREATE INDEX IF NOT EXISTS "BankAccountNumber_bankAccountId_idx" ON "BankAccountNumber" ("bankAccountId")`,
   `CREATE INDEX IF NOT EXISTS "BankAccountNumber_accountNumber_idx" ON "BankAccountNumber" ("accountNumber")`,
   `ALTER TABLE "BankAccountNumber" ADD COLUMN IF NOT EXISTS "iban" TEXT`,
+  `ALTER TABLE "BankAccountNumber" ADD COLUMN IF NOT EXISTS "includeInTransferLetterSource" BOOLEAN NOT NULL DEFAULT true`,
   `DO $$ BEGIN
     ALTER TABLE "BankAccountNumber" ADD CONSTRAINT "BankAccountNumber_bankAccountId_fkey"
       FOREIGN KEY ("bankAccountId") REFERENCES "BankAccount"("id") ON DELETE CASCADE ON UPDATE CASCADE;
@@ -103,6 +103,9 @@ const CASH_MANAGEMENT_MIGRATION_STATEMENTS = [
   `ALTER TABLE "BankAccount" ADD COLUMN IF NOT EXISTS "correspondentSwiftCode" TEXT`,
   `ALTER TABLE "BankAccount" ADD COLUMN IF NOT EXISTS "correspondentRoutingNumber" TEXT`,
   `ALTER TABLE "BankAccount" ADD COLUMN IF NOT EXISTS "correspondentFfcInstructions" TEXT`,
+];
+
+const PER_ACCOUNT_BALANCE_STATEMENTS = [
   `ALTER TABLE "BankAccountNumber" ADD COLUMN IF NOT EXISTS "currentBalance" DECIMAL(18,3)`,
   `ALTER TABLE "BankAccountNumber" ADD COLUMN IF NOT EXISTS "balanceAsOf" TIMESTAMP(3)`,
   `ALTER TABLE "BankBalanceEntry" ADD COLUMN IF NOT EXISTS "bankAccountNumberId" TEXT`,
@@ -125,12 +128,6 @@ const CASH_MANAGEMENT_MIGRATION_STATEMENTS = [
     WHERE e."bankAccountId" = n."bankAccountId"
       AND n."sortOrder" = 0
       AND e."bankAccountNumberId" IS NULL`,
-];
-
-const statements = [
-  ...CASH_MANAGEMENT_SCHEMA_STATEMENTS,
-  ...CASH_STATEMENT_IMPORT_SCHEMA_STATEMENTS,
-  ...CASH_MANAGEMENT_MIGRATION_STATEMENTS,
 ];
 
 function getDatabaseUrl() {
@@ -163,6 +160,32 @@ async function tableExists(client, tableName) {
   return Boolean(result.rows[0]?.exists);
 }
 
+async function columnExists(client, tableName, columnName) {
+  const result = await client.query(
+    `SELECT EXISTS (
+      SELECT 1
+      FROM information_schema.columns
+      WHERE table_schema = 'public'
+        AND table_name = $1
+        AND column_name = $2
+    )`,
+    [tableName, columnName],
+  );
+  return Boolean(result.rows[0]?.exists);
+}
+
+async function runStatements(client, statements) {
+  for (const statement of statements) {
+    try {
+      await client.query(statement);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      if (isIgnorableSchemaError(message)) continue;
+      throw error;
+    }
+  }
+}
+
 async function main() {
   const connectionString = getDatabaseUrl();
   if (!connectionString) {
@@ -174,14 +197,13 @@ async function main() {
   await client.connect();
 
   try {
-    for (const statement of statements) {
-      try {
-        await client.query(statement);
-      } catch (error) {
-        const message = error instanceof Error ? error.message : String(error);
-        if (isIgnorableSchemaError(message)) continue;
-        throw error;
-      }
+    await runStatements(client, CASH_MANAGEMENT_SCHEMA_STATEMENTS);
+    await runStatements(client, CASH_STATEMENT_IMPORT_SCHEMA_STATEMENTS);
+    await runStatements(client, CASH_MANAGEMENT_MIGRATION_STATEMENTS);
+
+    const hasNumberBalance = await columnExists(client, "BankAccountNumber", "currentBalance");
+    if (!hasNumberBalance) {
+      await runStatements(client, PER_ACCOUNT_BALANCE_STATEMENTS);
     }
 
     if (!(await tableExists(client, "BankBalanceEntry"))) {
