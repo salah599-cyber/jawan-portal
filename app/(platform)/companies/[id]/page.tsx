@@ -13,7 +13,7 @@ import { fileRequestKey } from "@/lib/files/download-types";
 import type { FileKind } from "@/lib/files/href";
 import { canWrite, requireModuleAccess } from "@/lib/permissions/access";
 import { ASSET_STATUS_LABELS, COMPANY_DOCUMENT_TYPE_LABELS } from "@/lib/labels";
-import { formatDate, formatDecimalInput } from "@/lib/format";
+import { formatDate, formatDecimalInput, formatMoney } from "@/lib/format";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -81,6 +81,11 @@ export default async function CompanyDetailPage({ params }: { params: Promise<{ 
               <Detail label="Registration Expiry" value={formatDate(company.registrationExpiryDate)} />
               <Detail label="Entity" value={company.entity.name} />
               <Detail label="Status" value={<Badge variant="secondary">{ASSET_STATUS_LABELS[company.status] ?? company.status}</Badge>} />
+              <Detail
+                label="Current Value"
+                value={formatMoney(company.asset?.currentValue, company.asset?.currency ?? "OMR")}
+              />
+              <Detail label="Value Updated" value={formatDate(company.asset?.valueUpdatedAt)} />
               {company.notes ? (
                 <div className="sm:col-span-2">
                   <Detail label="Notes" value={company.notes} />

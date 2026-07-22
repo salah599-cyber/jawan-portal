@@ -97,6 +97,22 @@ export function CreateCompanyForm({ entities }: { entities: EntityOption[] }) {
             </Select>
           </div>
 
+          <div className="md:col-span-2 pt-2">
+            <p className="text-sm font-medium text-muted-foreground">Valuation</p>
+          </div>
+
+          <div className="space-y-2 md:col-span-2">
+            <Label htmlFor="currentValue">Current Value (OMR)</Label>
+            <Input
+              id="currentValue"
+              name="currentValue"
+              type="number"
+              step="0.01"
+              min="0"
+              placeholder="Optional — included in portfolio and net worth when set"
+            />
+          </div>
+
           <CompanyOwnersFields />
 
           <div className="md:col-span-2 pt-2">
