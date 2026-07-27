@@ -11,10 +11,16 @@ const PDF_NAME = process.argv[2] || "Jawan-User-Guide.pdf";
 const PDF_PATH = path.join(ROOT, "docs", PDF_NAME);
 
 const BROWSER_CANDIDATES = [
+  process.env.CHROME_PATH,
+  "/usr/bin/google-chrome",
+  "/usr/bin/google-chrome-stable",
+  "/usr/local/bin/google-chrome",
+  "/usr/bin/chromium",
+  "/usr/bin/chromium-browser",
   "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe",
   "C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe",
   "C:\\Program Files\\Microsoft\\Edge\\Application\\msedge.exe",
-];
+].filter(Boolean);
 
 function findBrowser() {
   for (const candidate of BROWSER_CANDIDATES) {
