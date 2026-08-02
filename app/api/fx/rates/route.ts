@@ -2,11 +2,14 @@ import { NextResponse } from "next/server";
 import { FX_STALE_AFTER_MS } from "@/lib/fx/constants";
 import { getLatestFxUpdatedAt, getRatesToOmr } from "@/lib/fx";
 import { refreshFxRatesFromYahoo } from "@/lib/fx/refresh-rates";
-import { requireModuleAccess } from "@/lib/permissions/access";
+import { canAccess, requireUserContext } from "@/lib/permissions/access";
 
 export async function GET() {
   try {
-    await requireModuleAccess("DASHBOARD");
+    const ctx = await requireUserContext();
+    if (!canAccess(ctx, "DASHBOARD") && !canAccess(ctx, "LOANS")) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
 
     let updatedAt = await getLatestFxUpdatedAt();
     const isStale =

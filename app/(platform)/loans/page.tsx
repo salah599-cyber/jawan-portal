@@ -11,7 +11,9 @@ import {
   PAYMENT_FREQUENCY_LABELS,
 } from "@/lib/labels";
 import { calculatePeriodInterest } from "@/lib/loans/interest";
-import { formatMoney, formatDate } from "@/lib/format";
+import { formatMoney, formatDate, formatOmr } from "@/lib/format";
+import { buildLoansSummary } from "@/lib/data/loans-summary";
+import { LoansSummaryCards } from "@/components/loans/loans-summary-cards";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -26,100 +28,13 @@ export default async function LoansPage() {
   const showAdd = canWrite(ctx, "LOANS");
 
   const activeLoans = loans.filter((l) => l.status === "ACTIVE");
-  const totalActive = activeLoans.reduce(
-    (sum, loan) => sum + parseFloat(loanBalance(loan).toString()),
-    0,
-  );
-
-  const totalInterestPaid = loans.reduce((sum, loan) => {
-    return (
-      sum +
-      loan.payments.reduce(
-        (paymentSum, payment) =>
-          paymentSum + parseFloat(payment.interestPortion?.toString() ?? "0"),
-        0,
-      )
-    );
-  }, 0);
-
-  const totalPrincipalPaid = loans.reduce((sum, loan) => {
-    return (
-      sum +
-      loan.payments.reduce(
-        (paymentSum, payment) =>
-          paymentSum + parseFloat(payment.principalPortion?.toString() ?? "0"),
-        0,
-      )
-    );
-  }, 0);
-
-  const scheduledPeriodInterest = activeLoans.reduce((sum, loan) => {
-    const principal = parseFloat(loan.amount.toString());
-    const outstanding = parseFloat(loanBalance(loan).toString());
-    const annualRate = loan.interestRate ? parseFloat(loan.interestRate.toString()) : 0;
-    return (
-      sum +
-      calculatePeriodInterest(
-        loan.interestCalculationMethod,
-        annualRate,
-        principal,
-        outstanding,
-        loan.paymentFrequency,
-      )
-    );
-  }, 0);
+  const summary = await buildLoansSummary(loans);
 
   return (
     <>
       <PlatformHeader title="Loan Management" />
       <main className="flex flex-1 flex-col gap-4 p-4 md:p-6">
-        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground">Active Loans</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <p className="text-2xl font-semibold">{activeLoans.length}</p>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground">Outstanding</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <p className="text-2xl font-semibold">
-                {activeLoans.length > 0
-                  ? formatMoney(totalActive, activeLoans[0]?.currency ?? "OMR")
-                  : "—"}
-              </p>
-              <p className="text-xs text-muted-foreground">Mixed currencies not combined</p>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground">Interest Paid</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <p className="text-2xl font-semibold">
-                {loans.length > 0 ? formatMoney(totalInterestPaid, loans[0]?.currency ?? "OMR") : "—"}
-              </p>
-              <p className="text-xs text-muted-foreground">Across all recorded repayments</p>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground">Next Period Interest</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <p className="text-2xl font-semibold">
-                {activeLoans.length > 0
-                  ? formatMoney(scheduledPeriodInterest, activeLoans[0]?.currency ?? "OMR")
-                  : "—"}
-              </p>
-              <p className="text-xs text-muted-foreground">Estimated from active loan rates</p>
-            </CardContent>
-          </Card>
-        </div>
+        <LoansSummaryCards summary={summary} />
 
         <Card>
           <CardHeader className="flex flex-row items-start justify-between gap-4">
@@ -224,7 +139,7 @@ export default async function LoansPage() {
             <CardHeader>
               <CardTitle>Interest Summary</CardTitle>
               <CardDescription>
-                Principal repaid: {formatMoney(totalPrincipalPaid, activeLoans[0]?.currency ?? "OMR")} · Interest repaid: {formatMoney(totalInterestPaid, activeLoans[0]?.currency ?? "OMR")}
+                Principal repaid: {formatOmr(summary.totalPrincipalPaidOmr)} · Interest repaid: {formatOmr(summary.totalInterestPaidOmr)}
               </CardDescription>
             </CardHeader>
             <CardContent>
