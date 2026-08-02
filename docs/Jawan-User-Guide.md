@@ -1,828 +1,782 @@
 ---
-title: Jawan Investments — User Guide
+title: Jawan Investments — User Manual
 author: Jawan Investments Family Office Platform
 date: July 2026
-version: 2.0
+version: 3.0
 ---
 
-# Jawan Investments — Full User Guide
+# Jawan Investments — User Manual
 
-**Family Office Platform · jawan-portal · Version 2.0**
+**Family Office Platform · Version 3.0 · July 2026**
 
-This guide covers every function in the Jawan Investments platform: portfolio management, operations, governance, family office workflows, and administration. What you see depends on your **role** and **permissions**.
-
-### Feature availability legend
-
-| Symbol | Meaning |
-|--------|---------|
-| **Available** | Full UI — you can use it today |
-| **Partial** | Basic registration or data stored; dedicated screens still being built |
-| **Planned** | On the roadmap; not yet in the platform |
+This manual explains how to use the Jawan Investments family office platform: portfolio tracking, cash and banking, real estate, governance, family & succession, reporting, and administration. What you see in the sidebar depends on your **role**, **entity access**, and **module permissions**.
 
 ---
 
 ## Table of Contents
 
-**Foundation**
+**Getting started**
 
-1. [Getting Started](#1-getting-started)
-2. [Dashboard](#2-dashboard)
+1. [Signing In & Navigation](#1-signing-in--navigation)
+2. [Roles & Permissions](#2-roles--permissions)
+3. [Entities & Common Actions](#3-entities--common-actions)
 
-**Portfolio & investments**
+**Home & planning**
 
-3. [Public Markets](#3-public-markets)
-4. [PE / VC Portfolio](#4-pe--vc-portfolio)
-5. [Fund & LP Investments](#5-fund--lp-investments)
-6. [Real Estate](#6-real-estate)
-7. [Cash Management](#7-cash-management)
-8. [Assets (Portfolio Registry)](#8-assets-portfolio-registry)
-9. [Lands](#9-lands)
-10. [Cars](#10-cars)
-11. [Companies](#11-companies)
+4. [Dashboard](#4-dashboard)
+5. [Assistant](#5-assistant)
+6. [Calendar](#6-calendar)
+
+**Portfolio**
+
+7. [Assets (Portfolio Registry)](#7-assets-portfolio-registry)
+8. [Public Markets](#8-public-markets)
+9. [PE / VC Portfolio](#9-pe--vc-portfolio)
+10. [Fund LP Investments](#10-fund-lp-investments)
+11. [Exits](#11-exits)
+12. [Lands](#12-lands)
+13. [Real Estate](#13-real-estate)
+14. [Cars](#14-cars)
+15. [Companies](#15-companies)
+16. [Precious Metals](#16-precious-metals)
 
 **Finance & operations**
 
-12. [Loans](#12-loans)
-13. [Cheques](#13-cheques)
-14. [Bank Details](#14-bank-details)
-15. [Expenses](#15-expenses)
+17. [Cash Management](#17-cash-management)
+18. [Bank Details](#18-bank-details)
+19. [Transfer Letters](#19-transfer-letters)
+20. [Loans](#20-loans)
+21. [Cheques](#21-cheques)
+22. [Expenses](#22-expenses)
 
 **Governance & people**
 
-16. [Investment Proposals](#16-investment-proposals)
-17. [Family, Beneficiaries & Succession](#17-family-beneficiaries--succession)
-18. [Contacts](#18-contacts)
-19. [Documents (Document Vault)](#19-documents-document-vault)
+23. [Investment Proposals](#23-investment-proposals)
+24. [Documents & Insurance](#24-documents--insurance)
+25. [Family Members & Beneficiaries](#25-family-members--beneficiaries)
+26. [Succession & Estate](#26-succession--estate)
+27. [Contacts](#27-contacts)
 
-**Administration**
+**Reporting & admin**
 
-20. [Reports](#20-reports)
-21. [Admin: User Management](#21-admin-user-management)
-22. [Admin: Audit Log](#22-admin-audit-log)
+28. [Reports](#28-reports)
+29. [Admin: Users](#29-admin-users)
+30. [Admin: Download Requests](#30-admin-download-requests)
+31. [Admin: Audit Log](#31-admin-audit-log)
 
 **Reference**
 
-23. [Quick Reference by Task](#23-quick-reference-by-task)
-24. [Tips & Limitations](#24-tips--limitations)
+32. [Quick Reference by Task](#32-quick-reference-by-task)
+33. [Tips & Best Practices](#33-tips--best-practices)
 
 ---
 
-## 1. Getting Started
+## 1. Signing In & Navigation
 
-### Signing In
+### Signing in
 
 1. Open the platform URL in your browser.
 2. If you are not signed in, you are redirected to **Sign In**.
-3. Sign in with the email your administrator invited you with.
+3. Sign in with the email your administrator invited.
 4. After sign-in, you land on the **Dashboard**.
+
+**Invite-only access.** New users need a pending invitation from a Super Admin. Without an invite you are redirected to **Invite Required**. Deactivated accounts cannot sign in.
+
+**Session timeout.** The platform logs you out after **30 minutes of inactivity**. Sign in again to continue.
 
 ### Navigation
 
-- Use the **left sidebar** to move between modules.
-- The header shows the current page title and your **user menu** (top right).
-- Use the **sidebar toggle** on smaller screens.
+- Use the **left sidebar** to open modules.
+- The header shows the page title and your **user menu** (account settings).
+- On smaller screens, use the **sidebar toggle**.
+- Nested items (Real Estate, Documents, Family, Admin) expand to show sub-pages.
 
-### Roles & Permissions
+---
 
-| Role | Typical Access |
+## 2. Roles & Permissions
+
+| Role | Typical access |
 |------|----------------|
 | **Principal** | Full access to all modules |
-| **Signatory** | Read-mostly portfolio; no Expenses or Admin |
-| **Finance** | Full Loans, Cheques, Expenses; read portfolio; filtered Documents/Reports |
-| **Director** | Filtered portfolio by assigned entities; full Proposals (submit & approve) |
-| **External** | Documents only (shared categories — when configured) |
-| **Super Admin** | Everything, plus **Users** and **Audit Log** |
+| **Signatory** | Read portfolio and operations; full Calendar; no Expenses, Family, Succession, or Admin |
+| **Finance** | Full Loans, Cheques, Expenses, Insurance, Cash, Fund LP, Contacts, Real Estate; filtered Documents/Reports; read elsewhere |
+| **Director** | Filtered by assigned entities; full Proposals; read Dashboard/Calendar; no Expenses, Family, Succession, or Admin |
+| **External** | Documents only (shared categories) |
+| **Super Admin** | Flag on a user — full access everywhere, plus Users, Download Requests, and Audit Log |
 
-**Permission levels:** Full (read + write) · Read (view only) · Filtered (scoped by entity/category) · None
+**Permission levels**
+
+| Level | Meaning |
+|-------|---------|
+| **FULL** | View and edit |
+| **READ** | View only |
+| **FILTERED** | Scoped by entity and/or document category |
+| **SHARED_ONLY** | Only documents shared with you |
+| **NONE** | Module hidden |
+
+Super Admins can set **per-module overrides**, **entity access**, and **document category scopes** when inviting or editing a user.
+
+---
+
+## 3. Entities & Common Actions
 
 ### Entities
 
-Most records belong to an **Entity** (e.g. Jawan Investments). Choose from the dropdown or **Add entity** inline. Filtered users only see assigned entities.
+Most records belong to an **Entity** (for example, *Jawan Investments*). Choose the entity from the dropdown or add one inline where available. Users with filtered access only see assigned entities.
 
-### Common Actions
+Values across the platform commonly consolidate to **OMR** for net worth and board reporting.
+
+### Common actions
 
 | Action | How |
 |--------|-----|
-| Add | Top-right on list pages (write access required) |
-| Edit | Pencil icon or Edit button on detail page |
+| Add / Register | Top-right button on list pages (write access required) |
+| Edit | Pencil icon or **Edit** on the detail page |
 | Delete | Trash icon → confirmation (cheques use soft delete) |
 | Upload | File inputs on forms or upload panels on detail pages |
+| Filter | Filter controls above lists and tables |
+| Export | Report or module export buttons (XLSX / CSV / print) |
 
-**File types:** PDF, JPG, PNG, WEBP, DOC, DOCX (some modules accept spreadsheets).
+**Accepted file types (typical):** PDF, JPG, PNG, WEBP, DOC, DOCX. Some modules also accept spreadsheets (XLSX / CSV).
 
 ---
 
-## 2. Dashboard
+## 4. Dashboard
 
-**Path:** Sidebar → **Dashboard** · **Available**
+**Path:** Sidebar → **Dashboard**
 
-### Summary Cards
+Your home view of family-office wealth and reminders.
+
+### Summary cards
 
 | Card | What it shows |
 |------|----------------|
-| Portfolio Value | Active + monitored assets (ownership-adjusted) |
+| Portfolio Value | Active and monitored assets (ownership-adjusted) |
 | Net Worth | Portfolio minus active liabilities |
 | Active Assets | Count of active holdings |
-| Pending Reminders | Documents, vehicles, expenses, cheques needing attention |
+| Pending Reminders | Items needing attention across modules |
 
-### Portfolio Overview
+### Other panels
 
-Breakdown by asset class: Real Estate, Private Equity, Public Equity, Bonds, Cash, Fixed Assets, Other.
-
-### Other Panels
-
-- **Modules** — quick links with record counts
-- **Recent Exits** — disposals in the last 12 months
-- **Pending Proposal Approvals** — items awaiting your decision
-- **Reminders** — expiring documents, vehicle/company renewals, loan maturity, cheques due, overdue expenses
-
----
-
-## 3. Public Markets
-
-**Primary path:** Sidebar → **Assets** (category: **Public Equity**) · **Partial**
-
-Public markets cover listed equities, ETFs, and broker-held positions. The platform tracks these as **Public Equity** assets in the portfolio registry.
-
-### What you can do today
-
-1. Go to **Assets** → **Add Asset**.
-2. Set **Category** to **Public Equity**.
-3. Enter name (e.g. "US Brokerage Account — Fidelity"), entity, status, currency, acquisition cost, and **Current Value**.
-4. Add **Manager Name / Email** for the broker or advisor contact.
-5. Save — the holding appears in the Assets list and Dashboard portfolio breakdown.
-
-### Data the platform stores (backend)
-
-Each public-markets asset can hold individual positions with:
-
-| Field | Purpose |
-|-------|---------|
-| Symbol | Ticker (e.g. AAPL, 2222.SE) |
-| Name | Security name |
-| Quantity | Shares/units held |
-| Cost basis | Original purchase cost |
-| Market price | Latest price per share |
-| Market value | Position value |
-| Unrealised P&L | Gain/loss vs cost basis |
-| Broker | Custodian name |
-| Account number | Brokerage account ref |
-| As-of date | Price date |
-
-Import batches (bulk spreadsheet uploads) are also supported in the data model.
-
-### Planned screens (not yet available)
-
-- Dedicated **Public Markets** module with holdings table per account
-- Bulk **import** from broker CSV/Excel
-- Automatic roll-up of position values into asset current value
-- Performance and allocation reports
-
-### Best practice today
-
-- Register one Public Equity asset per brokerage account or mandate.
-- Update **Current Value** manually when you receive statements.
-- Store broker statements in **Documents** (category: Banking or Corporate).
-- Use **Manager Email** for the relationship manager at the broker.
+- **Performance** — valuation-based movement
+- **Asset & currency allocation** — charts by class and currency
+- **Exit analytics** — recent disposals and outcomes
+- **Net worth trend** — historical view
+- **Module shortcuts** — quick links with record counts
+- **Pending proposal approvals** — items awaiting your decision
+- **Reminders** — documents, vehicles, loans, cheques, expenses, insurance, family IDs, succession reviews
 
 ---
 
-## 4. PE / VC Portfolio
+## 5. Assistant
 
-**Paths:** **Assets** (Private Equity) · **Companies** · **Partial**
+**Path:** Sidebar → **Assistant**
 
-Private equity and venture capital cover direct company stakes, growth investments, and operating holdings.
-
-### Option A — Register a portfolio company (recommended for operating cos.)
-
-1. Go to **Companies** → **Register Company**.
-2. Enter registration details, **owners** (name, ownership %, email, phone), CEO, and management contacts.
-3. Upload corporate documents (registration, chamber copy, financials).
-4. A linked **Private Equity** portfolio asset is created automatically.
-5. Manage valuation via the linked asset's **Current Value** in **Assets**.
-
-### Option B — Register a direct PE/VC investment
-
-1. Go to **Assets** → **Add Asset**.
-2. Set **Category** to **Private Equity**.
-3. Enter investment name, entity, dates, acquisition cost, current value, and manager/advisor contact.
-4. Use **Description** for round details, fund name, or thesis notes.
-
-### PE detail fields (stored; dedicated edit UI planned)
-
-| Field | Purpose |
-|-------|---------|
-| Shareholding % | Ownership stake |
-| Valuation method | e.g. Last round, DCF, NAV |
-| Last round valuation | Most recent funding round value |
-| Follow-on rounds | Notes on subsequent rounds |
-| Registered holder | Legal holder of shares |
-| Contact name / email / phone | Founder, GP, or company IR contact |
-
-### Monitoring & exits
-
-- Set status to **Monitor** for watch-list investments.
-- Record an **exit** (sale, transfer, liquidation) from the asset or company detail page.
-- Approved investments may originate from **Proposals** (see Section 16).
-
-### Planned screens
-
-- PE/VC portfolio dashboard with MOIC, IRR, and round history
-- Cap-table style ownership view per company
-- Integration with Companies and Proposals on approval
+A private AI assistant for Jawan Investments. Ask questions about portfolio data, holdings, cash, and related records you are permitted to see. Treat answers as decision support — always verify material figures in the source module or a report before acting.
 
 ---
 
-## 5. Fund & LP Investments
+## 6. Calendar
 
-**Path:** **Assets** (Private Equity or Other) · **Partial**
+**Path:** Sidebar → **Calendar** · Tasks: **Calendar → Tasks** (`/calendar/tasks`)
 
-Fund and limited-partner (LP) investments cover commitments to private funds, co-invest vehicles, and fund-of-funds.
+Unified deadlines from across the platform, plus manual tasks.
 
-### Register an LP commitment today
+### Views
 
-1. Go to **Assets** → **Add Asset**.
-2. Choose **Private Equity** (primary fund commitments) or **Other** (alternative structures).
-3. Name the record clearly, e.g. `"ABC Growth Fund III — LP Commitment"`.
-4. Enter:
-   - **Acquisition cost** = total commitment amount
-   - **Current Value** = latest NAV or called capital + unrealised value
-   - **Acquisition date** = commitment / first close date
-   - **Manager name/email** = GP or fund administrator contact
-5. In **Description**, record: vintage year, commitment, called capital, distributions, DPI/TVPI notes.
+Today · Week · Month · List
 
-### Supporting documents
+### What appears
 
-Upload in **Documents** (category: Legal or Corporate):
+- Document and insurance expiry dates
+- Vehicle registration / insurance renewals
+- Loan maturities and cheque due dates
+- Expense due dates
+- Family ID / passport renewals
+- Succession review dates
+- Manual tasks you create and assign
 
-- Limited Partnership Agreement (LPA)
-- Subscription documents
-- Capital call notices
-- Quarterly fund reports / K-1s
-
-### Planned LP module
-
-| Planned feature | Description |
-|-----------------|-------------|
-| Commitment tracking | Committed vs called vs uncalled capital |
-| Capital calls | Schedule and log calls with due dates |
-| Distributions | Record return of capital and profits |
-| NAV updates | Periodic mark-to-market per fund |
-| LP register | All fund interests in one view |
-
-Until the dedicated module ships, use **Assets** + **Documents** + **Expenses** (for capital call payments) together.
+Create tasks from the calendar, assign owners, and manage them under **Calendar → Tasks**. Reminder digests may also be sent by email when configured.
 
 ---
 
-## 6. Real Estate
+## 7. Assets (Portfolio Registry)
 
-**Paths:** **Lands** · **Assets** (Real Estate) · **Available** (Lands) · **Partial** (built property assets)
+**Path:** Sidebar → **Assets**
 
-Real estate in Jawan spans **land parcels** (Oman and international) and **built property / development** holdings.
+Central registry for all asset classes. Dedicated modules (Public Markets, PE, Fund LP, Real Estate, Cash) roll values into this registry and the Dashboard.
 
-### A. Land parcels — Lands module (full detail)
-
-**Path:** Sidebar → **Lands**
-
-Use for raw land, plots, and titled land with Krooki/Mulkia documentation.
-
-**Register land:** Name, location (Oman: governorate + wilayat; International: country + city), plot/krooki/mulkia refs, land use, area (m²), entity, registered holders, valuation, documents.
-
-**Record a sale:** Sold To, Sale Date, Sale Amount, sale documents (SPA, POA, buyer ID) → marks land and linked asset as **Exited**.
-
-See [Section 9 — Lands](#9-lands) for full field reference.
-
-### B. Built property & developments — Assets (Real Estate)
-
-**Path:** Assets → Add Asset → Category: **Real Estate**
-
-Use for villas, commercial buildings, rental properties, and developments where you track a single asset value rather than parcel-level detail.
-
-| Field | Use |
-|-------|-----|
-| Name | Property name or address label |
-| Current Value | Latest appraisal or market value |
-| Acquisition Cost / Date | Purchase basis |
-| Manager Name / Email | Property manager or agent |
-| Description | Unit count, tenant info, yield notes |
-
-**Detail fields in data model (edit UI planned):** Title deed ref, plot number, BUA (built-up area), location, empty-land flag.
-
-### C. Mortgages linked to property
-
-Register property-backed debt in **Loans** → link to the underlying **Asset** as collateral.
-
-### How real estate rolls up
-
-- **Lands** creates a linked Real Estate (or land) portfolio asset automatically.
-- Dashboard **Portfolio Overview** includes Real Estate in the class breakdown.
-- Net worth subtracts active **mortgages** on those properties.
-
-### Real estate documents
-
-| Document | Where to store |
-|----------|----------------|
-| Title deeds, Krooki, Mulkia | Lands module uploads |
-| Valuations, leases | Documents vault (Property / Legal) |
-| Sale agreements | Land sale workflow or asset exit |
-
----
-
-## 7. Cash Management
-
-**Paths:** **Bank Details** · **Assets** (Cash) · **Cheques** · **Expenses** · **Available**
-
-Cash management covers liquidity, bank accounts, payments, and cash-position tracking across the family office.
-
-### A. Bank account registry
-
-**Path:** Sidebar → **Bank Details**
-
-Register every family office bank account:
-
-| Field | Required? |
-|-------|-----------|
-| Account Name | Yes |
-| Bank Name | Yes |
-| Account Number | Yes |
-| Currency | Yes |
-| IBAN, SWIFT, Sort Code | No |
-| Entity | No |
-| Notes | No |
-
-Link **Cheques** to bank accounts when registering outgoing/incoming cheques.
-
-### B. Cash positions as assets
-
-**Path:** Assets → Add Asset → Category: **Cash**
-
-Use for material cash balances held at a bank (separate from the account registry):
-
-- Name = e.g. "HSBC OMR Operating Balance"
-- **Current Value** = latest balance
-- Description / manager fields for treasury contact
-
-**Data model also stores:** Bank name, account number, balance on the cash detail record (edit UI planned).
-
-### C. Cheque register
-
-**Path:** Sidebar → **Cheques**
-
-Track all issued and received cheques with status workflow: Pending → Deposited → Cleared (or Bounced / Cancelled / Stopped).
-
-Summary cards show pending outgoing/incoming, due this week, and bounced counts.
-
-### D. Expense & payment tracking
-
-**Path:** Sidebar → **Expenses**
-
-Log invoices, recurring costs, and payment status (Paid / Pending / Overdue). Attach invoices and payment slips.
-
-### E. Loan payments
-
-Loan principal and interest payments recorded in **Loans** reduce outstanding balances and affect net worth.
-
-### F. Cash flows on assets
-
-When recording an **asset exit**, check **Record proceeds as cash inflow** to log disposal proceeds against the asset.
-
-**Planned:** Treasury dashboard, multi-currency cash consolidation, FX rate management UI, cash-flow forecasting.
-
-### Cash management workflow (recommended)
-
-1. Register all accounts in **Bank Details**.
-2. Register major balances as **Cash** assets (update values monthly).
-3. Route all cheque activity through **Cheques**.
-4. Route operational spend through **Expenses**.
-5. Review **Dashboard** net worth (portfolio minus liabilities).
-
----
-
-## 8. Assets (Portfolio Registry)
-
-**Path:** Sidebar → **Assets** · **Available**
-
-The Assets module is the central portfolio registry for all asset classes.
-
-### Asset categories
+### Categories
 
 | Category | Typical use |
 |----------|-------------|
 | Real Estate | Built property, developments |
-| Private Equity | Direct stakes, fund LP commitments |
-| Public Equity | Listed markets, brokerage accounts |
-| Fixed Asset | Vehicles, art, jewelry (also see Cars) |
+| Private Equity | Direct PE/VC stakes |
+| Public Equity | Listed markets and brokerage holdings |
+| Fixed Asset | Vehicles and other fixed assets |
 | Bonds | Fixed income, sukuk |
-| Cash | Bank balances, liquidity |
-| Other | Alternatives, custom structures |
+| Cash | Bank balances and liquidity |
+| Precious Metals | Gold, silver, and related holdings |
+| Other | Alternatives and custom structures |
 
-### List page
+### List filters
 
-**Filters:** All · Active · Exited
+All · Active · Exited
 
-**Columns:** Name, Category, Entity, Status, Acquired, Current Value, Updated, Actions
-
-### Register / edit an asset
+### Register or edit an asset
 
 **Required:** Name, Category, Entity, Status, Currency
 
-**Optional:** Acquisition Date/Cost, Current Value, Description, Manager Name/Email
+**Optional:** Acquisition date/cost, current value, description, manager name/email, ownership %
 
-**Statuses:** Active · Monitor · Deferred · Exited (via exit workflow only)
+**Statuses:** Active · Monitor · Deferred · Exited (via exit workflow)
 
-### Record an exit
+### Record an exit (from an asset)
 
-| Field | Required? |
-|-------|-----------|
-| Exit Type | Yes — Sale, Transfer, Liquidation, Write-off, Other |
-| Exit Date | Yes |
-| Proceeds | Yes for Sale/Liquidation |
-| Buyer / Transferee | For Sale/Transfer |
-| Record proceeds as cash inflow | Optional checkbox |
-| Documents | Sale agreement, transfer deed, closing statement |
+| Field | Notes |
+|-------|-------|
+| Exit Type | Sale, Transfer, Liquidation, Write-off, Other |
+| Exit Date | Required |
+| Proceeds | Required for Sale / Liquidation |
+| Buyer / Transferee | For Sale / Transfer |
+| Record proceeds as cash inflow | Optional |
+| Documents | Sale agreement, deed, closing statement |
 
-**Note:** Land-linked assets must be exited via **Lands** → Record Property Sale.
+**Note:** Land-linked assets must be exited via **Lands → Record Property Sale**.
 
 ---
 
-## 9. Lands
+## 8. Public Markets
 
-**Path:** Sidebar → **Lands** · **Available**
+**Path:** Sidebar → **Public Markets**
 
-See [Section 6 — Real Estate](#6-real-estate) for context. Full field reference:
+Track listed equities, bonds, options, structured notes, and crypto across markets.
+
+### Markets
+
+MSX · GCC (UAE, SA, KW, BH, QA) · USA · HK · China · India · UK · Other · All
+
+### What you can do
+
+1. Open **Public Markets** and filter by entity, market, private vs managed portfolios, and management type.
+2. Add holdings manually or import from broker / consolidated portfolio templates.
+3. Download upload templates, then import spreadsheets.
+4. Link **broker accounts** and **managed portfolios**.
+5. Refresh prices (including crypto where supported).
+6. Export holdings.
+
+Position values roll into the **Public Equity** total on the Dashboard and in reports.
+
+### Best practice
+
+- Keep one broker account / managed portfolio per mandate.
+- Use the provided templates for imports to avoid duplicate rows.
+- Refresh prices after material market moves or before board packs.
+
+---
+
+## 9. PE / VC Portfolio
+
+**Path:** Sidebar → **PE / VC Portfolio**
+
+Direct private equity and venture holdings.
+
+### List & summary
+
+Summary cards show invested capital, fair value, and portfolio **MOIC / IRR**. Filter by entity. Add companies from **New**.
+
+### Company hub tabs
+
+| Tab | Purpose |
+|-----|---------|
+| Overview | Thesis, stage, status, key metrics |
+| Investments | Cost basis and round history |
+| Cap Table | Ownership and share classes |
+| Valuations | Fair value marks over time |
+| Distributions | Cash returned |
+| Exit | Exit planning and outcomes |
+| Contacts | Founders, GPs, IR |
+| Governance | Board / observer notes |
+| Monitoring | Reports and KPIs |
+| Documents | Deal docs and packs |
+
+A linked **Assets** record is maintained for portfolio roll-up. You can also register operating companies under **Companies** when corporate registry detail is the primary need.
+
+---
+
+## 10. Fund LP Investments
+
+**Path:** Sidebar → **Fund LP Investments**
+
+Limited-partner commitments to buyout, venture, growth, and similar funds.
+
+### What you can do
+
+1. Add a fund commitment (vintage, GP, strategy, commitment amount, currency, entity).
+2. Log **capital calls** and **distributions**.
+3. Enter periodic **NAV updates**.
+4. Store fund documents (LPA, subscription, reports).
+
+### Detail tabs
+
+Overview · Capital Calls · Distributions · NAV Updates · Fund Details · Documents
+
+### Key metrics
+
+Paid-in · NAV · Unfunded · **DPI / RVPI / TVPI** · **IRR**
+
+---
+
+## 11. Exits
+
+**Path:** Sidebar → **Exits**
+
+Cross-module view of realized exits from assets, PE, and real estate. Use it to review proceeds, buyers, dates, and documents after disposals have been recorded in their source modules.
+
+---
+
+## 12. Lands
+
+**Path:** Sidebar → **Lands**
+
+Land parcels in Oman and internationally. Creates a linked portfolio asset automatically.
 
 ### Register land
 
-**Oman — required:** Land Name, Governorate, Wilayat, Entity
+**Oman — required:** Land name, Governorate, Wilayat, Entity
 
-**International — required:** Land Name, Country, City, Entity
+**International — required:** Land name, Country, City, Entity
 
-**Optional:** Village, Krooki/Mulkia/Plot refs, Land Use, Area (m²), GPS, Registered Holders, valuation fields, documents (Krooki, Mulkia, Other).
+**Optional:** Village, Krooki / Mulkia / plot refs, land use, area (m²), GPS, registered holders, valuation, documents (Krooki, Mulkia, Other)
 
-### Property sale
+### Record a property sale
 
-**Required:** Sold To, Sale Date, Sale Amount. Optional: currency, notes, sale documents.
+**Required:** Sold To, Sale Date, Sale Amount
+
+Optional currency, notes, and sale documents (SPA, POA, buyer ID). Completing a sale marks the land and linked asset as **Exited**.
 
 ### Delete
 
-Permanent — removes parcel, documents, and linked asset.
+Permanent — removes the parcel, documents, and linked asset.
 
 ---
 
-## 10. Cars
+## 13. Real Estate
 
-**Path:** Sidebar → **Cars** · **Available**
+**Paths:**
 
-Oman vehicle registry (Mulkia). Creates a linked Fixed Asset automatically.
+- **Investment Portfolio** → `/real-estate`
+- **Private Real Estate** → `/real-estate/private`
+- **Rent Dashboard** → `/real-estate/rent`
 
-**Required:** Name, Plate Number, Governorate, Wilayat, Entity, Make, Model
+### A. Investment Portfolio
 
-**Key optional fields:** Registration/insurance expiry (Dashboard reminders), Mulkia docs, valuation.
+Buildings and units held as investments.
 
-**Exit:** Record Exit on vehicle detail page.
+**Property tabs:** Overview · Units · Rent · Leases · Maintenance · Utilities · Financials · Documents
+
+Use the rent dashboard for collection status, occupancy, and PDCs linked to units and leases.
+
+### B. Private Real Estate (family villas)
+
+Family-use properties with running costs and staff.
+
+**Tabs:** Overview · Physical · Running Costs · Staff · Financials · Documents · Succession
+
+### C. Mortgages
+
+Register property-backed debt in **Loans** and link the underlying asset as collateral.
 
 ---
 
-## 11. Companies
+## 14. Cars
 
-**Path:** Sidebar → **Companies** · **Available**
+**Path:** Sidebar → **Cars**
 
-See [Section 4 — PE/VC Portfolio](#4-pe--vc-portfolio). Creates linked Private Equity asset.
+Oman vehicle registry (Mulkia). Creates a linked **Fixed Asset** automatically.
 
-**Required:** Company Name, Registration Number, Entity
+**Required:** Name, plate number, governorate, wilayat, entity, make, model
 
-**Optional:** Owners, CEO, management contacts, registration expiry, corporate documents.
+**Key optional fields:** Registration / insurance expiry (feed Dashboard and Calendar reminders), Mulkia documents, valuation
+
+**Exit:** Record Exit on the vehicle detail page.
 
 ---
 
-## 12. Loans
+## 15. Companies
 
-**Path:** Sidebar → **Loans** · **Available**
+**Path:** Sidebar → **Companies**
 
-**Required:** Loan Name, Entity, Principal Amount
+Corporate registry for portfolio and operating companies. Creates a linked Private Equity asset when appropriate.
 
-**Optional:** Type, lender, rate, maturity, payment schedule, collateral asset link, **lender contact** (name/email/phone), documents.
+**Required:** Company name, registration number, entity
+
+**Optional:** Owners (name, ownership %, email, phone), CEO, management contacts, registration expiry, corporate documents
+
+---
+
+## 16. Precious Metals
+
+**Path:** Sidebar → **Assets** (category **Precious Metals**)
+
+Gold, silver, and similar holdings. Units may include gram, tola, kilogram, and ounce. Price basis can use OMR buy/sell or USD spot. Use **Refresh prices** on the Assets list or detail page when available.
+
+---
+
+## 17. Cash Management
+
+**Path:** Sidebar → **Cash Management**
+
+Operational cash positions (distinct from the Bank Details registry).
+
+### What you can do
+
+1. Add cash-position accounts (bank, entity, currency, balance).
+2. View summaries by bank, entity, and currency.
+3. Upload PDF bank statements to extract closing balances.
+4. Review import history and **stale balances** (30+ days without update).
+5. See FX conversion toward OMR consolidation.
+
+**Tip:** Keep reference account numbers and SWIFT/IBAN in **Bank Details**. Use **Cash Management** for balances that feed net worth and cash reports.
+
+---
+
+## 18. Bank Details
+
+**Path:** Sidebar → **Bank Details**
+
+Registry of family-office bank accounts used for cheques, transfer letters, and reference data.
+
+| Field | Required? |
+|-------|-----------|
+| Account name | Yes |
+| Bank name | Yes |
+| Account number | Yes |
+| Currency | Yes |
+| IBAN, SWIFT, sort code | No |
+| Entity | No |
+| Notes | No |
+
+USA and other regional account variants are supported where configured. The detail page shows linked cheques and related activity.
+
+---
+
+## 19. Transfer Letters
+
+**Path:** Sidebar → **Transfer Letters**
+
+Generate and track wire / transfer instruction letters.
+
+### Types
+
+Local · International · UK · US
+
+### Workflow
+
+1. Create a new letter and choose the transfer type.
+2. Select source and beneficiary banks from **Bank Details**.
+3. Enter amount (amount-in-words is generated), purpose, and correspondent bank details when required.
+4. Preview / print the letter.
+5. Track status: **Pending** ↔ **Complete**.
+6. Serial numbers are assigned for auditability.
+
+---
+
+## 20. Loans
+
+**Path:** Sidebar → **Loans**
+
+Register borrowings and track outstanding principal and interest.
+
+**Required:** Loan name, entity, principal amount
+
+**Optional:** Type, lender, rate, payment frequency, maturity, collateral asset link, lender contact, documents
 
 ### Record a payment
 
-**Required:** Payment Date, Amount, Payment Method
+**Required:** Payment date, amount, payment method
 
-**Optional:** Principal/interest split, reference, receipt files.
+**Optional:** Principal / interest split, reference, receipt files
+
+Active loans reduce **net worth** on the Dashboard.
 
 ---
 
-## 13. Cheques
+## 21. Cheques
 
-**Path:** Sidebar → **Cheques** · **Available**
+**Path:** Sidebar → **Cheques**
 
-**Required:** Cheque Number, Entity, Amount, Issue Date, Payee (beneficiary for issued cheques)
+Track issued and received cheques.
+
+**Required:** Cheque number, entity, amount, issue date, payee (for issued cheques)
 
 **Statuses:** Pending · Deposited · Cleared · Bounced · Cancelled · Stopped
 
-**Delete:** Soft delete (hidden from lists).
+Summary cards highlight pending outgoing/incoming, due this week, and bounced items. Deletes are **soft deletes** (hidden from lists).
 
 ---
 
-## 14. Bank Details
+## 22. Expenses
 
-**Path:** Sidebar → **Bank Details** · **Available**
+**Path:** Sidebar → **Expenses**
 
-Part of cash management — see [Section 7](#7-cash-management). Detail page shows linked cheques.
+**Access:** typically Principal and Finance (and Super Admin).
 
----
+**Required:** Title, amount, expense type
 
-## 15. Expenses
+**Optional:** Status (Paid / Pending / Overdue), due date, entity, recurring flag, attachments (invoice, payment slip, cheque copy)
 
-**Path:** Sidebar → **Expenses** · **Available**
-
-**Access:** Principal and Finance only.
-
-**Required:** Title, Amount, Expense Type
-
-**Optional:** Status, due date, entity, recurring flag, attachments (invoice, payment slip, cheque copy).
+Due and overdue expenses appear on the Dashboard and Calendar.
 
 ---
 
-## 16. Investment Proposals
+## 23. Investment Proposals
 
-**Path:** Sidebar → **Proposals** · **Available**
+**Path:** Sidebar → **Proposals**
 
-Governance workflow for new investments — from idea through committee approval.
+Governance workflow for new investments — from idea through approval.
 
 ### Who can do what
 
 | Action | Who |
 |--------|-----|
-| View proposals | All roles with Proposals access |
-| Create / edit / submit | Principal, Director, Super Admin |
+| View | Users with Proposals access |
+| Create / edit / submit | Principal, Director, Super Admin (and others with write access) |
 | Approve / reject / return | Assigned approvers |
 | Delete | Submitter only, **Draft** status only |
 
-### Proposal lifecycle
+### Lifecycle
 
 ```
 Draft → Submit → Pending Approval → Approved
                                   → Rejected
-                                  → Returned → (edit) → Resubmit → Pending
+                                  → Returned → edit → Resubmit → Pending
 ```
 
 ### Create a proposal
 
 **Path:** Proposals → **New Proposal**
 
-| Field | Required? | Notes |
-|-------|-----------|-------|
-| Investment Name | Yes | |
-| Suggested Amount | Yes | |
-| Brief About the Investment | Yes | Summary for reviewers |
-| Recommendation | Yes | Your investment thesis / recommendation |
-| Entity | No | Which entity would invest |
-| Currency | No | Default OMR |
-| Website | No | Company or fund URL |
-| Investment Deck | Yes on submit | PDF or PowerPoint |
-| Approvers | Yes on submit | At least one; cannot select yourself |
+| Field | On submit |
+|-------|-----------|
+| Investment name | Required |
+| Suggested amount | Required |
+| Brief about the investment | Required |
+| Recommendation | Required |
+| Entity / currency / website | Optional |
+| Investment deck (PDF / PPT) | Required |
+| Approvers | At least one; cannot select yourself |
 
-**Buttons:**
+**Save Draft** keeps work in progress. **Submit for Approval** starts the review workflow.
 
-- **Save Draft** — work in progress; no approvers required
-- **Submit for Approval** — requires deck + approvers; notifies workflow
-
-### Review a proposal (approvers)
-
-**Path:** Proposals → **Pending My Approval** → open proposal
-
-The **Approvers** panel shows each reviewer and their decision. When it is your turn:
+### Review (approvers)
 
 | Decision | Comment |
 |----------|---------|
 | **Approve** | Optional |
-| **Return with Comments** | **Required** — sends back to submitter for revision |
-| **Reject** | **Required** |
+| **Return with Comments** | Required — sends back for revision |
+| **Reject** | Required |
 
-**Majority rule:** Once more than half of assigned approvers approve → **Approved**. Same for rejections. A single **Return** immediately sets status to **Returned**.
-
-### Proposal detail page
-
-- Investment summary (amount, entity, brief, recommendation, website)
-- **Approvers** panel with progress (e.g. "2 of 3 approved")
-- **Investment Deck** — open/download
-- **Comment thread** — full audit of notes, returns, resubmissions
+**Majority rule:** Once more than half of assigned approvers approve → **Approved**. Same for rejections. A single **Return** sets status to **Returned**.
 
 ### After approval
 
-Log the investment in the appropriate portfolio module (PE asset, Fund LP record, Public Equity account, etc.) and store legal documents in the **Document Vault**.
+Register the investment in the correct portfolio module (PE, Fund LP, Public Markets, Real Estate, etc.) and store legal documents in the **Document Vault**.
 
-### Filters
-
-All · Mine · Pending My Approval · Approved · Rejected
+**Filters:** All · Mine · Pending My Approval · Approved · Rejected
 
 ---
 
-## 17. Family, Beneficiaries & Succession
+## 24. Documents & Insurance
 
-**Status:** **Planned** — not yet available as a dedicated module
+### Document Vault
 
-Jawan is designed to extend into family governance. The following capabilities are on the roadmap:
-
-### Planned: Family members
-
-| Feature | Description |
-|---------|-------------|
-| Member registry | Name, relationship, date of birth, nationality |
-| Roles | Principal, beneficiary, dependent, advisor |
-| Entity linkage | Which entities each member is associated with |
-| Document linkage | IDs, passports, POA stored in vault |
-
-### Planned: Beneficiaries
-
-| Feature | Description |
-|---------|-------------|
-| Beneficiary register | Named beneficiaries per entity or asset |
-| Allocation % | Intended share per beneficiary |
-| Asset linkage | Which holdings benefit which family members |
-| Trust / foundation mapping | Beneficial interest in structures |
-
-### Planned: Succession & estate
-
-| Feature | Description |
-|---------|-------------|
-| Estate plan documents | Wills, waqf deeds, trust deeds, letters of wishes |
-| Succession timeline | Key dates and trigger events |
-| Ownership transfer workflow | Link exits and transfers to succession events |
-| Reminders | Document review dates, succession planning milestones |
-
-### What you can do today
-
-| Need | Use today |
-|------|-----------|
-| Store wills / estate documents | **Documents** vault (Legal category) |
-| Track who owns what | **Lands** holders, **Companies** owners, asset **Ownership %** |
-| Transfer assets on death/succession | **Record Exit** (Transfer type) on assets |
-| Cheque beneficiaries | **Payee** field on issued cheques |
-| Platform users (staff/advisors) | **Admin → Users** (not family genealogy) |
-
----
-
-## 18. Contacts
-
-**Status:** **Partial** — contacts are stored per record; central directory **planned**
-
-### Where contacts live today
-
-| Module | Contact fields |
-|--------|----------------|
-| **Assets** | Manager name, email, phone (notes) |
-| **Loans** | Lender contact name, email, phone |
-| **Companies** | CEO, management contact, owner name/email/phone |
-| **Lands** | Registered holder name, email, phone |
-| **PE investments** | Contact name/email/phone (data model; UI planned) |
-| **Proposals** | Submitter and approver users (platform accounts) |
-| **Cheques** | Payee (beneficiary) or payer name |
-
-### Planned: Contacts directory
-
-| Feature | Description |
-|---------|-------------|
-| Central address book | Advisors, lawyers, bankers, GPs, property managers |
-| Categories | Legal, Banking, Broker, GP, Property, Family, Other |
-| Link to records | Attach contacts to assets, loans, companies, funds |
-| Communication log | Notes and meeting history (future) |
-
-### Best practice today
-
-- Enter relationship manager details in **Manager** fields on assets.
-- Store adviser agreements and engagement letters in **Documents**.
-- Use consistent naming (e.g. `"Ahmed — Bank Muscat RM"`) in manager/contact fields for searchability.
-
----
-
-## 19. Documents (Document Vault)
-
-**Path:** Sidebar → **Documents** · **Available**
-
-### Upload
+**Path:** Sidebar → **Documents → Document Vault**
 
 | Field | Required? |
 |-------|-----------|
 | File | Yes |
 | Name | Yes |
 | Category | Yes — KYC, Legal, Property, Corporate, Tax, Banking, Other |
-| Expiry Date | No |
+| Expiry date | No |
 | Entity | No |
 
-### Status
+**Statuses:** Valid · Expiring Soon · Expired · Pending · Under Review
 
-Valid · Expiring Soon · Expired · Pending · Under Review
+Restricted files may require a **download request** that Super Admins approve under Admin → Download Requests.
 
-### Family & estate use
+### Insurance Register
 
-Store wills, LPAs, trust deeds, KYC packs, and adviser contracts here. Set **expiry dates** for documents that need renewal — they appear on the Dashboard reminders.
+**Path:** Sidebar → **Documents → Insurance Register**
+
+Register policies: Property · Vehicle · Life · Health · Business · Other
+
+**Statuses:** Active · Pending Renewal · Expired · Cancelled
+
+Track premiums, frequency, and policy documents. Expiry dates feed **Calendar** and **Dashboard** reminders.
 
 ---
 
-## 20. Reports
+## 25. Family Members & Beneficiaries
 
-**Path:** Sidebar → **Reports** · **Available**
+**Path:** Sidebar → **Family → Members & Beneficiaries**
 
-The Report Library includes balance-sheet, portfolio, operations, real estate, and register reports, plus a **Monthly Board Pack**.
+Family register for the office.
+
+### What you can track
+
+- Relationships (Head of Family, Spouse, Son/Daughter, and other relations)
+- KYC details and nationality
+- IDs (Omani ID, passport, residence) with expiry dates
+- Ownership stakes in entities / holdings
+- Signatory roles
+- Beneficiary designations
+- Supporting documents
+
+ID renewals appear on the Calendar and Dashboard when expiry dates are set.
+
+---
+
+## 26. Succession & Estate
+
+**Path:** Sidebar → **Family → Succession & Estate**
+
+Estate and succession plans (with on-screen disclaimer).
+
+### Plan statuses
+
+Draft · In Progress · Review Due · Complete
+
+### Plan tabs
+
+| Tab | Purpose |
+|-----|---------|
+| Overview | Plan summary and status |
+| Distribution | Beneficiaries mapped to assets, lands, companies, real estate, vehicles |
+| Legal Documents | Will, trust, letter of wishes, POA, and related uploads |
+| Executors & Trustees | Executor, trustee, guardian, POA agent appointments |
+| Checklist | Progress toward completeness |
+| Review Schedule | Next review dates (Calendar reminders) |
+
+---
+
+## 27. Contacts
+
+**Path:** Sidebar → **Contacts**
+
+Central directory of external relationships.
+
+**Types:** Banker · Lawyer · Fund Manager · Broker · Tenant · Contractor · Co-Investor · Government · Advisor · Other
+
+Filter by entity or global contacts, follow-up due dates, and active status. Many modules also keep inline contact fields (managers, lenders, owners) — use the directory for people you reuse across records.
+
+---
+
+## 28. Reports
+
+**Path:** Sidebar → **Reports**
+
+Report library with entity and date filters. Export to **XLSX**, **CSV**, or **print / PDF**.
 
 ### Featured: Monthly Board Pack
 
-Executive scorecard with net worth, allocation, valuation-based MTD/YTD performance, PE MOIC/IRR highlights, LP DPI/RVPI/TVPI/IRR, and cash. Export to Excel/CSV or print to PDF. Scheduled email delivery runs on the 1st of each month for users with Reports access (requires `RESEND_API_KEY`).
+Executive scorecard covering net worth, allocation, valuation-based MTD/YTD performance, PE MOIC/IRR, LP DPI/RVPI/TVPI/IRR, and cash. Scheduled email delivery can run on the **1st of each month** for users with Reports access (when email is configured).
 
-### Key portfolio reports
+### Report catalog (selected)
 
-| Report | Highlights |
-|--------|------------|
-| Net Worth / Consolidated OMR | Ownership-adjusted portfolio vs liabilities |
-| Asset Allocation | Category mix with OMR weights |
-| Portfolio Performance | Valuation-based MTD/YTD per asset |
-| PE / VC Portfolio Summary | Invested, fair value, **MOIC**, **net IRR** |
-| Fund LP Portfolio Summary | Paid-in, NAV, unfunded, **DPI / RVPI / TVPI**, **net IRR** |
-| Cash Balances / Position | Liquidity by account and currency |
+| Category | Reports |
+|----------|---------|
+| Balance sheet | Net Worth Statement · Consolidated Net Worth (OMR) · Asset Register · Asset Allocation · Liability & Loan Schedule · Valuation History |
+| Cash | Cash & Bank Balances · Cash Position · Bank Accounts |
+| Portfolio | Public Equity Holdings · PE / VC Portfolio Summary · Fund LP Portfolio Summary · Portfolio Performance · Dividend & Distribution Income · Total Portfolio Income · Realized Exits · Exit Analytics |
+| Operations | Cheque Register · Expense Summary · Investment Proposal Pipeline |
+| Registers | Land Portfolio · Vehicle Fleet · Registered Companies · Document Expiry · Insurance Register · Family Register · Succession Plan Status · Contacts Directory |
+| Real estate | Property Portfolio · Rental Income · Rent Collection Register · Active Lease Register · Property Expense Summary · Property Valuation History |
 
-Filters: entity (where supported) and optional date range. Export: XLSX, CSV, print.
 ---
 
-## 21. Admin: User Management
+## 29. Admin: Users
 
-**Path:** Sidebar → **Users** · **Available** (Super Admin only)
+**Path:** Sidebar → **Admin → Users** · **Super Admin only**
 
 ### Invite a user
 
-Email, office role, optional super-admin flag, module overrides, entity access, document category scopes.
+1. Enter email and office **role**.
+2. Optionally flag **Super Admin**.
+3. Set module overrides, entity access, and document category scopes.
+4. Send the invitation — the user completes sign-up via the invite link.
 
 ### Manage users
 
-Edit access, deactivate/reactivate, cancel pending invitations.
+Edit access, deactivate / reactivate, and cancel pending invitations.
 
 ---
 
-## 22. Admin: Audit Log
+## 30. Admin: Download Requests
 
-**Path:** Sidebar → **Audit Log** · **Planned** (UI)
+**Path:** Sidebar → **Admin → Download Requests** · **Super Admin only**
 
-Backend logging is active for create/update/delete across modules. Viewer UI coming soon.
+Review and approve or deny requests to download restricted documents from the Document Vault.
 
 ---
 
-## 23. Quick Reference by Task
+## 31. Admin: Audit Log
+
+**Path:** Sidebar → **Admin → Audit Log** · **Super Admin only**
+
+Filterable event log of create / update / delete activity across modules for governance and troubleshooting.
+
+---
+
+## 32. Quick Reference by Task
 
 | I want to… | Go to… |
 |------------|--------|
 | See portfolio overview | Dashboard |
-| Track listed stocks / ETFs | Assets → Public Equity |
-| Track a VC/PE company stake | Companies or Assets → Private Equity |
-| Track a fund LP commitment | Assets → Private Equity or Other |
+| Ask a question about holdings | Assistant |
+| See upcoming deadlines | Calendar |
+| Track listed stocks / ETFs / crypto | Public Markets |
+| Track a PE / VC company | PE / VC Portfolio |
+| Track a fund LP commitment | Fund LP Investments |
+| Review realized exits | Exits |
 | Register Oman land | Lands → Register Land |
-| Sell property | Lands → Record Property Sale |
-| Track a building / villa | Assets → Real Estate |
-| Manage bank accounts | Bank Details |
-| Track cash balances | Assets → Cash + Bank Details |
+| Sell a land parcel | Lands → Record Property Sale |
+| Manage rental buildings | Real Estate → Investment Portfolio |
+| Track a family villa | Real Estate → Private Real Estate |
+| Register a vehicle | Cars |
+| Register a company | Companies |
+| Track gold / silver | Assets → Precious Metals |
+| Update cash balances | Cash Management |
+| Register bank account details | Bank Details |
+| Prepare a wire letter | Transfer Letters |
+| Track a loan | Loans |
 | Issue or track cheques | Cheques |
 | Pay invoices / track costs | Expenses |
-| Submit investment for approval | Proposals → New Proposal |
+| Submit an investment for approval | Proposals → New Proposal |
 | Approve an investment | Proposals → Pending My Approval |
-| Store a will or LPA | Documents → Legal |
-| Find an adviser's contact | Asset/Loan/Company manager fields |
-| Register a vehicle | Cars |
-| Track a loan | Loans |
-| Invite a user | Admin → Users |
+| Store a will or LPA | Documents → Document Vault (Legal) |
+| Track insurance policies | Documents → Insurance Register |
+| Register family members | Family → Members & Beneficiaries |
+| Plan succession | Family → Succession & Estate |
+| Find an adviser | Contacts |
+| Run the board pack | Reports → Monthly Board Pack |
+| Invite a colleague | Admin → Users |
 
 ---
 
-## 24. Tips & Limitations
+## 33. Tips & Best Practices
 
-1. **Portfolio classes** — Public Markets, PE/VC, Funds, Real Estate, and Cash all roll up through **Assets** and the **Dashboard** even when dedicated screens are still being built.
-2. **Update values** — For Public Equity, PE, and Fund LP records, refresh **Current Value** when you receive statements until automated imports are available.
-3. **Linked records** — Lands, Cars, and Companies create portfolio assets; manage exits in the correct module.
-4. **Family & contacts** — Use Documents + per-record contact fields until dedicated modules ship.
-5. **Proposals** — An approved proposal should be followed by registration in the relevant portfolio module.
-6. **Reports** — Board Pack, PE MOIC/IRR, and LP multiples are available under **Reports**. Audit Log UI coming soon.
-7. **Cheque deletes** — Soft delete; most other deletes are permanent.
-
----
-
-## Appendix — Module implementation status
-
-| Area | Status |
-|------|--------|
-| Dashboard | Available |
-| Public Markets (basic) | Partial |
-| PE/VC (Companies + Assets) | Partial |
-| Fund LP | Partial |
-| Real Estate (Lands + Assets) | Available / Partial |
-| Cash Management (Bank + Cheques + Expenses) | Available |
-| Assets registry | Available |
-| Lands, Cars, Companies | Available |
-| Loans, Cheques, Expenses | Available |
-| Proposals | Available |
-| Documents | Available |
-| Family & Succession | Planned |
-| Contacts directory | Planned |
-| Reports | Available |
-| Audit Log UI | Planned |
+1. **Update values before board packs** — refresh Public Markets prices, PE valuations, Fund LP NAVs, and cash balances so Dashboard and Reports stay accurate.
+2. **Use the right module** — prefer dedicated modules (Public Markets, PE, Fund LP, Real Estate, Cash) over generic Assets when available; Assets remains the registry and roll-up layer.
+3. **Linked records** — Lands, Cars, and Companies create portfolio assets; exit them from the correct source module.
+4. **Bank Details vs Cash** — Bank Details holds account identity; Cash Management holds balances that feed net worth.
+5. **Proposals after approval** — always register the approved investment in the relevant portfolio module and file legal docs in the vault.
+6. **Expiry dates matter** — set them on documents, insurance, vehicles, family IDs, and succession reviews so Calendar and Dashboard reminders work.
+7. **Entity discipline** — assign the correct entity on every record so filtered users and consolidated reports stay correct.
+8. **Cheque deletes** — soft delete only; most other deletes are permanent.
+9. **Permissions** — if a module is missing from your sidebar, ask a Super Admin to adjust your role, overrides, or entity access.
+10. **Security** — the session ends after 30 minutes of inactivity; never share invite links or credentials.
 
 ---
 
-*Jawan Investments Family Office Platform · User Guide v2.0 · July 2026*
+*Jawan Investments Family Office Platform · User Manual v3.0 · July 2026*

@@ -5,6 +5,7 @@ import { revalidatePath } from "next/cache";
 import { db, type DbClient } from "@/lib/db";
 import { deleteBlobUrl, uploadPrivateFile } from "@/lib/blob";
 import { logAudit } from "@/lib/audit/log";
+import { recordAssetValuation } from "@/lib/portfolio/valuations";
 import { canWrite, requireModuleAccess } from "@/lib/permissions/access";
 import { companyEntityFilter } from "@/lib/permissions/scoped-queries";
 import {
@@ -17,6 +18,11 @@ import {
 import type { AssetStatus, CompanyDocumentType } from "@/lib/generated/prisma/client";
 
 const ASSET_STATUS_VALUES = ["ACTIVE", "MONITOR", "EXITED", "DEFERRED"] as const satisfies readonly AssetStatus[];
+
+function parseDecimal(value?: string | null) {
+  if (!value || value.trim() === "") return undefined;
+  return value.trim();
+}
 
 export type CompanyOwnerInput = {
   name: string;
@@ -162,6 +168,7 @@ function readCompanyFormData(formData: FormData) {
     entityId,
     status,
     notes: String(formData.get("notes") ?? "").trim() || undefined,
+    currentValue: parseDecimal(String(formData.get("currentValue") ?? "")),
     owners: parseOwnersJson(String(formData.get("ownersJson") ?? "[]")),
   };
 }
@@ -182,6 +189,8 @@ export async function createCompany(formData: FormData) {
         category: "PRIVATE_EQUITY",
         status: data.status,
         entityId: data.entityId,
+        currentValue: data.currentValue,
+        valueUpdatedAt: data.currentValue ? new Date() : undefined,
         description: "Registration " + data.registrationNumber,
         managerName: data.ceoName,
         managerEmail: data.ceoEmail,
@@ -219,8 +228,19 @@ export async function createCompany(formData: FormData) {
     });
 
     await replaceOwners(tx, created.id, data.owners);
-    return created;
+    return { company: created, assetId: asset.id };
   });
+
+  if (data.currentValue) {
+    const value = parseFloat(data.currentValue);
+    if (!Number.isNaN(value) && value > 0) {
+      await recordAssetValuation({
+        assetId: company.assetId,
+        value,
+        currency: "OMR",
+      });
+    }
+  }
 
   const registrationFiles = getFilesFromFormData(formData, "registrationCopyFiles");
   const chamberFiles = getFilesFromFormData(formData, "chamberCopyFiles");
@@ -228,29 +248,29 @@ export async function createCompany(formData: FormData) {
   const otherFiles = getFilesFromFormData(formData, "otherFiles");
 
   if (registrationFiles.length) {
-    await uploadCompanyFiles(company.id, registrationFiles, "REGISTRATION_COPY", ctx.id);
+    await uploadCompanyFiles(company.company.id, registrationFiles, "REGISTRATION_COPY", ctx.id);
   }
   if (chamberFiles.length) {
-    await uploadCompanyFiles(company.id, chamberFiles, "CHAMBER_COPY", ctx.id);
+    await uploadCompanyFiles(company.company.id, chamberFiles, "CHAMBER_COPY", ctx.id);
   }
   if (financialsFiles.length) {
-    await uploadCompanyFiles(company.id, financialsFiles, "FINANCIALS", ctx.id);
+    await uploadCompanyFiles(company.company.id, financialsFiles, "FINANCIALS", ctx.id);
   }
   if (otherFiles.length) {
-    await uploadCompanyFiles(company.id, otherFiles, "OTHER", ctx.id, "Other document");
+    await uploadCompanyFiles(company.company.id, otherFiles, "OTHER", ctx.id, "Other document");
   }
 
   await logAudit({
     userId: ctx.id,
     action: "CREATE",
     resource: "RegisteredCompany",
-    resourceId: company.id,
-    metadata: { name: company.name, registrationNumber: company.registrationNumber },
+    resourceId: company.company.id,
+    metadata: { name: company.company.name, registrationNumber: company.company.registrationNumber },
   });
 
   revalidatePath("/companies");
   revalidatePath("/assets");
-  return company;
+  return company.company;
 }
 
 export async function updateCompany(id: string, formData: FormData) {
@@ -298,6 +318,8 @@ export async function updateCompany(id: string, formData: FormData) {
           name: data.name,
           status: data.status,
           entityId: data.entityId,
+          currentValue: data.currentValue,
+          valueUpdatedAt: data.currentValue ? new Date() : existing.asset?.valueUpdatedAt,
           description: "Registration " + data.registrationNumber,
           managerName: data.ceoName,
           managerEmail: data.ceoEmail,
@@ -327,6 +349,17 @@ export async function updateCompany(id: string, formData: FormData) {
     return updated;
   });
 
+  if (existing.assetId && data.currentValue) {
+    const value = parseFloat(data.currentValue);
+    if (!Number.isNaN(value) && value > 0) {
+      await recordAssetValuation({
+        assetId: existing.assetId,
+        value,
+        currency: existing.asset?.currency ?? "OMR",
+      });
+    }
+  }
+
   await logAudit({
     userId: ctx.id,
     action: "UPDATE",
@@ -339,6 +372,9 @@ export async function updateCompany(id: string, formData: FormData) {
   revalidatePath("/companies/" + id);
   revalidatePath("/companies/" + id + "/edit");
   revalidatePath("/assets");
+  if (existing.assetId) {
+    revalidatePath("/assets/" + existing.assetId);
+  }
   return company;
 }
 

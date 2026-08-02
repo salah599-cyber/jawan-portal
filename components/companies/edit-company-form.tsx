@@ -6,7 +6,7 @@ import { updateCompany } from "@/lib/actions/companies";
 import type { CompanyOwnerInput } from "@/lib/actions/companies";
 import { CompanyOwnersFields } from "@/components/companies/company-owners-fields";
 import { EDITABLE_ASSET_STATUS_ENTRIES } from "@/lib/labels";
-import { formatDateInput } from "@/lib/format";
+import { formatDateInput, formatDecimalInput } from "@/lib/format";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -31,6 +31,10 @@ type CompanyRecord = {
   entityId: string;
   status: string;
   notes: string | null;
+  asset?: {
+    currentValue: { toString(): string } | null;
+    currency: string;
+  } | null;
   owners: Array<{
     name: string;
     ownershipPct: { toString(): string } | null;
@@ -117,6 +121,23 @@ export function EditCompanyForm({ company, entities }: { company: CompanyRecord;
                 ))}
               </SelectContent>
             </Select>
+          </div>
+
+          <div className="md:col-span-2 pt-2">
+            <p className="text-sm font-medium text-muted-foreground">Valuation</p>
+          </div>
+
+          <div className="space-y-2 md:col-span-2">
+            <Label htmlFor="currentValue">Current Value ({company.asset?.currency ?? "OMR"})</Label>
+            <Input
+              id="currentValue"
+              name="currentValue"
+              type="number"
+              step="0.01"
+              min="0"
+              placeholder="Optional — included in portfolio and net worth when set"
+              defaultValue={formatDecimalInput(company.asset?.currentValue)}
+            />
           </div>
 
           <CompanyOwnersFields initialOwners={initialOwners} />
