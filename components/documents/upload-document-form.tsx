@@ -3,6 +3,7 @@
 import { useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
+import { uploadDocumentVaultClient } from "@/lib/blob/client-upload";
 import { cleanupFailedDocumentUpload, saveDocumentMetadata } from "@/lib/actions/documents";
 import { ALLOWED_UPLOAD_ACCEPT, MAX_UPLOAD_LABEL, validateUploadFile } from "@/lib/upload-limits";
 import { Button } from "@/components/ui/button";
@@ -18,11 +19,13 @@ import {
 export function UploadDocumentForm({
   entities,
   categories,
+  currentUserId,
   canAddCategory = true,
   existingNames = [],
 }: {
   entities: EntityOption[];
   categories: DocumentCategoryOption[];
+  currentUserId: string;
   canAddCategory?: boolean;
   existingNames?: string[];
 }) {
@@ -79,35 +82,16 @@ export function UploadDocumentForm({
     startTransition(async () => {
       let uploadedUrl: string | undefined;
       try {
-        const uploadData = new FormData();
-        uploadData.set("file", file);
-
-        const uploadRes = await fetch("/api/documents/upload", {
-          method: "POST",
-          body: uploadData,
-          credentials: "same-origin",
-        });
-
-        const uploadBody = (await uploadRes.json().catch(() => ({}))) as {
-          url?: string;
-          fileName?: string;
-          mimeType?: string;
-          fileSize?: number;
-          error?: string;
-        };
-
-        if (!uploadRes.ok || !uploadBody.url) {
-          throw new Error(uploadBody.error ?? "Failed to upload file to storage.");
-        }
-        uploadedUrl = uploadBody.url;
+        const uploaded = await uploadDocumentVaultClient(file, currentUserId);
+        uploadedUrl = uploaded.fileUrl;
 
         const doc = await saveDocumentMetadata({
           name,
           categoryId,
-          fileName: uploadBody.fileName ?? file.name,
-          fileUrl: uploadBody.url,
-          mimeType: uploadBody.mimeType ?? (file.type || "application/octet-stream"),
-          fileSize: uploadBody.fileSize ?? file.size,
+          fileName: uploaded.fileName,
+          fileUrl: uploaded.fileUrl,
+          mimeType: uploaded.mimeType,
+          fileSize: uploaded.fileSize,
           expiryDate: expiryDateRaw || undefined,
           entityId: entityIdValue || undefined,
         });

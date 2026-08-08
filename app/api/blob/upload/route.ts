@@ -1,12 +1,15 @@
 import { handleUpload, type HandleUploadBody } from "@vercel/blob/client";
 import { NextResponse } from "next/server";
-import { getCurrentUserContext } from "@/lib/permissions/access";
+import { canWrite, getCurrentUserContext } from "@/lib/permissions/access";
 import { canSubmitProposal } from "@/lib/proposals/submit-access";
 import {
   ALLOWED_UPLOAD_MIME_TYPES,
   MAX_UPLOAD_BYTES,
 } from "@/lib/upload-limits";
-import { PROPOSAL_DECK_PENDING_PREFIX } from "@/lib/blob/client-upload-shared";
+import {
+  DOCUMENT_VAULT_PREFIX,
+  PROPOSAL_DECK_PENDING_PREFIX,
+} from "@/lib/blob/client-upload-shared";
 
 export const runtime = "nodejs";
 
@@ -33,6 +36,14 @@ export async function POST(request: Request): Promise<NextResponse> {
             throw new Error("You do not have permission to upload proposal decks.");
           }
           const expectedPrefix = `${PROPOSAL_DECK_PENDING_PREFIX}${ctx.id}/`;
+          if (!pathname.startsWith(expectedPrefix)) {
+            throw new Error("Invalid upload path.");
+          }
+        } else if (purpose === "document-vault") {
+          if (!canWrite(ctx, "DOCUMENTS")) {
+            throw new Error("You do not have permission to upload documents.");
+          }
+          const expectedPrefix = `${DOCUMENT_VAULT_PREFIX}${ctx.id}/`;
           if (!pathname.startsWith(expectedPrefix)) {
             throw new Error("Invalid upload path.");
           }

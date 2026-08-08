@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { db } from "@/lib/db";
+import { assertOwnedDocumentVaultUrl } from "@/lib/blob/client-upload-shared";
 import { deleteBlobUrl } from "@/lib/blob";
 import { logAudit } from "@/lib/audit/log";
 import { resolveDocumentCategoryId } from "@/lib/data/document-categories";
@@ -29,6 +30,7 @@ export async function saveDocumentMetadata(input: SaveDocumentMetadataInput) {
   if (!name) throw new Error("Document name is required.");
   if (!input.categoryId) throw new Error("Category is required.");
   if (!input.fileUrl) throw new Error("File URL is required.");
+  assertOwnedDocumentVaultUrl(input.fileUrl, ctx.id);
 
   const category = await resolveDocumentCategoryId(input.categoryId);
 

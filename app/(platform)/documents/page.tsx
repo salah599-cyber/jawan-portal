@@ -35,6 +35,7 @@ export default async function DocumentsPage() {
           <UploadDocumentForm
             entities={entities}
             categories={uploadCategories}
+            currentUserId={ctx.id}
             canAddCategory={showUpload}
             existingNames={documents.map((d) => d.name)}
           />

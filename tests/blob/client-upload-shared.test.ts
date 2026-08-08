@@ -1,5 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { assertOwnedPendingProposalDeckUrl } from "@/lib/blob/client-upload-shared";
+import {
+  assertOwnedDocumentVaultUrl,
+  assertOwnedPendingProposalDeckUrl,
+} from "@/lib/blob/client-upload-shared";
 
 describe("assertOwnedPendingProposalDeckUrl", () => {
   const userId = "user_abc";
@@ -29,5 +32,36 @@ describe("assertOwnedPendingProposalDeckUrl", () => {
         userId,
       ),
     ).toThrow(/invalid deck/i);
+  });
+});
+
+describe("assertOwnedDocumentVaultUrl", () => {
+  const userId = "user_abc";
+
+  it("accepts a private blob URL owned by the user", () => {
+    expect(() =>
+      assertOwnedDocumentVaultUrl(
+        `https://store.private.blob.vercel-storage.com/documents/${userId}/deck.pdf`,
+        userId,
+      ),
+    ).not.toThrow();
+  });
+
+  it("rejects URLs for another user", () => {
+    expect(() =>
+      assertOwnedDocumentVaultUrl(
+        "https://store.private.blob.vercel-storage.com/documents/other/deck.pdf",
+        userId,
+      ),
+    ).toThrow(/invalid document/i);
+  });
+
+  it("rejects non-blob hosts", () => {
+    expect(() =>
+      assertOwnedDocumentVaultUrl(
+        `https://evil.example.com/documents/${userId}/deck.pdf`,
+        userId,
+      ),
+    ).toThrow(/invalid document/i);
   });
 });
