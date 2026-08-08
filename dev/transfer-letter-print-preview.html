@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Transfer Letter Print Preview</title>
+  <style>
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      background: #e5e5e5;
+      font-family: "Times New Roman", Times, serif;
+    }
+    .toolbar {
+      position: sticky;
+      top: 0;
+      z-index: 10;
+      display: flex;
+      gap: 12px;
+      align-items: center;
+      padding: 12px 16px;
+      background: #1a1a1a;
+      color: #fff;
+      font-family: system-ui, sans-serif;
+      font-size: 14px;
+    }
+    .toolbar button {
+      padding: 8px 14px;
+      border: none;
+      border-radius: 6px;
+      background: #fff;
+      cursor: pointer;
+      font-size: 14px;
+    }
+    .page-wrap {
+      display: flex;
+      justify-content: center;
+      padding: 24px;
+    }
+    /* A4 sheet mock */
+    .sheet {
+      width: 210mm;
+      min-height: 297mm;
+      background: #fff;
+      box-shadow: 0 4px 24px rgba(0,0,0,.15);
+      position: relative;
+    }
+    /* Letterhead zone indicator (screen only) */
+    .letterhead-zone,
+    .footer-zone {
+      position: absolute;
+      left: 0;
+      right: 0;
+      border: 1px dashed #ccc;
+      pointer-events: none;
+      font-family: system-ui, sans-serif;
+      font-size: 10px;
+      color: #999;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .letterhead-zone {
+      top: 0;
+      height: 15.5em;
+      background: rgba(200,220,255,.12);
+    }
+    .footer-zone {
+      bottom: 0;
+      height: 5cm;
+      background: rgba(200,220,255,.12);
+    }
+  </style>
+  <style>
+    /* Matches app/globals.css print rules */
+    #transfer-letter-preview {
+      position: relative;
+      width: 100%;
+      margin: 0;
+      padding: 15.5em 2cm 5cm;
+      color: #000;
+      background: #fff;
+      font-size: 11pt;
+      line-height: 1.25;
+    }
+    #transfer-letter-preview p {
+      margin-top: 0;
+      margin-bottom: 0.35em;
+    }
+    #transfer-letter-preview table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-bottom: 0.5em;
+    }
+    #transfer-letter-preview td {
+      border: 1px solid #000;
+      padding: 0.15em 0.35em;
+      font-size: 10.5pt;
+      line-height: 1.2;
+      vertical-align: top;
+    }
+    #transfer-letter-preview td:first-child {
+      width: 32%;
+    }
+    .mb-2 { margin-bottom: 0.5em; }
+    .flex-header {
+      display: flex;
+      justify-content: space-between;
+      gap: 1rem;
+    }
+    .signature-gap { padding-top: 1.5rem; }
+
+    @media print {
+      body { background: #fff; }
+      .toolbar, .letterhead-zone, .footer-zone { display: none !important; }
+      .page-wrap { padding: 0; }
+      .sheet { box-shadow: none; width: 100%; min-height: auto; }
+      @page { margin: 0; size: A4 portrait; }
+    }
+  </style>
+</head>
+<body>
+  <div class="toolbar">
+    <span>Transfer letter print preview (dev fixture — open this file locally)</span>
+    <button type="button" onclick="window.print()">Print / Save PDF</button>
+  </div>
+  <div class="page-wrap">
+    <div class="sheet">
+      <div class="letterhead-zone">Letterhead area (15.5em top padding)</div>
+      <div class="footer-zone">Footer area (5cm bottom padding)</div>
+      <article id="transfer-letter-preview">
+        <div class="flex-header mb-2">
+          <p>July 20th 2026</p>
+          <p style="text-align:right">S.No. TL-00002</p>
+        </div>
+        <div class="mb-2">
+          <p>The Manager</p>
+          <p>Example National Bank</p>
+          <p>Corporate</p>
+        </div>
+        <p class="mb-2">Dear Sir,</p>
+        <p class="mb-2">Please make the following wire transfer:</p>
+        <table>
+          <tbody>
+            <tr><td>Amount</td><td>OMR 5,500 (OMR Five Thousand Five Hundred Only)</td></tr>
+            <tr><td>Bank</td><td>Example National Bank</td></tr>
+            <tr><td>For credit of</td><td>Jane Example Beneficiary</td></tr>
+            <tr><td>Account NO</td><td>0000-000000-000</td></tr>
+            <tr><td>IBAN</td><td>OM00 0000 0000 0000 0000 0000</td></tr>
+            <tr><td>Purpose</td><td></td></tr>
+            <tr><td>Mobile No</td><td>90000000</td></tr>
+            <tr><td>Email</td><td>beneficiary@example.com</td></tr>
+          </tbody>
+        </table>
+        <p class="mb-2">You may debit the above amount to our Account No. 0000-000000-001 with you, under advice to us.</p>
+        <div>
+          <p>Yours faithfully,</p>
+          <p class="signature-gap">Authorized Signatory</p>
+        </div>
+      </article>
+    </div>
+  </div>
+</body>
+</html>
