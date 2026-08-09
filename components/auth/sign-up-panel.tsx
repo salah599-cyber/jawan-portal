@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { SignUp } from "@clerk/nextjs";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { JawanLogo } from "@/components/brand/jawan-logo";
+import { Card, CardContent, CardDescription, CardHeader } from "@/components/ui/card";
 
 const clerkAppearance = {
   elements: {
@@ -19,8 +20,8 @@ export function SignUpPanel() {
   return (
     <div className="flex w-full max-w-md flex-col gap-4">
       <Card className="border-0 bg-transparent shadow-none">
-        <CardHeader className="px-0 text-center">
-          <CardTitle className="text-2xl">Jawan Investments</CardTitle>
+        <CardHeader className="flex flex-col items-center gap-2 px-0 text-center">
+          <JawanLogo size="lg" priority />
           <CardDescription>Family Office Platform</CardDescription>
         </CardHeader>
       </Card>

@@ -33,6 +33,7 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import type { ModuleName } from "@/lib/permissions/types";
+import { JawanLogo } from "@/components/brand/jawan-logo";
 import {
   Sidebar,
   SidebarContent,
@@ -46,6 +47,7 @@ import {
   SidebarMenuSub,
   SidebarMenuSubButton,
   SidebarMenuSubItem,
+  useSidebar,
 } from "@/components/ui/sidebar";
 
 type NavChild = {
@@ -204,16 +206,24 @@ export function AppSidebar({
   moduleAccess: Record<ModuleName, boolean>;
 }) {
   const pathname = usePathname();
+  const { state } = useSidebar();
   const items = filterNavItems(platformNav, moduleAccess);
   const nav: NavItem[] = showAdmin ? [...items, ...(adminNav as NavItem[])] : items;
+  const collapsed = state === "collapsed";
 
   return (
     <Sidebar>
       <SidebarHeader className="border-b px-4 py-4">
-        <div>
-          <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">Jawan Investments</p>
-          <p className="text-lg font-semibold">Family Office</p>
-        </div>
+        <Link
+          href="/dashboard"
+          className="flex items-center justify-center outline-none focus-visible:ring-2 focus-visible:ring-ring group-data-[collapsible=icon]:px-0"
+        >
+          {collapsed ? (
+            <JawanLogo markOnly size="sm" priority />
+          ) : (
+            <JawanLogo size="sm" className="max-w-[180px]" priority />
+          )}
+        </Link>
       </SidebarHeader>
       <SidebarContent>
         <SidebarGroup>
