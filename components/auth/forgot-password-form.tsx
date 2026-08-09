@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useClerk, useSignIn } from "@clerk/nextjs";
 import { useState, useTransition } from "react";
+import { JawanLogo } from "@/components/brand/jawan-logo";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -94,90 +95,95 @@ export function ForgotPasswordForm() {
   }
 
   return (
-    <Card className="w-full max-w-md">
-      <CardHeader>
-        <CardTitle>Reset your password</CardTitle>
-        <CardDescription>
-          {step === "email"
-            ? "Enter your account email and we will send you a verification code."
-            : step === "code"
-              ? "Enter the verification code sent to your email."
-              : "Choose a new password for your account (minimum 12 characters)."}
-        </CardDescription>
-      </CardHeader>
-      <CardContent className="space-y-4">
-        {step === "email" ? (
-          <form onSubmit={handleSendCode} className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="email">Email address</Label>
-              <Input
-                id="email"
-                type="email"
-                autoComplete="email"
-                required
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                placeholder="you@example.com"
-              />
-            </div>
-            {error ? <p className="text-sm text-destructive">{error}</p> : null}
-            <Button type="submit" className="w-full" disabled={pending || !email.trim()}>
-              {pending ? "Sending..." : "Send reset code"}
-            </Button>
-          </form>
-        ) : null}
+    <div className="flex w-full max-w-md flex-col gap-4">
+      <div className="flex justify-center">
+        <JawanLogo size="lg" priority />
+      </div>
+      <Card className="w-full">
+        <CardHeader>
+          <CardTitle>Reset your password</CardTitle>
+          <CardDescription>
+            {step === "email"
+              ? "Enter your account email and we will send you a verification code."
+              : step === "code"
+                ? "Enter the verification code sent to your email."
+                : "Choose a new password for your account (minimum 12 characters)."}
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          {step === "email" ? (
+            <form onSubmit={handleSendCode} className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="email">Email address</Label>
+                <Input
+                  id="email"
+                  type="email"
+                  autoComplete="email"
+                  required
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  placeholder="you@example.com"
+                />
+              </div>
+              {error ? <p className="text-sm text-destructive">{error}</p> : null}
+              <Button type="submit" className="w-full" disabled={pending || !email.trim()}>
+                {pending ? "Sending..." : "Send reset code"}
+              </Button>
+            </form>
+          ) : null}
 
-        {step === "code" ? (
-          <form onSubmit={handleVerifyCode} className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="code">Verification code</Label>
-              <Input
-                id="code"
-                inputMode="numeric"
-                autoComplete="one-time-code"
-                required
-                value={code}
-                onChange={(e) => setCode(e.target.value)}
-                placeholder="123456"
-              />
-            </div>
-            {error ? <p className="text-sm text-destructive">{error}</p> : null}
-            <Button type="submit" className="w-full" disabled={pending || !code.trim()}>
-              {pending ? "Verifying..." : "Verify code"}
-            </Button>
-            <Button type="button" variant="outline" className="w-full" onClick={() => setStep("email")}>
-              Use a different email
-            </Button>
-          </form>
-        ) : null}
+          {step === "code" ? (
+            <form onSubmit={handleVerifyCode} className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="code">Verification code</Label>
+                <Input
+                  id="code"
+                  inputMode="numeric"
+                  autoComplete="one-time-code"
+                  required
+                  value={code}
+                  onChange={(e) => setCode(e.target.value)}
+                  placeholder="123456"
+                />
+              </div>
+              {error ? <p className="text-sm text-destructive">{error}</p> : null}
+              <Button type="submit" className="w-full" disabled={pending || !code.trim()}>
+                {pending ? "Verifying..." : "Verify code"}
+              </Button>
+              <Button type="button" variant="outline" className="w-full" onClick={() => setStep("email")}>
+                Use a different email
+              </Button>
+            </form>
+          ) : null}
 
-        {step === "password" ? (
-          <form onSubmit={handleResetPassword} className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="password">New password</Label>
-              <Input
-                id="password"
-                type="password"
-                autoComplete="new-password"
-                required
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                minLength={MIN_PASSWORD_LENGTH}
-              />
-            </div>
-            {error ? <p className="text-sm text-destructive">{error}</p> : null}
-            <Button type="submit" className="w-full" disabled={pending || !password}>
-              {pending ? "Updating..." : "Update password"}
-            </Button>
-          </form>
-        ) : null}
+          {step === "password" ? (
+            <form onSubmit={handleResetPassword} className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="password">New password</Label>
+                <Input
+                  id="password"
+                  type="password"
+                  autoComplete="new-password"
+                  required
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  minLength={MIN_PASSWORD_LENGTH}
+                />
+              </div>
+              {error ? <p className="text-sm text-destructive">{error}</p> : null}
+              <Button type="submit" className="w-full" disabled={pending || !password}>
+                {pending ? "Updating..." : "Update password"}
+              </Button>
+            </form>
+          ) : null}
 
-        <p className="text-center text-sm text-muted-foreground">
-          <Link href="/sign-in" className="text-primary hover:underline">
-            Back to sign in
-          </Link>
-        </p>
-      </CardContent>
-    </Card>
+          <p className="text-center text-sm text-muted-foreground">
+            <Link href="/sign-in" className="text-primary hover:underline">
+              Back to sign in
+            </Link>
+          </p>
+        </CardContent>
+      </Card>
+    </div>
   );
 }

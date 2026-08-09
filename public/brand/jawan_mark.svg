@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120" width="120" height="120">
+  <title>Jawan Investments — Mark Only</title>
+  <g transform="translate(60,60)">
+    <polygon points="0,-54 47,-27 47,27 0,54 -47,27 -47,-27" fill="none" stroke="#C9AC7A" stroke-width="0.8" opacity="0.45"/>
+    <polygon points="0,-42 36,-21 36,21 0,42 -36,21 -36,-21" fill="none" stroke="#C9AC7A" stroke-width="0.4" opacity="0.25"/>
+    <rect x="-3" y="-44" width="15" height="56" rx="2.5" fill="#1C2B3A"/>
+    <rect x="-10" y="-44" width="28" height="7" rx="2.5" fill="#1C2B3A"/>
+    <path d="M-3,12 Q-3,32 -16,32 Q-26,32 -26,20" fill="none" stroke="#1C2B3A" stroke-width="10" stroke-linecap="round"/>
+    <rect x="3" y="-28" width="15" height="56" rx="2.5" fill="#C9AC7A"/>
+    <rect x="-4" y="-28" width="28" height="7" rx="2.5" fill="#C9AC7A"/>
+    <path d="M18,28 Q18,48 31,48 Q41,48 41,36" fill="none" stroke="#C9AC7A" stroke-width="10" stroke-linecap="round"/>
+    <rect x="-5" y="-5" width="10" height="10" rx="1.5" fill="#F9F7F3" transform="rotate(45)"/>
+    <rect x="-3" y="-3" width="6" height="6" rx="1" fill="#C9AC7A" transform="rotate(45)"/>
+  </g>
+</svg>
