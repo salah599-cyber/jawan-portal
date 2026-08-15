@@ -28,52 +28,41 @@ export function BrokerAccountSelect({
   brokerAccounts?: PublicBrokerAccountRow[];
 }) {
   const [seedEntityId] = useState(entityId);
-  const [fetchedEntityId, setFetchedEntityId] = useState<string | null>(null);
-  const [fetchedAccounts, setFetchedAccounts] = useState<PublicBrokerAccountRow[]>(EMPTY_BROKER_ACCOUNTS);
-  const [pending, setPending] = useState(false);
+  const [remote, setRemote] = useState<{
+    entityId: string;
+    accounts: PublicBrokerAccountRow[];
+  } | null>(null);
 
   const seededAccounts = entityId
     ? brokerAccounts.filter((account) => account.entityId === entityId)
     : EMPTY_BROKER_ACCOUNTS;
   const seededCoversEntity = Boolean(entityId) && (entityId === seedEntityId || seededAccounts.length > 0);
+  const pending = Boolean(entityId) && !seededCoversEntity && remote?.entityId !== entityId;
 
   useEffect(() => {
-    if (!entityId || seededCoversEntity) {
-      setPending(false);
-      return;
-    }
-
-    if (fetchedEntityId === entityId) return;
+    if (!entityId || seededCoversEntity || remote?.entityId === entityId) return;
 
     let cancelled = false;
-    setPending(true);
 
     void listPublicBrokerAccounts(entityId)
       .then((rows) => {
-        if (cancelled) return;
-        setFetchedAccounts(rows);
-        setFetchedEntityId(entityId);
+        if (!cancelled) setRemote({ entityId, accounts: rows });
       })
       .catch(() => {
-        if (cancelled) return;
-        setFetchedAccounts(EMPTY_BROKER_ACCOUNTS);
-        setFetchedEntityId(entityId);
-      })
-      .finally(() => {
-        if (!cancelled) setPending(false);
+        if (!cancelled) setRemote({ entityId, accounts: EMPTY_BROKER_ACCOUNTS });
       });
 
     return () => {
       cancelled = true;
     };
-  }, [entityId, seededCoversEntity, fetchedEntityId]);
+  }, [entityId, seededCoversEntity, remote?.entityId]);
 
   const visibleAccounts = !entityId
     ? EMPTY_BROKER_ACCOUNTS
     : seededCoversEntity
       ? seededAccounts
-      : fetchedEntityId === entityId
-        ? fetchedAccounts
+      : remote?.entityId === entityId
+        ? remote.accounts
         : EMPTY_BROKER_ACCOUNTS;
 
   return (
