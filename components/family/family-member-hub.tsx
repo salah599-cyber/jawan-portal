@@ -18,11 +18,26 @@ import { FamilyOwnershipStakesFields } from "@/components/family/family-ownershi
 import { FamilySignatoryRolesFields } from "@/components/family/family-signatory-roles-fields";
 import { BeneficiaryDesignationsFields } from "@/components/family/beneficiary-designations-fields";
 import { UploadFamilyMemberDocumentsForm } from "@/components/family/upload-family-member-documents-form";
+import { FamilyMemberKycDocumentsTable } from "@/components/family/family-member-kyc-documents-table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { cn } from "@/lib/utils";
+
+const EXPIRING_SOON_DAYS = 30;
+
+function expiryState(expiryDate: string | null): "expired" | "expiring" | null {
+  if (!expiryDate) return null;
+  const date = new Date(expiryDate);
+  const now = new Date();
+  if (date.getTime() < now.getTime()) return "expired";
+  const soon = new Date(now);
+  soon.setDate(soon.getDate() + EXPIRING_SOON_DAYS);
+  if (date.getTime() <= soon.getTime()) return "expiring";
+  return null;
+}
 
 type LinkOptions = Awaited<ReturnType<typeof import("@/lib/actions/family-members").getFamilyLinkOptions>>;
 
@@ -155,7 +170,17 @@ export function FamilyMemberHub({
             <div><p className="text-xs text-muted-foreground">Nationality</p><p>{member.nationality ?? "—"}</p></div>
             <div><p className="text-xs text-muted-foreground">Date of Birth</p><p>{member.dateOfBirth ? formatDate(member.dateOfBirth) : "—"}</p></div>
             <div><p className="text-xs text-muted-foreground">ID</p><p>{member.idType ? `${FAMILY_MEMBER_ID_TYPE_LABELS[member.idType]}: ${member.idNumber ?? "—"}` : "—"}</p></div>
-            <div><p className="text-xs text-muted-foreground">ID Expiry</p><p>{member.idExpiryDate ? formatDate(member.idExpiryDate) : "—"}</p></div>
+            <div>
+              <p className="text-xs text-muted-foreground">ID Expiry</p>
+              <p
+                className={cn(
+                  expiryState(member.idExpiryDate) === "expired" && "font-medium text-destructive",
+                  expiryState(member.idExpiryDate) === "expiring" && "font-medium text-amber-600",
+                )}
+              >
+                {member.idExpiryDate ? formatDate(member.idExpiryDate) : "—"}
+              </p>
+            </div>
             <div className="sm:col-span-2">
               <p className="text-xs text-muted-foreground">Email Addresses</p>
               {member.emails.length > 0 ? (
@@ -188,14 +213,25 @@ export function FamilyMemberHub({
             </div>
             <div className="sm:col-span-2"><p className="text-xs text-muted-foreground">Address</p><p>{member.address ?? "—"}</p></div>
             {canEdit ? (
-              <div className="sm:col-span-2">
+              <div className="flex flex-wrap gap-2 sm:col-span-2">
                 <Button variant="outline" size="sm" asChild>
                   <Link href={`/family/members/${member.id}/edit`}>Edit identity & contacts</Link>
+                </Button>
+                <Button variant="outline" size="sm" type="button" onClick={() => setTab("documents")}>
+                  Upload documents
                 </Button>
               </div>
             ) : null}
           </CardContent>
         </Card>
+
+        <FamilyMemberKycDocumentsTable
+          member={member}
+          canEdit={canEdit}
+          identityOnly
+          title="Identity Documents"
+          description="Replace expired passport, national ID, or residence scans without leaving this tab."
+        />
       </TabsContent>
 
       <TabsContent value="stakes" className="mt-4">
