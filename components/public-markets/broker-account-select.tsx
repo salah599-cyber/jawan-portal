@@ -1,9 +1,11 @@
 "use client";
 
-import { useEffect, useState, useTransition } from "react";
+import { useEffect, useState } from "react";
 import { listPublicBrokerAccounts } from "@/lib/actions/public-markets";
 import type { PublicBrokerAccountRow } from "@/lib/public-markets/broker-accounts";
 import { Label } from "@/components/ui/label";
+
+const EMPTY_BROKER_ACCOUNTS: PublicBrokerAccountRow[] = [];
 
 function formatBrokerAccountLabel(account: PublicBrokerAccountRow) {
   const parts = [account.label || account.broker];
@@ -17,7 +19,7 @@ export function BrokerAccountSelect({
   value,
   onValueChange,
   onAccountSelected,
-  brokerAccounts = [],
+  brokerAccounts = EMPTY_BROKER_ACCOUNTS,
 }: {
   entityId: string;
   value: string;
@@ -25,27 +27,54 @@ export function BrokerAccountSelect({
   onAccountSelected?: (account: PublicBrokerAccountRow | null) => void;
   brokerAccounts?: PublicBrokerAccountRow[];
 }) {
-  const [accounts, setAccounts] = useState<PublicBrokerAccountRow[]>([]);
-  const [pending, startTransition] = useTransition();
+  const [seedEntityId] = useState(entityId);
+  const [fetchedEntityId, setFetchedEntityId] = useState<string | null>(null);
+  const [fetchedAccounts, setFetchedAccounts] = useState<PublicBrokerAccountRow[]>(EMPTY_BROKER_ACCOUNTS);
+  const [pending, setPending] = useState(false);
+
+  const seededAccounts = entityId
+    ? brokerAccounts.filter((account) => account.entityId === entityId)
+    : EMPTY_BROKER_ACCOUNTS;
+  const seededCoversEntity = Boolean(entityId) && (entityId === seedEntityId || seededAccounts.length > 0);
 
   useEffect(() => {
-    if (!entityId) return;
+    if (!entityId || seededCoversEntity) {
+      setPending(false);
+      return;
+    }
+
+    if (fetchedEntityId === entityId) return;
 
     let cancelled = false;
+    setPending(true);
 
-    startTransition(async () => {
-      const rows = await listPublicBrokerAccounts(entityId);
-      if (cancelled) return;
-
-      setAccounts(rows);
-    });
+    void listPublicBrokerAccounts(entityId)
+      .then((rows) => {
+        if (cancelled) return;
+        setFetchedAccounts(rows);
+        setFetchedEntityId(entityId);
+      })
+      .catch(() => {
+        if (cancelled) return;
+        setFetchedAccounts(EMPTY_BROKER_ACCOUNTS);
+        setFetchedEntityId(entityId);
+      })
+      .finally(() => {
+        if (!cancelled) setPending(false);
+      });
 
     return () => {
       cancelled = true;
     };
-  }, [entityId, brokerAccounts]);
+  }, [entityId, seededCoversEntity, fetchedEntityId]);
 
-  const visibleAccounts = entityId ? accounts : [];
+  const visibleAccounts = !entityId
+    ? EMPTY_BROKER_ACCOUNTS
+    : seededCoversEntity
+      ? seededAccounts
+      : fetchedEntityId === entityId
+        ? fetchedAccounts
+        : EMPTY_BROKER_ACCOUNTS;
 
   return (
     <div className="space-y-2">
