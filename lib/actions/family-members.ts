@@ -7,7 +7,7 @@ import { ensureFamilySchema } from "@/lib/db/ensure-family-schema";
 import { deleteBlobUrl, uploadPrivateFile } from "@/lib/blob";
 import { logAudit } from "@/lib/audit/log";
 import { FAMILY_MEMBERS_PATH } from "@/lib/family/constants";
-import { parseDate, parseDecimal } from "@/lib/family/helpers";
+import { parseDate, parseDecimal, isExpired } from "@/lib/family/helpers";
 import {
   parseBeneficiaryDesignationsJson,
   parseFamilyEmailsJson,
@@ -651,5 +651,103 @@ export async function deleteFamilyMemberDocument(documentId: string) {
 
   await deleteBlobUrl(doc.fileUrl);
   await db.familyMemberDocument.delete({ where: { id: documentId } });
+  revalidateFamily(doc.familyMemberId);
+}
+
+const IDENTITY_DOCUMENT_TYPES = new Set<FamilyMemberDocumentType>([
+  "PASSPORT",
+  "NATIONAL_ID",
+  "RESIDENCE",
+]);
+
+const DOCUMENT_TYPE_TO_ID_TYPE: Partial<Record<FamilyMemberDocumentType, FamilyMemberIdType>> = {
+  PASSPORT: "PASSPORT",
+  NATIONAL_ID: "OMANI_ID",
+  RESIDENCE: "RESIDENCE_CARD",
+};
+
+export async function replaceFamilyMemberDocument(formData: FormData) {
+  const ctx = await requireModuleAccess("FAMILY_MEMBERS");
+  if (!canWrite(ctx, "FAMILY_MEMBERS")) {
+    throw new Error("You do not have permission to replace documents.");
+  }
+
+  await ensureFamilySchema();
+  const documentId = String(formData.get("documentId") ?? "").trim();
+  if (!documentId) throw new Error("Document ID is required.");
+
+  const doc = await db.familyMemberDocument.findFirst({
+    where: {
+      id: documentId,
+      familyMember: familyMemberFilter(ctx),
+    },
+    include: { familyMember: { select: { id: true, kycStatus: true } } },
+  });
+  if (!doc) throw new Error("Document not found.");
+
+  const files = getFilesFromFormData(formData, "file");
+  if (files.length === 0) throw new Error("Select a file to replace.");
+  if (files.length > 1) throw new Error("Select only one file.");
+
+  const expiryDate = parseDate(String(formData.get("expiryDate") ?? ""));
+  const idNumberRaw = String(formData.get("idNumber") ?? "").trim();
+  const idNumber = idNumberRaw || undefined;
+  const oldFileUrl = doc.fileUrl;
+
+  const uploaded = await uploadPrivateFile(
+    ["family", doc.familyMemberId, doc.documentType.toLowerCase()],
+    files[0],
+  );
+
+  try {
+    await db.familyMemberDocument.update({
+      where: { id: documentId },
+      data: {
+        fileName: uploaded.fileName,
+        fileUrl: uploaded.fileUrl,
+        mimeType: uploaded.mimeType,
+        fileSize: uploaded.fileSize,
+        expiryDate,
+      },
+    });
+
+    if (IDENTITY_DOCUMENT_TYPES.has(doc.documentType)) {
+      const memberUpdate: Prisma.FamilyMemberUpdateInput = {};
+      if (expiryDate) memberUpdate.idExpiryDate = expiryDate;
+      if (idNumber !== undefined) memberUpdate.idNumber = idNumber;
+
+      const mappedIdType = DOCUMENT_TYPE_TO_ID_TYPE[doc.documentType];
+      if (mappedIdType) memberUpdate.idType = mappedIdType;
+
+      if (
+        doc.familyMember.kycStatus === "EXPIRED" &&
+        expiryDate &&
+        !isExpired(expiryDate)
+      ) {
+        memberUpdate.kycStatus = "COMPLETE";
+      }
+
+      if (Object.keys(memberUpdate).length > 0) {
+        await db.familyMember.update({
+          where: { id: doc.familyMemberId },
+          data: memberUpdate,
+        });
+      }
+    }
+  } catch (error) {
+    await deleteBlobUrl(uploaded.fileUrl);
+    throw error;
+  }
+
+  await deleteBlobUrl(oldFileUrl);
+
+  await logAudit({
+    userId: ctx.id,
+    action: "UPDATE",
+    resource: "FamilyMemberDocument",
+    resourceId: documentId,
+    metadata: { replaced: true, documentType: doc.documentType, familyMemberId: doc.familyMemberId },
+  });
+
   revalidateFamily(doc.familyMemberId);
 }

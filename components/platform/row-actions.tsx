@@ -3,6 +3,7 @@ import { DeleteEntryButton } from "@/components/platform/delete-entry-button";
 
 export function RowActions({
   editHref,
+  editLabel,
   deleteAction,
   itemId,
   itemLabel,
@@ -12,6 +13,7 @@ export function RowActions({
   disabledReason,
 }: {
   editHref?: string;
+  editLabel?: string;
   deleteAction: (id: string) => Promise<void>;
   itemId: string;
   itemLabel: string;
@@ -22,7 +24,7 @@ export function RowActions({
 }) {
   return (
     <div className="flex items-center justify-end gap-0">
-      {editHref && !disableEdit ? <EditLinkButton href={editHref} /> : null}
+      {editHref && !disableEdit ? <EditLinkButton href={editHref} label={editLabel} /> : null}
       <DeleteEntryButton
         itemId={itemId}
         itemLabel={itemLabel}
