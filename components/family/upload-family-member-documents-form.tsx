@@ -6,17 +6,32 @@ import {
   uploadFamilyMemberDocuments,
   deleteFamilyMemberDocument,
 } from "@/lib/actions/family-members";
+import { ReplaceFamilyMemberDocumentDialog } from "@/components/family/replace-family-member-document-dialog";
 import { DeleteEntryButton } from "@/components/platform/delete-entry-button";
 import { FileActionsWithAccess } from "@/components/platform/file-actions-with-access";
 import { FAMILY_MEMBER_DOCUMENT_TYPE_LABELS } from "@/lib/labels";
 import { formatDate } from "@/lib/format";
 import type { SerializedFamilyMember } from "@/lib/family/serialize";
+import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+
+const EXPIRING_SOON_DAYS = 30;
+
+function expiryState(expiryDate: string | null): "expired" | "expiring" | null {
+  if (!expiryDate) return null;
+  const date = new Date(expiryDate);
+  const now = new Date();
+  if (date.getTime() < now.getTime()) return "expired";
+  const soon = new Date(now);
+  soon.setDate(soon.getDate() + EXPIRING_SOON_DAYS);
+  if (date.getTime() <= soon.getTime()) return "expiring";
+  return null;
+}
 
 export function UploadFamilyMemberDocumentsForm({
   member,
@@ -112,7 +127,14 @@ export function UploadFamilyMemberDocumentsForm({
                   <TableRow key={doc.id}>
                     <TableCell>{FAMILY_MEMBER_DOCUMENT_TYPE_LABELS[doc.documentType] ?? doc.documentType}</TableCell>
                     <TableCell className="font-medium">{doc.fileName}</TableCell>
-                    <TableCell>{doc.expiryDate ? formatDate(doc.expiryDate) : "—"}</TableCell>
+                    <TableCell
+                      className={cn(
+                        expiryState(doc.expiryDate) === "expired" && "font-medium text-destructive",
+                        expiryState(doc.expiryDate) === "expiring" && "font-medium text-amber-600",
+                      )}
+                    >
+                      {doc.expiryDate ? formatDate(doc.expiryDate) : "—"}
+                    </TableCell>
                     <TableCell>{formatDate(doc.createdAt)}</TableCell>
                     {canEdit ? (
                       <TableCell>
@@ -123,6 +145,10 @@ export function UploadFamilyMemberDocumentsForm({
                             fileName={doc.fileName}
                             files={fileRefs}
                             compact
+                          />
+                          <ReplaceFamilyMemberDocumentDialog
+                            document={doc}
+                            memberIdNumber={member.idNumber}
                           />
                           <DeleteEntryButton
                             itemId={doc.id}

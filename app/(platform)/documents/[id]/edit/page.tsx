@@ -32,6 +32,7 @@ export default async function EditDocumentPage({ params }: { params: Promise<{ i
           document={document}
           entities={entities}
           categories={editCategories}
+          currentUserId={ctx.id}
           canAddCategory
         />
       </main>

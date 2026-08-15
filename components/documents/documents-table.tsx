@@ -176,6 +176,7 @@ export function DocumentsTable({
                   <TableCell>
                     <RowActions
                       editHref={"/documents/" + doc.id + "/edit"}
+                      editLabel={expiryState(doc.expiryDate) === "expired" ? "Replace" : "Edit"}
                       itemId={doc.id}
                       itemLabel={doc.name}
                       deleteAction={deleteDocument}

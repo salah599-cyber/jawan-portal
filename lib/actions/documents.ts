@@ -8,6 +8,16 @@ import { logAudit } from "@/lib/audit/log";
 import { resolveDocumentCategoryId } from "@/lib/data/document-categories";
 import { canWrite, getModulePermission, requireModuleAccess } from "@/lib/permissions/access";
 import { documentFilter } from "@/lib/permissions/scoped-queries";
+import type { DocumentStatus } from "@/lib/generated/prisma/client";
+
+function resolveDocumentStatus(expiryDate: Date | null): DocumentStatus {
+  if (!expiryDate) return "VALID";
+  const now = new Date();
+  now.setHours(0, 0, 0, 0);
+  const expiry = new Date(expiryDate);
+  expiry.setHours(0, 0, 0, 0);
+  return expiry < now ? "EXPIRED" : "VALID";
+}
 
 export type SaveDocumentMetadataInput = {
   name: string;
@@ -156,6 +166,57 @@ export async function updateDocument(id: string, input: UpdateDocumentInput) {
     resource: "Document",
     resourceId: id,
     metadata: { name: updated.name },
+  });
+
+  revalidatePath("/documents");
+  revalidatePath("/documents/" + id + "/edit");
+  return { id: updated.id, name: updated.name };
+}
+
+export type ReplaceDocumentInput = {
+  fileName: string;
+  fileUrl: string;
+  mimeType: string;
+  fileSize: number;
+  expiryDate?: string;
+};
+
+export async function replaceDocument(id: string, input: ReplaceDocumentInput) {
+  const ctx = await requireModuleAccess("DOCUMENTS");
+  if (!canWrite(ctx, "DOCUMENTS")) {
+    throw new Error("You do not have permission to replace documents.");
+  }
+
+  const document = await db.document.findFirst({
+    where: { id, ...documentFilter(ctx) },
+  });
+  if (!document) throw new Error("Document not found.");
+  if (!input.fileUrl) throw new Error("File URL is required.");
+  assertOwnedDocumentVaultUrl(input.fileUrl, ctx.id);
+
+  const expiryDate = input.expiryDate ? new Date(input.expiryDate) : null;
+  const oldFileUrl = document.fileUrl;
+
+  const updated = await db.document.update({
+    where: { id },
+    data: {
+      fileName: input.fileName,
+      fileUrl: input.fileUrl,
+      mimeType: input.mimeType || "application/octet-stream",
+      fileSize: input.fileSize,
+      expiryDate,
+      status: resolveDocumentStatus(expiryDate),
+    },
+  });
+
+  await deleteBlobUrl(oldFileUrl);
+
+  await logAudit({
+    userId: ctx.id,
+    action: "UPDATE",
+    resource: "Document",
+    resourceId: id,
+    metadata: { replaced: true, name: updated.name },
   });
 
   revalidatePath("/documents");
