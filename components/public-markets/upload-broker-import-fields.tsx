@@ -5,11 +5,13 @@ import type { PublicBrokerAccountRow } from "@/lib/public-markets/broker-account
 import { BrokerAccountSelect } from "@/components/public-markets/broker-account-select";
 import { PortfolioManagementField } from "@/components/public-markets/portfolio-management-field";
 
+const EMPTY_BROKER_ACCOUNTS: PublicBrokerAccountRow[] = [];
+
 export function UploadBrokerImportFields({
   entityId,
   brokerAccountId,
   onBrokerAccountIdChange,
-  brokerAccounts = [],
+  brokerAccounts = EMPTY_BROKER_ACCOUNTS,
 }: {
   entityId: string;
   brokerAccountId: string;
