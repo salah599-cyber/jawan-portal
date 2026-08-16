@@ -32,6 +32,8 @@ export type RePropertyListRow = {
   overdueRentOmr: number;
   grossYieldPct: number | null;
   currentValuationOmr: number | null;
+  purchasePriceOmr: number | null;
+  buildingName: string | null;
   primaryPhotoHref?: string;
   entityName: string;
 };
@@ -322,6 +324,8 @@ export async function listProperties(
       overdueRentOmr: metrics?.overdueRentOmr ?? 0,
       grossYieldPct: metrics?.grossYieldPct ?? null,
       currentValuationOmr: toNumber(property.currentValuationOmr) || null,
+      purchasePriceOmr: toNumber(property.purchasePriceOmr) || null,
+      buildingName: property.buildingName,
       primaryPhotoHref:
         isSuperAdmin(ctx) && property.documents[0]
           ? fileHref("re-property", property.documents[0].id)
@@ -344,7 +348,8 @@ export async function getPortfolioSummary(
   const totalUnits = properties.reduce((sum, property) => sum + property.numUnits, 0);
   const occupiedUnits = properties.reduce((sum, property) => sum + property.occupiedUnits, 0);
   const totalPortfolioValueOmr = properties.reduce(
-    (sum, property) => sum + (property.currentValuationOmr ?? 0),
+    (sum, property) =>
+      sum + (property.currentValuationOmr ?? property.purchasePriceOmr ?? 0),
     0,
   );
   const totalGrossMonthlyRentOmr = properties.reduce(

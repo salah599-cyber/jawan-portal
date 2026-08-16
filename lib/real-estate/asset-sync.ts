@@ -14,12 +14,20 @@ export async function syncRePropertyAsset(propertyId: string) {
 
   if (!property) return;
 
-  const location = [property.area, property.wilayat, property.governorate]
+  const location = [property.buildingName, property.area, property.wilayat, property.governorate]
     .filter(Boolean)
     .join(", ");
+  const currentValue =
+    property.currentValuationOmr?.toString() ??
+    property.valuations[0]?.valuationOmr?.toString() ??
+    property.purchasePriceOmr?.toString();
+  const valuedAt =
+    property.lastValuationDate ??
+    property.valuations[0]?.valuationDate ??
+    property.purchaseDate ??
+    new Date();
 
   if (!property.assetId) {
-    const currentValue = property.currentValuationOmr?.toString();
     const asset = await db.asset.create({
       data: {
         name: property.name,
@@ -46,22 +54,17 @@ export async function syncRePropertyAsset(propertyId: string) {
       data: { assetId: asset.id },
     });
 
-    const value = toNumber(property.currentValuationOmr);
+    const value = toNumber(currentValue);
     if (value > 0) {
       await recordAssetValuation({
         assetId: asset.id,
         value,
         currency: "OMR",
-        valuedAt: property.lastValuationDate ?? property.purchaseDate ?? new Date(),
+        valuedAt,
       });
     }
     return;
   }
-
-  const currentValue =
-    property.currentValuationOmr?.toString() ??
-    property.valuations[0]?.valuationOmr?.toString();
-  const valuedAt = property.lastValuationDate ?? property.valuations[0]?.valuationDate ?? new Date();
 
   await db.asset.update({
     where: { id: property.assetId },

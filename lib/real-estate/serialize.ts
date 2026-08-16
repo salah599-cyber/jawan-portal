@@ -34,6 +34,7 @@ export function serializeReProperty(property: RePropertyDetail) {
     wilayat: property.wilayat,
     area: property.area,
     streetAddress: property.streetAddress,
+    buildingName: property.buildingName,
     plotNumber: property.plotNumber,
     parcelNumber: property.parcelNumber,
     gpsLat: dec(property.gpsLat),

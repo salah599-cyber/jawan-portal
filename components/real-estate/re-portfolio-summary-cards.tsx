@@ -48,7 +48,7 @@ export function RePortfolioSummaryCards({ summary }: { summary: RePortfolioSumma
       <SummaryMetric
         label="Portfolio Value"
         value={formatOmr(summary.totalPortfolioValueOmr)}
-        detail="Current valuations"
+        detail="Market value included in net worth"
       />
       <SummaryMetric
         label="Occupancy"

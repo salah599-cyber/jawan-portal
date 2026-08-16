@@ -1960,6 +1960,12 @@ enum RePropertyType {
   MIXED_USE
   LAND
   WAREHOUSE
+  APARTMENT
+  OFFICE
+  SHOP
+  SHOWROOM
+  STUDIO
+  PENTHOUSE
   OTHER
 }
 
@@ -2185,6 +2191,7 @@ model ReProperty {
   wilayat                 String?
   area                    String?
   streetAddress           String?
+  buildingName            String?
   plotNumber              String?
   parcelNumber            String?
   gpsLat                  Decimal?            @db.Decimal(10, 7)

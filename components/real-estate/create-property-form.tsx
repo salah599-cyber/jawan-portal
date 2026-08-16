@@ -19,6 +19,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
+import { isHeldUnitPropertyType } from "@/lib/real-estate/constants";
 
 const emptyUnit = (): ReUnitInput => ({
   unitNumber: "",
@@ -37,6 +38,7 @@ export function CreatePropertyForm({ entities }: { entities: EntityOption[] }) {
   const [unitsMode, setUnitsMode] = useState<"rows" | "json">("rows");
   const [unitRows, setUnitRows] = useState<ReUnitInput[]>([emptyUnit()]);
   const [unitsJson, setUnitsJson] = useState("");
+  const heldUnit = isHeldUnitPropertyType(propertyType);
 
   function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -48,7 +50,9 @@ export function CreatePropertyForm({ entities }: { entities: EntityOption[] }) {
     formData.set("status", status);
     formData.set("valuationMethod", valuationMethod === "none" ? "" : valuationMethod);
 
-    if (unitsMode === "json") {
+    if (heldUnit) {
+      formData.set("unitsJson", "[]");
+    } else if (unitsMode === "json") {
       formData.set("unitsJson", unitsJson);
     } else {
       const validUnits = unitRows.filter((u) => u.unitNumber.trim());
@@ -76,7 +80,12 @@ export function CreatePropertyForm({ entities }: { entities: EntityOption[] }) {
           <div className="grid gap-4 md:grid-cols-2">
             <div className="space-y-2 md:col-span-2">
               <Label htmlFor="name">Property Name</Label>
-              <Input id="name" name="name" required placeholder="e.g. Al Khuwair Building" />
+              <Input
+                id="name"
+                name="name"
+                required
+                placeholder={heldUnit ? "e.g. Flat 12, Al Khuwair Heights" : "e.g. Al Khuwair Building"}
+              />
             </div>
             <div className="space-y-2">
               <Label>Entity</Label>
@@ -92,6 +101,11 @@ export function CreatePropertyForm({ entities }: { entities: EntityOption[] }) {
                   ))}
                 </SelectContent>
               </Select>
+              <p className="text-xs text-muted-foreground">
+                {heldUnit
+                  ? "Use this when you own a flat, office, or other unit and do not own the whole building."
+                  : "Use Apartment Building, Commercial Building, Mixed Use, Villa, or Land when you own the whole property. Pick Apartment / Flat, Office, Shop, and similar types for a single unit in a building."}
+              </p>
             </div>
             <div className="space-y-2">
               <Label>Ownership</Label>
@@ -124,6 +138,14 @@ export function CreatePropertyForm({ entities }: { entities: EntityOption[] }) {
               <div className="space-y-2"><Label htmlFor="wilayat">Wilayat</Label><Input id="wilayat" name="wilayat" /></div>
               <div className="space-y-2"><Label htmlFor="area">Area</Label><Input id="area" name="area" /></div>
               <div className="space-y-2"><Label htmlFor="streetAddress">Street Address</Label><Input id="streetAddress" name="streetAddress" /></div>
+              <div className="space-y-2">
+                <Label htmlFor="buildingName">Building name</Label>
+                <Input
+                  id="buildingName"
+                  name="buildingName"
+                  placeholder={heldUnit ? "The building this unit is in" : "Optional"}
+                />
+              </div>
               <div className="space-y-2"><Label htmlFor="plotNumber">Plot Number</Label><Input id="plotNumber" name="plotNumber" /></div>
               <div className="space-y-2"><Label htmlFor="parcelNumber">Parcel Number</Label><Input id="parcelNumber" name="parcelNumber" /></div>
               <div className="space-y-2"><Label htmlFor="googleMapsUrl">Google Maps URL</Label><Input id="googleMapsUrl" name="googleMapsUrl" /></div>
@@ -133,10 +155,33 @@ export function CreatePropertyForm({ entities }: { entities: EntityOption[] }) {
           <div>
             <h3 className="mb-3 text-sm font-medium">Physical Details</h3>
             <div className="grid gap-4 md:grid-cols-2">
-              <div className="space-y-2"><Label htmlFor="landAreaSqm">Land Area (m²)</Label><Input id="landAreaSqm" name="landAreaSqm" /></div>
-              <div className="space-y-2"><Label htmlFor="builtUpAreaSqm">Built-up Area (m²)</Label><Input id="builtUpAreaSqm" name="builtUpAreaSqm" /></div>
-              <div className="space-y-2"><Label htmlFor="numFloors">Floors</Label><Input id="numFloors" name="numFloors" type="number" min="0" /></div>
-              <div className="space-y-2"><Label htmlFor="yearBuilt">Year Built</Label><Input id="yearBuilt" name="yearBuilt" type="number" min="1800" /></div>
+              {heldUnit ? (
+                <>
+                  <div className="space-y-2">
+                    <Label htmlFor="heldUnitNumber">Unit number</Label>
+                    <Input id="heldUnitNumber" name="heldUnitNumber" placeholder="e.g. 12 or 203" />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="heldFloorNumber">Floor</Label>
+                    <Input id="heldFloorNumber" name="heldFloorNumber" type="number" />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="builtUpAreaSqm">Unit area (m²)</Label>
+                    <Input id="builtUpAreaSqm" name="builtUpAreaSqm" />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="yearBuilt">Year Built</Label>
+                    <Input id="yearBuilt" name="yearBuilt" type="number" min="1800" />
+                  </div>
+                </>
+              ) : (
+                <>
+                  <div className="space-y-2"><Label htmlFor="landAreaSqm">Land Area (m²)</Label><Input id="landAreaSqm" name="landAreaSqm" /></div>
+                  <div className="space-y-2"><Label htmlFor="builtUpAreaSqm">Built-up Area (m²)</Label><Input id="builtUpAreaSqm" name="builtUpAreaSqm" /></div>
+                  <div className="space-y-2"><Label htmlFor="numFloors">Floors</Label><Input id="numFloors" name="numFloors" type="number" min="0" /></div>
+                  <div className="space-y-2"><Label htmlFor="yearBuilt">Year Built</Label><Input id="yearBuilt" name="yearBuilt" type="number" min="1800" /></div>
+                </>
+              )}
             </div>
           </div>
 
@@ -145,7 +190,13 @@ export function CreatePropertyForm({ entities }: { entities: EntityOption[] }) {
             <div className="grid gap-4 md:grid-cols-2">
               <div className="space-y-2"><Label htmlFor="purchaseDate">Purchase Date</Label><Input id="purchaseDate" name="purchaseDate" type="date" /></div>
               <div className="space-y-2"><Label htmlFor="purchasePriceOmr">Purchase Price (OMR)</Label><Input id="purchasePriceOmr" name="purchasePriceOmr" /></div>
-              <div className="space-y-2"><Label htmlFor="currentValuationOmr">Current Valuation (OMR)</Label><Input id="currentValuationOmr" name="currentValuationOmr" /></div>
+              <div className="space-y-2">
+                <Label htmlFor="currentValuationOmr">Current market value (OMR)</Label>
+                <Input id="currentValuationOmr" name="currentValuationOmr" />
+                <p className="text-xs text-muted-foreground">
+                  This is the amount included in net worth. You can update it later from the property page.
+                </p>
+              </div>
               <div className="space-y-2"><Label htmlFor="lastValuationDate">Last Valuation Date</Label><Input id="lastValuationDate" name="lastValuationDate" type="date" /></div>
               <div className="space-y-2">
                 <Label>Valuation Method</Label>
@@ -172,6 +223,7 @@ export function CreatePropertyForm({ entities }: { entities: EntityOption[] }) {
             </div>
           </div>
 
+          {!heldUnit ? (
           <div>
             <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
               <h3 className="text-sm font-medium">Units (optional)</h3>
@@ -261,6 +313,12 @@ export function CreatePropertyForm({ entities }: { entities: EntityOption[] }) {
               </div>
             )}
           </div>
+          ) : (
+            <p className="text-sm text-muted-foreground">
+              This unit will be registered on its own. Add rent, leases, and tenants after saving.
+              You do not need to register the rest of the building.
+            </p>
+          )}
 
           <div className="space-y-2">
             <Label htmlFor="notes">Notes</Label>

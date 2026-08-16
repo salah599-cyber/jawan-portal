@@ -9,6 +9,7 @@ import type { SerializedReProperty } from "@/lib/real-estate/serialize";
 import { ReAlertsBanner } from "@/components/real-estate/re-alerts-banner";
 import { AssetExitSummary } from "@/components/assets/asset-exit-summary";
 import { RecordRePropertySaleForm } from "@/components/real-estate/record-re-property-sale-form";
+import { UpdatePropertyValuationForm } from "@/components/real-estate/update-property-valuation-form";
 import { PeDetailField } from "@/components/pe/pe-detail-field";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -43,6 +44,15 @@ export function ReOverviewTab({
             </CardDescription>
           </CardHeader>
         </Card>
+      ) : null}
+
+      {canEdit && !isSold ? (
+        <UpdatePropertyValuationForm
+          propertyId={property.id}
+          currentValuationOmr={property.currentValuationOmr}
+          lastValuationDate={property.lastValuationDate}
+          valuationMethod={property.valuationMethod}
+        />
       ) : null}
 
       {canEdit && !isSold ? (
@@ -128,6 +138,7 @@ export function ReOverviewTab({
           <PeDetailField label="Wilayat" value={property.wilayat} />
           <PeDetailField label="Area" value={property.area} />
           <PeDetailField label="Street Address" value={property.streetAddress} />
+          <PeDetailField label="Building" value={property.buildingName} />
           <PeDetailField label="Plot Number" value={property.plotNumber} />
           <PeDetailField label="Built-up Area (m²)" value={property.builtUpAreaSqm} />
           <PeDetailField label="Land Area (m²)" value={property.landAreaSqm} />
@@ -137,6 +148,11 @@ export function ReOverviewTab({
             label="Purchase Price"
             value={property.purchasePriceOmr ? formatOmr(property.purchasePriceOmr) : null}
           />
+          <PeDetailField
+            label="Market Value"
+            value={property.currentValuationOmr ? formatOmr(property.currentValuationOmr) : null}
+          />
+          <PeDetailField label="Last Valuation" value={formatDate(property.lastValuationDate)} />
           {property.notes ? (
             <div className="sm:col-span-2 lg:col-span-3">
               <PeDetailField label="Notes" value={property.notes} />

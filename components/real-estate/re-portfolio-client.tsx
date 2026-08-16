@@ -126,7 +126,7 @@ export function RePortfolioClient({
       </div>
 
       {view === "cards" ? (
-        <RePropertyCardGrid properties={properties} />
+        <RePropertyCardGrid properties={properties} canEdit={canEdit} />
       ) : (
         <RePropertyTable properties={properties} canEdit={canEdit} />
       )}

@@ -115,6 +115,7 @@ export function EditPropertyForm({
           <div className="space-y-2"><Label htmlFor="wilayat">Wilayat</Label><Input id="wilayat" name="wilayat" defaultValue={property.wilayat ?? ""} /></div>
           <div className="space-y-2"><Label htmlFor="area">Area</Label><Input id="area" name="area" defaultValue={property.area ?? ""} /></div>
           <div className="space-y-2"><Label htmlFor="streetAddress">Street Address</Label><Input id="streetAddress" name="streetAddress" defaultValue={property.streetAddress ?? ""} /></div>
+          <div className="space-y-2"><Label htmlFor="buildingName">Building name</Label><Input id="buildingName" name="buildingName" defaultValue={property.buildingName ?? ""} placeholder="If you own a unit in a larger building" /></div>
           <div className="space-y-2"><Label htmlFor="plotNumber">Plot Number</Label><Input id="plotNumber" name="plotNumber" defaultValue={property.plotNumber ?? ""} /></div>
           <div className="space-y-2"><Label htmlFor="parcelNumber">Parcel Number</Label><Input id="parcelNumber" name="parcelNumber" defaultValue={property.parcelNumber ?? ""} /></div>
           <div className="space-y-2"><Label htmlFor="landAreaSqm">Land Area (m²)</Label><Input id="landAreaSqm" name="landAreaSqm" defaultValue={formatDecimalInput(property.landAreaSqm)} /></div>
@@ -123,7 +124,13 @@ export function EditPropertyForm({
           <div className="space-y-2"><Label htmlFor="yearBuilt">Year Built</Label><Input id="yearBuilt" name="yearBuilt" type="number" defaultValue={property.yearBuilt ?? ""} /></div>
           <div className="space-y-2"><Label htmlFor="purchaseDate">Purchase Date</Label><Input id="purchaseDate" name="purchaseDate" type="date" defaultValue={formatDateInput(property.purchaseDate)} /></div>
           <div className="space-y-2"><Label htmlFor="purchasePriceOmr">Purchase Price (OMR)</Label><Input id="purchasePriceOmr" name="purchasePriceOmr" defaultValue={formatDecimalInput(property.purchasePriceOmr)} /></div>
-          <div className="space-y-2"><Label htmlFor="currentValuationOmr">Current Valuation (OMR)</Label><Input id="currentValuationOmr" name="currentValuationOmr" defaultValue={formatDecimalInput(property.currentValuationOmr)} /></div>
+          <div className="space-y-2">
+            <Label htmlFor="currentValuationOmr">Current market value (OMR)</Label>
+            <Input id="currentValuationOmr" name="currentValuationOmr" defaultValue={formatDecimalInput(property.currentValuationOmr)} />
+            <p className="text-xs text-muted-foreground">
+              Included in net worth. Prefer Update market value on the property page to keep a history.
+            </p>
+          </div>
           <div className="space-y-2"><Label htmlFor="lastValuationDate">Last Valuation Date</Label><Input id="lastValuationDate" name="lastValuationDate" type="date" defaultValue={formatDateInput(property.lastValuationDate)} /></div>
           <div className="space-y-2">
             <Label>Valuation Method</Label>

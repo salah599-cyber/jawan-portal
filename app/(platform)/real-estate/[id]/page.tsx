@@ -13,6 +13,8 @@ import {
   RE_PROPERTY_TYPE_LABELS,
 } from "@/lib/labels";
 import { formatOmr } from "@/lib/format";
+import { deleteProperty } from "@/lib/actions/real-estate";
+import { DeleteEntryButton } from "@/components/platform/delete-entry-button";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { ExternalLink } from "lucide-react";
@@ -38,7 +40,7 @@ export default async function PropertyDetailPage({
     ctx,
     property.documents.map((doc) => ({ kind: "re-property" as const, fileId: doc.id })),
   );
-  const location = [property.area, property.wilayat, property.governorate]
+  const location = [property.buildingName, property.area, property.wilayat, property.governorate]
     .filter(Boolean)
     .join(", ");
 
@@ -81,9 +83,19 @@ export default async function PropertyDetailPage({
               </Button>
             ) : null}
             {canEdit ? (
-              <Button variant="outline" size="sm" asChild>
-                <Link href={`/real-estate/${id}/edit`}>Edit</Link>
-              </Button>
+              <>
+                <Button variant="outline" size="sm" asChild>
+                  <Link href={`/real-estate/${id}/edit`}>Edit</Link>
+                </Button>
+                <DeleteEntryButton
+                  itemId={id}
+                  itemLabel={property.name}
+                  deleteAction={deleteProperty}
+                  redirectTo="/real-estate"
+                  title="Delete property?"
+                  description={`This will permanently delete "${property.name}" and its linked net-worth asset.`}
+                />
+              </>
             ) : null}
             <Button variant="outline" size="sm" asChild>
               <Link href="/real-estate">Back</Link>
