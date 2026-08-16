@@ -25,6 +25,11 @@ export function ReOverviewTab({
   const { metrics } = property;
   const isSold = property.status === "SOLD";
   const saleIncomplete = isSold && !property.exit;
+  const hasUnits = property.units.length > 0;
+  const unitValuationTotal = property.units.reduce((sum, unit) => {
+    const value = unit.currentValuationOmr ? Number(unit.currentValuationOmr) : 0;
+    return sum + (Number.isNaN(value) ? 0 : value);
+  }, 0);
 
   return (
     <div className="grid gap-4">
@@ -52,6 +57,11 @@ export function ReOverviewTab({
           currentValuationOmr={property.currentValuationOmr}
           lastValuationDate={property.lastValuationDate}
           valuationMethod={property.valuationMethod}
+          units={property.units.map((unit) => ({
+            id: unit.id,
+            unitNumber: unit.unitNumber,
+            currentValuationOmr: unit.currentValuationOmr,
+          }))}
         />
       ) : null}
 
@@ -105,12 +115,35 @@ export function ReOverviewTab({
         </Card>
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">Valuation</CardTitle>
+            <CardTitle className="text-sm font-medium text-muted-foreground">Market Value</CardTitle>
           </CardHeader>
           <CardContent>
-            <p className="text-2xl font-semibold">
-              {property.currentValuationOmr ? formatOmr(property.currentValuationOmr) : "—"}
-            </p>
+            {hasUnits ? (
+              <div className="space-y-2 text-sm">
+                {property.units.map((unit) => (
+                  <div key={unit.id} className="flex justify-between gap-3">
+                    <span>Unit {unit.unitNumber}</span>
+                    <span className="font-medium">
+                      {unit.currentValuationOmr ? formatOmr(unit.currentValuationOmr) : "—"}
+                    </span>
+                  </div>
+                ))}
+                <div className="flex justify-between gap-3 border-t pt-2 font-semibold">
+                  <span>Total</span>
+                  <span>
+                    {formatOmr(
+                      unitValuationTotal > 0
+                        ? unitValuationTotal
+                        : property.currentValuationOmr ?? 0,
+                    )}
+                  </span>
+                </div>
+              </div>
+            ) : (
+              <p className="text-2xl font-semibold">
+                {property.currentValuationOmr ? formatOmr(property.currentValuationOmr) : "—"}
+              </p>
+            )}
           </CardContent>
         </Card>
       </div>

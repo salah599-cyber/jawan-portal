@@ -97,6 +97,10 @@ export function ReUnitsTab({
                   ) : null}
                   <div className="grid grid-cols-2 gap-2">
                     <div>
+                      <p className="text-xs text-muted-foreground">Market Value</p>
+                      <p>{unit.currentValuationOmr ? formatOmr(unit.currentValuationOmr) : "—"}</p>
+                    </div>
+                    <div>
                       <p className="text-xs text-muted-foreground">Market Rent</p>
                       <p>{unit.marketRentOmr ? formatOmr(unit.marketRentOmr) : "—"}</p>
                     </div>

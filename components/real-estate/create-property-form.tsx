@@ -251,7 +251,7 @@ export function CreatePropertyForm({ entities }: { entities: EntityOption[] }) {
             ) : (
               <div className="space-y-3">
                 {unitRows.map((unit, index) => (
-                  <div key={index} className="grid gap-3 rounded-lg border p-3 md:grid-cols-4">
+                  <div key={index} className="grid gap-3 rounded-lg border p-3 md:grid-cols-5">
                     <div className="space-y-2">
                       <Label>Unit #</Label>
                       <Input
@@ -289,6 +289,17 @@ export function CreatePropertyForm({ entities }: { entities: EntityOption[] }) {
                         onChange={(e) => {
                           const next = [...unitRows];
                           next[index] = { ...next[index]!, marketRentOmr: e.target.value };
+                          setUnitRows(next);
+                        }}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Market Value (OMR)</Label>
+                      <Input
+                        value={unit.currentValuationOmr ?? ""}
+                        onChange={(e) => {
+                          const next = [...unitRows];
+                          next[index] = { ...next[index]!, currentValuationOmr: e.target.value };
                           setUnitRows(next);
                         }}
                       />

@@ -3,7 +3,7 @@ import { notFound } from "next/navigation";
 import { PlatformHeader } from "@/components/platform/platform-header";
 import { UnitDetailView } from "@/components/real-estate/unit-detail-view";
 import { getUnitDetail } from "@/lib/data/real-estate";
-import { requireModuleAccess } from "@/lib/permissions/access";
+import { requireModuleAccess, canWrite } from "@/lib/permissions/access";
 import { Button } from "@/components/ui/button";
 
 export default async function UnitDetailPage({
@@ -13,6 +13,7 @@ export default async function UnitDetailPage({
 }) {
   const { id, unitId } = await params;
   const ctx = await requireModuleAccess("REAL_ESTATE");
+  const canEdit = canWrite(ctx, "REAL_ESTATE");
 
   const unit = await getUnitDetail(unitId, ctx);
   if (!unit || unit.property.id !== id) notFound();
@@ -45,6 +46,8 @@ export default async function UnitDetailPage({
             occupancyStatus: unit.occupancyStatus,
             furnishingStatus: unit.furnishingStatus,
             marketRentOmr: unit.marketRentOmr?.toString() ?? null,
+            currentValuationOmr: unit.currentValuationOmr?.toString() ?? null,
+            lastValuationDate: unit.lastValuationDate?.toISOString() ?? null,
             vacantSince: unit.vacantSince?.toISOString() ?? null,
             electricityMeterNumber: unit.electricityMeterNumber,
             electricityAccountNumber: unit.electricityAccountNumber,
@@ -90,6 +93,7 @@ export default async function UnitDetailPage({
               amountOmr: r.amountOmr?.toString() ?? null,
             })),
           }}
+          canEdit={canEdit}
         />
       </main>
     </>

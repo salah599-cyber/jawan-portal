@@ -2313,6 +2313,8 @@ model ReUnit {
   occupancyStatus          ReOccupancyStatus   @default(VACANT)
   furnishingStatus         ReFurnishingStatus?
   marketRentOmr            Decimal?            @db.Decimal(18, 3)
+  currentValuationOmr      Decimal?            @db.Decimal(18, 3)
+  lastValuationDate        DateTime?
   vacantSince              DateTime?
   notes                    String?
   tenants                  ReTenant[]

@@ -125,12 +125,25 @@ async function applyPrivateRealEstateSchema(client: Client) {
   }
 }
 
+const UNIT_VALUATION_SCHEMA_STATEMENTS = [
+  `ALTER TABLE "ReUnit" ADD COLUMN IF NOT EXISTS "currentValuationOmr" DECIMAL(18,3)`,
+  `ALTER TABLE "ReUnit" ADD COLUMN IF NOT EXISTS "lastValuationDate" TIMESTAMP(3)`,
+];
+
 async function applyHeldUnitPropertySchema(client: Client) {
   if (!(await tableExists(client, "ReProperty"))) {
     return;
   }
 
   await runStatements(client, HELD_UNIT_SCHEMA_STATEMENTS);
+}
+
+async function applyUnitValuationSchema(client: Client) {
+  if (!(await tableExists(client, "ReUnit"))) {
+    return;
+  }
+
+  await runStatements(client, UNIT_VALUATION_SCHEMA_STATEMENTS);
 }
 
 async function applyRealEstateSchema() {
@@ -144,6 +157,7 @@ async function applyRealEstateSchema() {
     await applyBaseRealEstateSchema(client);
     await applyPrivateRealEstateSchema(client);
     await applyHeldUnitPropertySchema(client);
+    await applyUnitValuationSchema(client);
   } finally {
     await client.end();
   }

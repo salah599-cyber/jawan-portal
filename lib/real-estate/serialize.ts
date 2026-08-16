@@ -87,6 +87,8 @@ export function serializeReProperty(property: RePropertyDetail) {
       occupancyStatus: unit.occupancyStatus,
       furnishingStatus: unit.furnishingStatus,
       marketRentOmr: dec(unit.marketRentOmr),
+      currentValuationOmr: dec(unit.currentValuationOmr),
+      lastValuationDate: dateIso(unit.lastValuationDate),
       vacantSince: dateIso(unit.vacantSince),
       electricityMeterNumber: unit.electricityMeterNumber,
       waterMeterNumber: unit.waterMeterNumber,

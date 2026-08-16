@@ -88,6 +88,8 @@ CREATE TABLE "ReUnit" (
     "occupancyStatus" "ReOccupancyStatus" NOT NULL DEFAULT 'VACANT',
     "furnishingStatus" "ReFurnishingStatus",
     "marketRentOmr" DECIMAL(18,3),
+    "currentValuationOmr" DECIMAL(18,3),
+    "lastValuationDate" TIMESTAMP(3),
     "vacantSince" TIMESTAMP(3),
     "notes" TEXT,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
