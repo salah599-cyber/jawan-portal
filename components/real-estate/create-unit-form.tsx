@@ -108,6 +108,10 @@ export function CreateUnitForm({
         <Label htmlFor="marketRentOmr">Market Rent (OMR)</Label>
         <Input id="marketRentOmr" name="marketRentOmr" />
       </div>
+      <div className="space-y-2">
+        <Label htmlFor="currentValuationOmr">Market Value (OMR)</Label>
+        <Input id="currentValuationOmr" name="currentValuationOmr" type="number" step="0.001" min="0" />
+      </div>
       <div className="space-y-2 md:col-span-2">
         <Label htmlFor="notes">Notes</Label>
         <Textarea id="notes" name="notes" rows={2} />

@@ -7,6 +7,7 @@ import {
 } from "@/lib/labels";
 import { formatDate, formatOmr } from "@/lib/format";
 import { PeDetailField } from "@/components/pe/pe-detail-field";
+import { UpdateUnitValuationForm } from "@/components/real-estate/update-unit-valuation-form";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -24,6 +25,8 @@ export type SerializedReUnitDetail = {
   occupancyStatus: string;
   furnishingStatus: string | null;
   marketRentOmr: string | null;
+  currentValuationOmr: string | null;
+  lastValuationDate: string | null;
   vacantSince: string | null;
   electricityMeterNumber: string | null;
   electricityAccountNumber: string | null;
@@ -82,7 +85,13 @@ export type SerializedReUnitDetail = {
   }>;
 };
 
-export function UnitDetailView({ unit }: { unit: SerializedReUnitDetail }) {
+export function UnitDetailView({
+  unit,
+  canEdit = false,
+}: {
+  unit: SerializedReUnitDetail;
+  canEdit?: boolean;
+}) {
   const activeLease = unit.leases.find((lease) => lease.status === "ACTIVE");
   const upcomingRent = unit.rentSchedules
     .filter((row) => row.paymentStatus !== "PAID")
@@ -107,6 +116,16 @@ export function UnitDetailView({ unit }: { unit: SerializedReUnitDetail }) {
       </div>
 
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium text-muted-foreground">Market Value</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="text-2xl font-semibold">
+              {unit.currentValuationOmr ? formatOmr(unit.currentValuationOmr) : "—"}
+            </p>
+          </CardContent>
+        </Card>
         <Card>
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground">Market Rent</CardTitle>
@@ -150,6 +169,15 @@ export function UnitDetailView({ unit }: { unit: SerializedReUnitDetail }) {
         </Card>
       </div>
 
+      {canEdit ? (
+        <UpdateUnitValuationForm
+          unitId={unit.id}
+          unitNumber={unit.unitNumber}
+          currentValuationOmr={unit.currentValuationOmr}
+          lastValuationDate={unit.lastValuationDate}
+        />
+      ) : null}
+
       <Card>
         <CardHeader>
           <CardTitle>Unit Details</CardTitle>
@@ -161,6 +189,10 @@ export function UnitDetailView({ unit }: { unit: SerializedReUnitDetail }) {
           <PeDetailField label="Bedrooms" value={unit.numBedrooms?.toString()} />
           <PeDetailField label="Bathrooms" value={unit.numBathrooms?.toString()} />
           <PeDetailField label="Parking" value={unit.numParkingSpaces?.toString()} />
+          <PeDetailField
+            label="Market Value"
+            value={unit.currentValuationOmr ? formatOmr(unit.currentValuationOmr) : null}
+          />
           <PeDetailField label="Electricity Meter" value={unit.electricityMeterNumber} />
           <PeDetailField label="Water Meter" value={unit.waterMeterNumber} />
           {unit.vacantSince ? (

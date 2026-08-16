@@ -14,6 +14,7 @@ import {
   updatePropertyUnitCount,
   RE_PATH,
 } from "@/lib/real-estate/asset-sync";
+import { syncPropertyMarketValueFromUnits } from "@/lib/real-estate/unit-valuation-sync";
 import {
   generateRentScheduleForLease,
   computeLeaseDurationMonths,
@@ -79,6 +80,8 @@ export type ReUnitInput = {
   waterProvider?: string;
   furnishingStatus?: ReFurnishingStatus;
   marketRentOmr?: string;
+  currentValuationOmr?: string;
+  lastValuationDate?: Date;
   notes?: string;
 };
 
@@ -164,6 +167,7 @@ function parseUnitsJson(raw: string): ReUnitInput[] {
       furnishingStatus:
         (String(record.furnishingStatus ?? "").trim() as ReFurnishingStatus) || undefined,
       marketRentOmr: parseDecimalInput(String(record.marketRentOmr ?? "")),
+      currentValuationOmr: parseDecimalInput(String(record.currentValuationOmr ?? "")),
       notes: String(record.notes ?? "").trim() || undefined,
     });
   }
@@ -259,6 +263,8 @@ function readUnitFieldsFromForm(formData: FormData) {
     furnishingStatus:
       (String(formData.get("furnishingStatus") ?? "").trim() as ReFurnishingStatus) || undefined,
     marketRentOmr: parseDecimalInput(String(formData.get("marketRentOmr") ?? "")),
+    currentValuationOmr: parseDecimalInput(String(formData.get("currentValuationOmr") ?? "")),
+    lastValuationDate: parseDateInput(String(formData.get("lastValuationDate") ?? "")),
     notes: String(formData.get("notes") ?? "").trim() || undefined,
   };
 }
@@ -588,6 +594,10 @@ export async function createProperty(formData: FormData) {
                 waterProvider: unit.waterProvider,
                 furnishingStatus: unit.furnishingStatus,
                 marketRentOmr: unit.marketRentOmr,
+                currentValuationOmr: unit.currentValuationOmr,
+                lastValuationDate: unit.currentValuationOmr
+                  ? unit.lastValuationDate ?? fields.lastValuationDate ?? fields.purchaseDate ?? new Date()
+                  : undefined,
                 notes: unit.notes,
               })),
             }
@@ -596,7 +606,9 @@ export async function createProperty(formData: FormData) {
     include: { units: true },
   });
 
-  if (fields.currentValuationOmr) {
+  const hasUnitValuations = units.some((unit) => unit.currentValuationOmr);
+
+  if (fields.currentValuationOmr && !hasUnitValuations) {
     await db.rePropertyValuation.create({
       data: {
         propertyId: property.id,
@@ -607,7 +619,16 @@ export async function createProperty(formData: FormData) {
     });
   }
 
-  await syncRePropertyAsset(property.id);
+  if (hasUnitValuations) {
+    await syncPropertyMarketValueFromUnits(property.id, {
+      valuationDate: fields.lastValuationDate ?? fields.purchaseDate ?? new Date(),
+      method: fields.valuationMethod,
+      recordHistory: true,
+    });
+  } else {
+    await syncRePropertyAsset(property.id);
+  }
+
   await updatePropertyUnitCount(property.id);
 
   await logAudit({
@@ -783,10 +804,21 @@ export async function createUnit(propertyId: string, formData: FormData) {
       ...fields,
       occupancyStatus: fields.occupancyStatus ?? "VACANT",
       vacantSince: fields.occupancyStatus === "RENTED" ? null : new Date(),
+      lastValuationDate:
+        fields.currentValuationOmr
+          ? (fields.lastValuationDate ?? new Date())
+          : undefined,
     },
   });
 
   await updatePropertyUnitCount(propertyId);
+
+  if (fields.currentValuationOmr) {
+    await syncPropertyMarketValueFromUnits(propertyId, {
+      valuationDate: fields.lastValuationDate ?? new Date(),
+      recordHistory: true,
+    });
+  }
 
   await logAudit({
     userId: ctx.id,
@@ -805,16 +837,31 @@ export async function updateUnit(unitId: string, formData: FormData) {
   const existing = await findUnit(unitId, ctx);
   const fields = readUnitFieldsFromForm(formData);
 
+  const valuationChanged =
+    fields.currentValuationOmr !== undefined &&
+    fields.currentValuationOmr !== (existing.currentValuationOmr?.toString() ?? "");
+
   const unit = await db.reUnit.update({
     where: { id: unitId },
     data: {
       ...fields,
+      ...(valuationChanged && fields.currentValuationOmr
+        ? { lastValuationDate: fields.lastValuationDate ?? new Date() }
+        : {}),
+      ...(valuationChanged && !fields.currentValuationOmr ? { lastValuationDate: null } : {}),
       ...(fields.occupancyStatus === "VACANT" && existing.occupancyStatus !== "VACANT"
         ? { vacantSince: new Date() }
         : {}),
       ...(fields.occupancyStatus === "RENTED" ? { vacantSince: null } : {}),
     },
   });
+
+  if (valuationChanged) {
+    await syncPropertyMarketValueFromUnits(existing.propertyId, {
+      valuationDate: fields.lastValuationDate ?? new Date(),
+      recordHistory: true,
+    });
+  }
 
   await logAudit({
     userId: ctx.id,
@@ -826,6 +873,39 @@ export async function updateUnit(unitId: string, formData: FormData) {
 
   revalidateRealEstate(existing.propertyId);
   return unit;
+}
+
+export async function updateUnitValuation(unitId: string, formData: FormData) {
+  const ctx = await requireReWrite();
+  const existing = await findUnit(unitId, ctx);
+
+  const valuationOmr = parseDecimalInput(String(formData.get("currentValuationOmr") ?? ""));
+  const valuationDate =
+    parseDateInput(String(formData.get("lastValuationDate") ?? "")) ?? new Date();
+
+  await db.reUnit.update({
+    where: { id: unitId },
+    data: {
+      currentValuationOmr: valuationOmr,
+      lastValuationDate: valuationOmr ? valuationDate : null,
+    },
+  });
+
+  await syncPropertyMarketValueFromUnits(existing.propertyId, {
+    valuationDate,
+    recordHistory: true,
+  });
+
+  await logAudit({
+    userId: ctx.id,
+    action: "UPDATE",
+    resource: "ReUnit",
+    resourceId: unitId,
+    metadata: { unitNumber: existing.unitNumber, action: "valuation" },
+  });
+
+  revalidateRealEstate(existing.propertyId);
+  revalidatePath("/assets");
 }
 
 export async function deleteUnit(unitId: string) {
@@ -841,6 +921,7 @@ export async function deleteUnit(unitId: string) {
 
   await db.reUnit.delete({ where: { id: unitId } });
   await updatePropertyUnitCount(unit.propertyId);
+  await syncPropertyMarketValueFromUnits(unit.propertyId, { recordHistory: true });
 
   await logAudit({
     userId: ctx.id,
@@ -1563,6 +1644,11 @@ export async function createPropertyValuation(propertyId: string, formData: Form
   const ctx = await requireReWrite();
   await findProperty(propertyId, ctx);
 
+  const unitCount = await db.reUnit.count({ where: { propertyId } });
+  if (unitCount > 0) {
+    throw new Error("Use Update market value to set valuations per unit for this property.");
+  }
+
   const valuationDate = parseDateInput(String(formData.get("valuationDate") ?? ""));
   const valuationOmr = parseDecimalInput(String(formData.get("valuationOmr") ?? ""));
 
@@ -1606,6 +1692,65 @@ export async function createPropertyValuation(propertyId: string, formData: Form
   revalidateRealEstate(propertyId);
   revalidatePath("/assets");
   return valuation;
+}
+
+export async function updatePropertyUnitValuations(propertyId: string, formData: FormData) {
+  const ctx = await requireReWrite();
+  await findProperty(propertyId, ctx);
+
+  const valuationDate = parseDateInput(String(formData.get("valuationDate") ?? ""));
+  if (!valuationDate) throw new Error("Valuation date is required.");
+
+  const method =
+    (String(formData.get("method") ?? "").trim() as ReValuationMethod) || undefined;
+  const raw = String(formData.get("unitsJson") ?? "").trim();
+  if (!raw) throw new Error("Unit valuation data is required.");
+
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(raw);
+  } catch {
+    throw new Error("Invalid unit valuation data.");
+  }
+  if (!Array.isArray(parsed)) throw new Error("Unit valuations must be a list.");
+
+  for (const item of parsed) {
+    if (!item || typeof item !== "object") continue;
+    const record = item as Record<string, unknown>;
+    const unitId = String(record.unitId ?? "").trim();
+    if (!unitId) continue;
+
+    const unit = await findUnit(unitId, ctx);
+    if (unit.propertyId !== propertyId) {
+      throw new Error("Unit does not belong to this property.");
+    }
+
+    const valuationOmr = parseDecimalInput(String(record.valuationOmr ?? ""));
+    await db.reUnit.update({
+      where: { id: unitId },
+      data: {
+        currentValuationOmr: valuationOmr,
+        lastValuationDate: valuationOmr ? valuationDate : null,
+      },
+    });
+  }
+
+  await syncPropertyMarketValueFromUnits(propertyId, {
+    valuationDate,
+    method,
+    recordHistory: true,
+  });
+
+  await logAudit({
+    userId: ctx.id,
+    action: "UPDATE",
+    resource: "ReProperty",
+    resourceId: propertyId,
+    metadata: { action: "unit_valuations", valuationDate },
+  });
+
+  revalidateRealEstate(propertyId);
+  revalidatePath("/assets");
 }
 
 // ─── Documents ────────────────────────────────────────────────────────────────
