@@ -99,7 +99,7 @@ export default async function RealEstatePortfolioPage({
           <div>
             <h2 className="text-lg font-semibold">Property Portfolio</h2>
             <p className="text-sm text-muted-foreground">
-              Manage buildings, units, tenants, rent collection, and property operations.
+              Manage buildings, individual units you own, tenants, rent, and property values in net worth.
             </p>
           </div>
           <div className="flex flex-wrap gap-2">

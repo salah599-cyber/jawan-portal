@@ -40,7 +40,7 @@ export async function getPropertyMetrics(propertyId: string): Promise<PropertyMe
     await Promise.all([
       db.reProperty.findUnique({
         where: { id: propertyId },
-        select: { currentValuationOmr: true, numUnits: true },
+        select: { currentValuationOmr: true, purchasePriceOmr: true, numUnits: true },
       }),
       db.reUnit.findMany({
         where: { propertyId },
@@ -124,7 +124,8 @@ export async function getPropertyMetrics(propertyId: string): Promise<PropertyMe
 
   const netOperatingIncomeOmr =
     rentCollectedYtdOmr - totalExpensesYtdOmr - totalMaintenanceCostYtdOmr;
-  const valuation = toNumber(property?.currentValuationOmr);
+  const valuation =
+    toNumber(property?.currentValuationOmr) || toNumber(property?.purchasePriceOmr);
   const grossYieldPct = valuation > 0 ? (grossAnnualRentOmr / valuation) * 100 : null;
   const netYieldPct = valuation > 0 ? (netOperatingIncomeOmr / valuation) * 100 : null;
   const overdueRentOmr = sumDecimals(

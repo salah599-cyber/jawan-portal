@@ -95,6 +95,16 @@ async function applyBaseRealEstateSchema(client: Client) {
   }
 }
 
+const HELD_UNIT_SCHEMA_STATEMENTS = [
+  `ALTER TYPE "RePropertyType" ADD VALUE IF NOT EXISTS 'APARTMENT'`,
+  `ALTER TYPE "RePropertyType" ADD VALUE IF NOT EXISTS 'OFFICE'`,
+  `ALTER TYPE "RePropertyType" ADD VALUE IF NOT EXISTS 'SHOP'`,
+  `ALTER TYPE "RePropertyType" ADD VALUE IF NOT EXISTS 'SHOWROOM'`,
+  `ALTER TYPE "RePropertyType" ADD VALUE IF NOT EXISTS 'STUDIO'`,
+  `ALTER TYPE "RePropertyType" ADD VALUE IF NOT EXISTS 'PENTHOUSE'`,
+  `ALTER TABLE "ReProperty" ADD COLUMN IF NOT EXISTS "buildingName" TEXT`,
+];
+
 async function applyPrivateRealEstateSchema(client: Client) {
   if (!(await tableExists(client, "ReProperty"))) {
     return;
@@ -115,6 +125,14 @@ async function applyPrivateRealEstateSchema(client: Client) {
   }
 }
 
+async function applyHeldUnitPropertySchema(client: Client) {
+  if (!(await tableExists(client, "ReProperty"))) {
+    return;
+  }
+
+  await runStatements(client, HELD_UNIT_SCHEMA_STATEMENTS);
+}
+
 async function applyRealEstateSchema() {
   const connectionString = getDatabaseUrl();
   if (!connectionString) return;
@@ -125,6 +143,7 @@ async function applyRealEstateSchema() {
   try {
     await applyBaseRealEstateSchema(client);
     await applyPrivateRealEstateSchema(client);
+    await applyHeldUnitPropertySchema(client);
   } finally {
     await client.end();
   }

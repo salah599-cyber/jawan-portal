@@ -11,7 +11,7 @@ import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 
 function formatLocation(property: RePropertyListRow): string {
-  const parts = [property.area, property.wilayat, property.governorate].filter(Boolean);
+  const parts = [property.buildingName, property.area, property.wilayat, property.governorate].filter(Boolean);
   return parts.join(", ") || "—";
 }
 
@@ -35,6 +35,7 @@ export function RePropertyTable({
           <TableHead>Location</TableHead>
           <TableHead>Entity</TableHead>
           <TableHead>Units</TableHead>
+          <TableHead className="text-right">Market Value</TableHead>
           <TableHead className="text-right">Monthly Rent</TableHead>
           <TableHead className="text-right">Overdue</TableHead>
           <TableHead className="text-right">Yield</TableHead>
@@ -57,6 +58,9 @@ export function RePropertyTable({
             <TableCell>{property.entityName}</TableCell>
             <TableCell>
               {property.occupiedUnits}/{property.numUnits}
+            </TableCell>
+            <TableCell className="text-right">
+              {formatOmr(property.currentValuationOmr ?? property.purchasePriceOmr)}
             </TableCell>
             <TableCell className="text-right">{formatOmr(property.grossMonthlyRentOmr)}</TableCell>
             <TableCell className="text-right">

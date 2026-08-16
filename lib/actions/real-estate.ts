@@ -32,7 +32,11 @@ import {
   startOfMonth,
   formatPeriodLabel,
 } from "@/lib/real-estate/helpers";
-import { DEFAULT_NOTICE_PERIOD_DAYS } from "@/lib/real-estate/constants";
+import {
+  DEFAULT_NOTICE_PERIOD_DAYS,
+  HELD_UNIT_TO_UNIT_TYPE,
+  isHeldUnitPropertyType,
+} from "@/lib/real-estate/constants";
 import type {
   ReExpensePaymentStatus,
   ReFurnishingStatus,
@@ -102,8 +106,11 @@ function assertEntityAccess(
 function revalidateRealEstate(propertyId?: string) {
   revalidatePath(RE_PATH);
   revalidatePath(`${RE_PATH}/rent`);
+  revalidatePath("/assets");
+  revalidatePath("/dashboard");
   if (propertyId) {
     revalidatePath(`${RE_PATH}/${propertyId}`);
+    revalidatePath(`${RE_PATH}/${propertyId}/edit`);
   }
 }
 
@@ -202,6 +209,7 @@ function readPropertyFieldsFromForm(formData: FormData) {
     wilayat: String(formData.get("wilayat") ?? "").trim() || undefined,
     area: String(formData.get("area") ?? "").trim() || undefined,
     streetAddress: String(formData.get("streetAddress") ?? "").trim() || undefined,
+    buildingName: String(formData.get("buildingName") ?? "").trim() || undefined,
     plotNumber: String(formData.get("plotNumber") ?? "").trim() || undefined,
     parcelNumber: String(formData.get("parcelNumber") ?? "").trim() || undefined,
     gpsLat: parseDecimalInput(String(formData.get("gpsLat") ?? "")),
@@ -544,7 +552,18 @@ export async function createProperty(formData: FormData) {
   const fields = readPropertyFieldsFromForm(formData);
   assertEntityAccess(ctx, fields.entityId);
 
-  const units = parseUnitsJson(String(formData.get("unitsJson") ?? ""));
+  let units = parseUnitsJson(String(formData.get("unitsJson") ?? ""));
+  if (isHeldUnitPropertyType(fields.propertyType) && units.length === 0) {
+    const unitNumber = String(formData.get("heldUnitNumber") ?? "").trim() || "1";
+    units = [
+      {
+        unitNumber,
+        unitType: HELD_UNIT_TO_UNIT_TYPE[fields.propertyType] as ReUnitType,
+        floorNumber: parseIntInput(String(formData.get("heldFloorNumber") ?? "")),
+        areaSqm: fields.builtUpAreaSqm,
+      },
+    ];
+  }
 
   const property = await db.reProperty.create({
     data: {
@@ -577,6 +596,17 @@ export async function createProperty(formData: FormData) {
     include: { units: true },
   });
 
+  if (fields.currentValuationOmr) {
+    await db.rePropertyValuation.create({
+      data: {
+        propertyId: property.id,
+        valuationDate: fields.lastValuationDate ?? fields.purchaseDate ?? new Date(),
+        valuationOmr: fields.currentValuationOmr,
+        method: fields.valuationMethod,
+      },
+    });
+  }
+
   await syncRePropertyAsset(property.id);
   await updatePropertyUnitCount(property.id);
 
@@ -608,6 +638,19 @@ export async function updateProperty(propertyId: string, formData: FormData) {
     where: { id: propertyId },
     data: fields,
   });
+
+  const previousValuation = existing.currentValuationOmr?.toString() ?? "";
+  const nextValuation = fields.currentValuationOmr ?? "";
+  if (nextValuation && nextValuation !== previousValuation) {
+    await db.rePropertyValuation.create({
+      data: {
+        propertyId,
+        valuationDate: fields.lastValuationDate ?? new Date(),
+        valuationOmr: nextValuation,
+        method: fields.valuationMethod,
+      },
+    });
+  }
 
   await syncRePropertyAsset(property.id);
 

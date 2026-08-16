@@ -20,7 +20,8 @@ export default async function NewPropertyPage() {
           <div>
             <h2 className="text-lg font-semibold">New Property</h2>
             <p className="text-sm text-muted-foreground">
-              Register a building, land parcel, or commercial block with optional units.
+              Register a whole building, a single unit you own in someone else&apos;s building, or
+              land.
             </p>
           </div>
           <Button variant="outline" size="sm" asChild>
