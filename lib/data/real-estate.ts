@@ -464,6 +464,7 @@ export async function getRentDashboard(
 
   const scheduleWhere = {
     unit: { propertyId: { in: propertyIds } },
+    lease: { status: "ACTIVE" as const },
     ...(paymentStatuses ? { paymentStatus: { in: paymentStatuses } } : {}),
   };
 
@@ -498,6 +499,7 @@ export async function getRentDashboard(
     db.reRentSchedule.count({
       where: {
         unit: { propertyId: { in: propertyIds } },
+        lease: { status: "ACTIVE" },
         pdcStatus: "PENDING",
       },
     }),

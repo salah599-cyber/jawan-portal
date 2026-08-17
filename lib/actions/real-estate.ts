@@ -1077,6 +1077,13 @@ export async function renewLease(leaseId: string, formData: FormData) {
     data: { status: "RENEWED" as ReLeaseStatus },
   });
 
+  await db.reRentSchedule.deleteMany({
+    where: {
+      leaseId,
+      dueDate: { gte: startOfMonth(fields.leaseStartDate) },
+    },
+  });
+
   const leaseDurationMonths = computeLeaseDurationMonths(
     fields.leaseStartDate,
     fields.leaseEndDate,

@@ -1,5 +1,4 @@
 import type {
-  ReLease,
   RePaymentFrequency,
   RePaymentMethod,
 } from "@/lib/generated/prisma/client";
@@ -75,6 +74,25 @@ export function computeLeaseDurationMonths(leaseStartDate: Date, leaseEndDate: D
     (end.getFullYear() - start.getFullYear()) * 12 +
     (end.getMonth() - start.getMonth()) +
     1
+  );
+}
+
+export function pickCurrentLease<T extends { id: string; status: string }>(leases: T[]) {
+  return leases.find((lease) => lease.status === "ACTIVE") ?? leases[0];
+}
+
+export function filterSchedulesForCurrentLease<
+  T extends { leaseId: string; dueDate: Date | string },
+>(
+  schedules: T[],
+  leases: Array<{ id: string; status: string; leaseStartDate: Date | string }>,
+) {
+  const current = pickCurrentLease(leases);
+  if (!current) return schedules;
+
+  const cutoff = startOfMonth(new Date(current.leaseStartDate)).getTime();
+  return schedules.filter(
+    (row) => row.leaseId === current.id || new Date(row.dueDate).getTime() < cutoff,
   );
 }
 

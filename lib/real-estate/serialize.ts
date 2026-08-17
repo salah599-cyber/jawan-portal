@@ -1,4 +1,5 @@
 import type { RePropertyDetail } from "@/lib/data/real-estate";
+import { filterSchedulesForCurrentLease } from "@/lib/real-estate/rent-schedule";
 
 function dec(value: { toString(): string } | number | null | undefined): string | null {
   if (value == null) return null;
@@ -110,7 +111,7 @@ export function serializeReProperty(property: RePropertyDetail) {
         autoRenew: lease.autoRenew,
         tenant: { id: lease.tenant.id, fullName: lease.tenant.fullName },
       })),
-      rentSchedules: unit.rentSchedules.map((row) => ({
+      rentSchedules: filterSchedulesForCurrentLease(unit.rentSchedules, unit.leases).map((row) => ({
         id: row.id,
         dueDate: dateIso(row.dueDate),
         amountOmr: dec(row.amountOmr),
