@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { PlatformHeader } from "@/components/platform/platform-header";
 import { UnitDetailView } from "@/components/real-estate/unit-detail-view";
 import { getUnitDetail } from "@/lib/data/real-estate";
+import { filterSchedulesForCurrentLease } from "@/lib/real-estate/rent-schedule";
 import { requireModuleAccess, canWrite } from "@/lib/permissions/access";
 import { Button } from "@/components/ui/button";
 
@@ -70,7 +71,7 @@ export default async function UnitDetailPage({
               paymentFrequency: lease.paymentFrequency,
               tenant: { fullName: lease.tenant.fullName },
             })),
-            rentSchedules: unit.rentSchedules.map((row) => ({
+            rentSchedules: filterSchedulesForCurrentLease(unit.rentSchedules, unit.leases).map((row) => ({
               id: row.id,
               dueDate: row.dueDate,
               periodLabel: row.periodLabel,
