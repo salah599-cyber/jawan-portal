@@ -13,7 +13,6 @@ import {
 import {
   encodeSessionBoundary,
   getSessionExpiryReason,
-  parseSessionBoundary,
   resolveSessionStart,
   type SessionExpiryReason,
 } from "@/lib/auth/session";
@@ -29,7 +28,6 @@ function readLastActivity() {
 
 function readSessionStart(sessionId: string) {
   const raw = localStorage.getItem(SESSION_BOUNDARY_STORAGE_KEY);
-  const parsed = parseSessionBoundary(raw);
   return resolveSessionStart(sessionId, raw, Date.now());
 }
 
