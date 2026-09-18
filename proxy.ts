@@ -1,11 +1,16 @@
 import { clerkClient, clerkMiddleware, createRouteMatcher } from "@clerk/nextjs/server";
 import { NextResponse, type NextRequest } from "next/server";
-import { LAST_ACTIVITY_COOKIE } from "@/lib/auth/constants";
+import { LAST_ACTIVITY_COOKIE, SESSION_BOUNDARY_COOKIE } from "@/lib/auth/constants";
 import {
   activityCookieOptions,
-  isInactiveBeyondThreshold,
+  clearSessionCookies,
+  encodeSessionBoundary,
+  getSessionExpiryReason,
   parseLastActivity,
-} from "@/lib/auth/inactivity";
+  resolveSessionStart,
+  sessionBoundaryCookieOptions,
+  type SessionExpiryReason,
+} from "@/lib/auth/session";
 
 const isPublicRoute = createRouteMatcher([
   "/",
@@ -30,13 +35,17 @@ async function revokeSession(sessionId: string | null | undefined) {
   }
 }
 
-function inactivityResponse(req: NextRequest) {
+function sessionExpiryResponse(req: NextRequest, reason: SessionExpiryReason) {
   if (req.nextUrl.pathname.startsWith("/api/")) {
-    return NextResponse.json({ error: "Session expired due to inactivity." }, { status: 401 });
+    const message =
+      reason === "session_expired"
+        ? "Session expired after the maximum duration."
+        : "Session expired due to inactivity.";
+    return NextResponse.json({ error: message }, { status: 401 });
   }
 
   const url = new URL("/sign-in", req.url);
-  url.searchParams.set("reason", "session_timeout");
+  url.searchParams.set("reason", reason);
   return NextResponse.redirect(url);
 }
 
@@ -54,19 +63,32 @@ export default clerkMiddleware(async (auth, req) => {
   await auth.protect();
 
   const { userId, sessionId } = await auth();
-  if (!userId) return;
+  if (!userId || !sessionId) return;
 
   const now = Date.now();
+  const sessionStartedAt = resolveSessionStart(
+    sessionId,
+    req.cookies.get(SESSION_BOUNDARY_COOKIE)?.value,
+    now,
+  );
   const lastActivity = parseLastActivity(req.cookies.get(LAST_ACTIVITY_COOKIE)?.value);
+  const expiryReason = getSessionExpiryReason(lastActivity, sessionStartedAt, now);
 
-  if (lastActivity !== null && isInactiveBeyondThreshold(lastActivity, now)) {
+  if (expiryReason) {
     await revokeSession(sessionId);
-    const response = inactivityResponse(req);
-    response.cookies.delete(LAST_ACTIVITY_COOKIE);
+    const response = sessionExpiryResponse(req, expiryReason);
+    for (const cookieName of clearSessionCookies()) {
+      response.cookies.delete(cookieName);
+    }
     return response;
   }
 
   const response = NextResponse.next();
+  response.cookies.set(
+    SESSION_BOUNDARY_COOKIE,
+    encodeSessionBoundary(sessionId, sessionStartedAt),
+    sessionBoundaryCookieOptions(),
+  );
   response.cookies.set(LAST_ACTIVITY_COOKIE, String(now), activityCookieOptions());
   return response;
 });
