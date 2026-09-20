@@ -4,12 +4,16 @@ import { JawanLogo } from "@/components/brand/jawan-logo";
 import { Card, CardContent, CardDescription, CardHeader } from "@/components/ui/card";
 
 export function SignInPanel({ reason }: { reason?: string }) {
-  const inviteMessage =
+  const defaultMessage = "Sign in with the email address your administrator invited.";
+  const bannerMessage =
     reason === "invite_required"
       ? "Access is by invitation only. Use the link in your invitation email or contact your administrator."
       : reason === "session_timeout"
         ? "You were signed out after 30 minutes of inactivity."
-        : "Sign in with the email address your administrator invited.";
+        : reason === "mfa_required"
+          ? "Enter the code from your authenticator app to finish signing in. Dashboard access requires TOTP."
+          : null;
+  const showBanner = bannerMessage !== null;
 
   return (
     <div className="flex w-full max-w-md flex-col gap-4">
@@ -20,10 +24,10 @@ export function SignInPanel({ reason }: { reason?: string }) {
         </CardHeader>
       </Card>
 
-      {reason === "invite_required" || reason === "session_timeout" ? (
+      {showBanner ? (
         <Card>
           <CardContent className="p-4 text-center text-sm text-muted-foreground">
-            {inviteMessage}
+            {bannerMessage}
           </CardContent>
         </Card>
       ) : null}
@@ -33,6 +37,8 @@ export function SignInPanel({ reason }: { reason?: string }) {
         path="/sign-in"
         signUpUrl="/sign-up"
         fallbackRedirectUrl="/dashboard"
+        // forceRedirectUrl only runs after Clerk finishes the sign-in, including
+        // the TOTP second-factor step. Route access is enforced in proxy.ts.
         forceRedirectUrl="/dashboard"
         appearance={{
           elements: {
@@ -50,7 +56,7 @@ export function SignInPanel({ reason }: { reason?: string }) {
 
       <Card>
         <CardContent className="flex flex-col gap-2 p-4 text-center text-sm text-muted-foreground">
-          <p>{inviteMessage}</p>
+          {!showBanner ? <p>{defaultMessage}</p> : null}
           <Link href="/forgot-password" className="text-primary hover:underline">
             Forgot your password?
           </Link>

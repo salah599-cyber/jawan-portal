@@ -28,7 +28,7 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <ClerkProvider>
+    <ClerkProvider taskUrls={{ "setup-mfa": "/sign-in/tasks" }}>
       <html lang="en-GB" className={`${geistSans.variable} ${geistMono.variable} h-full`}>
         <body className="min-h-full font-sans antialiased">
           <TooltipProvider>

@@ -1,0 +1,20 @@
+{
+  "auth_multi_factor": {
+    "authenticator_app": {
+      "enabled": true
+    },
+    "backup_code": {
+      "enabled": true
+    },
+    "required_for_sign_in": true,
+    "required_for_sign_up": true
+  },
+  "auth_passkey": {
+    "satisfies_second_factor": false
+  },
+  "session": {
+    "claims": {
+      "twoFactorEnabled": "{{user.two_factor_enabled}}"
+    }
+  }
+}
