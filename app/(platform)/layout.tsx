@@ -9,6 +9,7 @@ import { db } from "@/lib/db";
 import { getCurrentUserContext, isSuperAdmin, buildModuleAccessMap } from "@/lib/permissions/access";
 import { countPendingDownloadRequests } from "@/lib/files/download-access";
 import {
+  MFA_ENROLL_PATH,
   MFA_ENROLL_REASON,
   MFA_SIGN_IN_REASON,
   PATHNAME_HEADER,
@@ -52,7 +53,7 @@ export default async function PlatformLayout({ children }: { children: React.Rea
   // second factor on this session (amr includes otp / fva[1] !== -1).
   if (!isMfaSetupPath(pathname)) {
     if (clerkUser?.twoFactorEnabled !== true) {
-      redirect(`/account?reason=${MFA_ENROLL_REASON}`);
+      redirect(`${MFA_ENROLL_PATH}?reason=${MFA_ENROLL_REASON}`);
     }
     if (!isSecondFactorVerified(factorVerificationAge)) {
       redirect(`/sign-in?reason=${MFA_SIGN_IN_REASON}`);

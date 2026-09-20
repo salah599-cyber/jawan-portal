@@ -1,8 +1,8 @@
 import { clerkClient } from "@clerk/nextjs/server";
 import { NextResponse, type NextRequest } from "next/server";
 
-/** Path where users enroll TOTP via Clerk UserProfile. */
-export const MFA_ENROLL_PATH = "/account";
+/** Path where users enroll TOTP via Clerk UserProfile Security tab. */
+export const MFA_ENROLL_PATH = "/account/security";
 
 /** Path for the Clerk `setup-mfa` session task. */
 export const MFA_TASKS_PATH = "/sign-in/tasks";
@@ -54,6 +54,8 @@ export function isMfaSetupPath(pathname: string): boolean {
   return (
     pathname === MFA_ENROLL_PATH ||
     pathname.startsWith(`${MFA_ENROLL_PATH}/`) ||
+    pathname === "/account" ||
+    pathname.startsWith("/account/") ||
     isMfaTaskPath(pathname)
   );
 }
