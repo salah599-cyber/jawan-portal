@@ -15,8 +15,10 @@ export function SignInPanel({ reason }: { reason?: string }) {
           : reason === "session_timeout"
             ? "You were signed out after 30 minutes of inactivity."
             : reason === "mfa_required"
-              ? "Enter the code from your authenticator app to finish signing in. Dashboard access requires TOTP."
-              : null;
+              ? "Enter the 6-digit code from Google Authenticator to finish signing in."
+              : reason === "mfa_enroll"
+                ? "This account still needs Google Authenticator. After your password you will scan a QR code."
+                : null;
   const showBanner = bannerMessage !== null;
 
   return (

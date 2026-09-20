@@ -33,6 +33,10 @@ export function isMfaSetupPath(pathname: string): boolean {
   );
 }
 
+export function totpChallengePath(enrolled: boolean) {
+  return enrolled ? MFA_VERIFY_PATH : MFA_ENROLL_PATH;
+}
+
 export function mfaIncompleteResponse(req: NextRequest, enrolled: boolean) {
   if (req.nextUrl.pathname.startsWith("/api/")) {
     return NextResponse.json(
@@ -41,7 +45,7 @@ export function mfaIncompleteResponse(req: NextRequest, enrolled: boolean) {
     );
   }
 
-  const url = new URL(enrolled ? MFA_VERIFY_PATH : MFA_ENROLL_PATH, req.url);
+  const url = new URL(totpChallengePath(enrolled), req.url);
   url.searchParams.set("reason", enrolled ? MFA_SIGN_IN_REASON : MFA_ENROLL_REASON);
   return NextResponse.redirect(url);
 }

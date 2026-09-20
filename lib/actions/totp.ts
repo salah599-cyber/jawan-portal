@@ -100,6 +100,7 @@ export async function startTotpEnrollment(): Promise<
 > {
   try {
     const { userId } = await requireClerkSession();
+    await syncClerkUser();
     const { user, email } = await loadUser(userId);
     if (user.totpEnabled) {
       return { ok: false, error: "Authenticator is already enrolled. Enter a code to continue." };
@@ -118,10 +119,117 @@ export async function startTotpEnrollment(): Promise<
 
     const otpauthUrl = totpAuthUrl(secret, email || "user");
     const qrDataUrl = await QRCode.toDataURL(otpauthUrl, { margin: 1, width: 220 });
-    return { ok: true, qrDataUrl, secret, otpauthUrl };
+    return { ok: true as const, qrDataUrl, secret, otpauthUrl };
   } catch (error) {
-    return { ok: false, error: error instanceof Error ? error.message : "Could not start authenticator setup." };
+    return {
+      ok: false as const,
+      error: error instanceof Error ? error.message : "Could not start authenticator setup.",
+    };
   }
+}
+
+async function qrForSecret(secret: string, email: string) {
+  const otpauthUrl = totpAuthUrl(secret, email || "user");
+  const qrDataUrl = await QRCode.toDataURL(otpauthUrl, { margin: 1, width: 220 });
+  return { qrDataUrl, secret, otpauthUrl };
+}
+
+export async function revealExistingTotp(formData: FormData) {
+  const code = String(formData.get("code") ?? "");
+  const { userId } = await requireClerkSession();
+  await syncClerkUser();
+  const { user, email } = await loadUser(userId);
+
+  if (!user.totpEnabled || !user.totpSecretEncrypted) {
+    return { error: "This account does not have Google Authenticator yet. Set it up first." };
+  }
+
+  const locked = lockMessage(user.totpLockedUntil);
+  if (locked) return { error: locked };
+
+  const secret = decryptSecret(user.totpSecretEncrypted);
+  if (!verifyTotpCode(secret, code)) {
+    return { error: await recordFailure(user.id, user) };
+  }
+
+  await db.user.update({
+    where: { id: user.id },
+    data: { totpFailedAttempts: 0, totpLockedUntil: null },
+  });
+
+  return { ok: true as const, ...(await qrForSecret(secret, email)) };
+}
+
+export async function startTotpReplacement(formData: FormData) {
+  const code = String(formData.get("code") ?? "");
+  const { userId } = await requireClerkSession();
+  await syncClerkUser();
+  const { user, email } = await loadUser(userId);
+
+  if (!user.totpEnabled || !user.totpSecretEncrypted) {
+    return { error: "Set up Google Authenticator before replacing it." };
+  }
+
+  const locked = lockMessage(user.totpLockedUntil);
+  if (locked) return { error: locked };
+
+  const currentSecret = decryptSecret(user.totpSecretEncrypted);
+  const hashes = parseBackupCodeHashes(user.totpBackupCodeHashes);
+  const totpOk = verifyTotpCode(currentSecret, code);
+  const matchedBackup = totpOk ? null : verifyBackupCode(hashes, code);
+  if (!totpOk && !matchedBackup) {
+    return { error: await recordFailure(user.id, user) };
+  }
+
+  const secret = generateTotpSecret();
+  await db.user.update({
+    where: { id: user.id },
+    data: {
+      totpPendingSecretEncrypted: encryptSecret(secret),
+      totpBackupCodeHashes: matchedBackup
+        ? JSON.stringify(hashes.filter((hash) => hash !== matchedBackup))
+        : user.totpBackupCodeHashes,
+      totpFailedAttempts: 0,
+      totpLockedUntil: null,
+    },
+  });
+
+  return { ok: true as const, ...(await qrForSecret(secret, email)) };
+}
+
+export async function confirmTotpReplacement(formData: FormData) {
+  const code = String(formData.get("code") ?? "");
+  const { userId, sessionId } = await requireClerkSession();
+  await syncClerkUser();
+  const { user } = await loadUser(userId);
+
+  if (!user.totpPendingSecretEncrypted) {
+    return { error: "Scan the new QR code first, then enter the 6-digit code." };
+  }
+
+  const locked = lockMessage(user.totpLockedUntil);
+  if (locked) return { error: locked };
+
+  const pendingSecret = decryptSecret(user.totpPendingSecretEncrypted);
+  if (!verifyTotpCode(pendingSecret, code)) {
+    return { error: await recordFailure(user.id, user) };
+  }
+
+  const backupCodes = generateBackupCodes();
+  await db.user.update({
+    where: { id: user.id },
+    data: {
+      totpEnabled: true,
+      totpSecretEncrypted: encryptSecret(pendingSecret),
+      totpPendingSecretEncrypted: null,
+      totpBackupCodeHashes: JSON.stringify(backupCodes.map(hashBackupCode)),
+      totpFailedAttempts: 0,
+      totpLockedUntil: null,
+    },
+  });
+
+  await markVerified(user.id, userId, sessionId);
+  return { backupCodes };
 }
 
 export async function confirmTotpEnrollment(formData: FormData) {
