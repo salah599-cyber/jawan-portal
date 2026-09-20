@@ -1,44 +1,16 @@
 import { describe, expect, it } from "vitest";
+import { isMfaSetupPath, isMfaTaskPath, isPendingSession } from "@/lib/auth/mfa";
 import {
-  amrFromFactorVerificationAge,
-  isMfaSetupPath,
-  isMfaTaskPath,
-  isPendingSession,
-  isSecondFactorVerified,
-  isTwoFactorEnabledClaim,
-} from "@/lib/auth/mfa";
-
-describe("isSecondFactorVerified", () => {
-  it("is false when no second factor has been verified", () => {
-    expect(isSecondFactorVerified(null)).toBe(false);
-    expect(isSecondFactorVerified(undefined)).toBe(false);
-    expect(isSecondFactorVerified([0, -1])).toBe(false);
-  });
-
-  it("is true after TOTP (or backup code) verification", () => {
-    expect(isSecondFactorVerified([0, 0])).toBe(true);
-    expect(isSecondFactorVerified([12, 3])).toBe(true);
-  });
-});
-
-describe("amrFromFactorVerificationAge", () => {
-  it("maps first-factor-only sessions to ['swk']", () => {
-    expect(amrFromFactorVerificationAge([4, -1])).toEqual(["swk"]);
-  });
-
-  it("maps TOTP-completed sessions to ['swk', 'otp']", () => {
-    expect(amrFromFactorVerificationAge([1, 0])).toEqual(["swk", "otp"]);
-  });
-});
-
-describe("isTwoFactorEnabledClaim", () => {
-  it("accepts boolean or string claims from the session JWT", () => {
-    expect(isTwoFactorEnabledClaim(true)).toBe(true);
-    expect(isTwoFactorEnabledClaim("true")).toBe(true);
-    expect(isTwoFactorEnabledClaim(false)).toBe(false);
-    expect(isTwoFactorEnabledClaim("false")).toBe(false);
-  });
-});
+  decodeBase32,
+  encodeBase32,
+  generateTotpSecret,
+  hashBackupCode,
+  totpAt,
+  totpAuthUrl,
+  verifyBackupCode,
+  verifyTotpCode,
+} from "@/lib/auth/totp";
+import { encodeTotpCookie, isTotpCookieValid } from "@/lib/auth/totp-cookie";
 
 describe("isPendingSession", () => {
   it("is true only for Clerk pending session tasks", () => {
@@ -58,12 +30,52 @@ describe("isMfaTaskPath", () => {
 });
 
 describe("isMfaSetupPath", () => {
-  it("allows enrollment and setup-mfa task routes", () => {
-    expect(isMfaSetupPath("/account")).toBe(true);
-    expect(isMfaSetupPath("/account/security")).toBe(true);
+  it("allows app TOTP enrollment and verify routes", () => {
+    expect(isMfaSetupPath("/mfa/setup")).toBe(true);
+    expect(isMfaSetupPath("/mfa/verify")).toBe(true);
     expect(isMfaSetupPath("/sign-in/tasks")).toBe(true);
+    expect(isMfaSetupPath("/account")).toBe(false);
     expect(isMfaSetupPath("/dashboard")).toBe(false);
-    expect(isMfaSetupPath("/portfolio/pe")).toBe(false);
-    expect(isMfaSetupPath("/transfer-letters")).toBe(false);
+  });
+});
+
+describe("Google Authenticator TOTP", () => {
+  it("round-trips a Base32 secret", () => {
+    const secret = generateTotpSecret();
+    expect(encodeBase32(decodeBase32(secret))).toBe(secret);
+  });
+
+  it("accepts the current 6-digit Google Authenticator code", () => {
+    const secret = generateTotpSecret();
+    const now = Date.UTC(2026, 8, 20, 10, 0, 0);
+    const code = totpAt(decodeBase32(secret), Math.floor(now / 1000));
+    expect(code).toMatch(/^\d{6}$/);
+    expect(verifyTotpCode(secret, code, now)).toBe(true);
+    expect(verifyTotpCode(secret, "000000", now)).toBe(false);
+  });
+
+  it("builds an otpauth URL Google Authenticator can scan", () => {
+    const url = totpAuthUrl("JBSWY3DPEHPK3PXP", "user@example.com");
+    expect(url).toContain("otpauth://totp/");
+    expect(url).toContain("secret=JBSWY3DPEHPK3PXP");
+    expect(url).toContain("issuer=Jawan+Investments");
+  });
+
+  it("consumes a matching backup code", () => {
+    const hashes = [hashBackupCode("ABCDE12345")];
+    expect(verifyBackupCode(hashes, "abcde-12345")).toBe(hashes[0]);
+    expect(verifyBackupCode(hashes, "wrong")).toBeNull();
+  });
+});
+
+describe("TOTP session cookie", () => {
+  const key = Buffer.from("test-totp-cookie-key-32-bytes-ok!!");
+
+  it("is valid only for the same Clerk user and session", () => {
+    const value = encodeTotpCookie("user_1", "sess_1", key);
+    expect(isTotpCookieValid(value, "user_1", "sess_1", key)).toBe(true);
+    expect(isTotpCookieValid(value, "user_2", "sess_1", key)).toBe(false);
+    expect(isTotpCookieValid(value, "user_1", "sess_2", key)).toBe(false);
+    expect(isTotpCookieValid("tampered", "user_1", "sess_1", key)).toBe(false);
   });
 });

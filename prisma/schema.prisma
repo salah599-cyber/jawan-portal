@@ -350,6 +350,12 @@ model User {
   transferLetters     TransferLetter[]
   fileDownloadRequests       FileDownloadRequest[] @relation("FileDownloadRequester")
   reviewedFileDownloadRequests FileDownloadRequest[] @relation("FileDownloadReviewer")
+  totpEnabled                  Boolean                   @default(false)
+  totpSecretEncrypted          String?
+  totpPendingSecretEncrypted   String?
+  totpBackupCodeHashes         String?
+  totpFailedAttempts           Int                       @default(0)
+  totpLockedUntil              DateTime?
   createdAt           DateTime                 @default(now())
   updatedAt           DateTime                 @updatedAt
 }

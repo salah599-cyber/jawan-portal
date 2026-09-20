@@ -7,6 +7,15 @@ export const PENDING_INVITE_TABLE_CHECK_SQL = `
   ) AS "exists"
 `;
 
+export const TOTP_USER_COLUMNS_SQL = [
+  `ALTER TABLE "User" ADD COLUMN IF NOT EXISTS "totpEnabled" BOOLEAN NOT NULL DEFAULT false`,
+  `ALTER TABLE "User" ADD COLUMN IF NOT EXISTS "totpSecretEncrypted" TEXT`,
+  `ALTER TABLE "User" ADD COLUMN IF NOT EXISTS "totpPendingSecretEncrypted" TEXT`,
+  `ALTER TABLE "User" ADD COLUMN IF NOT EXISTS "totpBackupCodeHashes" TEXT`,
+  `ALTER TABLE "User" ADD COLUMN IF NOT EXISTS "totpFailedAttempts" INTEGER NOT NULL DEFAULT 0`,
+  `ALTER TABLE "User" ADD COLUMN IF NOT EXISTS "totpLockedUntil" TIMESTAMP(3)`,
+];
+
 export const USERS_SCHEMA_STATEMENTS = [
   `CREATE TABLE IF NOT EXISTS "PendingUserInvite" (
     "id" TEXT NOT NULL,

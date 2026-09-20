@@ -1,6 +1,6 @@
-import { headers } from "next/headers";
+import { cookies, headers } from "next/headers";
 import { redirect } from "next/navigation";
-import { auth, currentUser } from "@clerk/nextjs/server";
+import { auth } from "@clerk/nextjs/server";
 import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/platform/app-sidebar";
 import { InactivityLogout } from "@/components/auth/inactivity-logout";
@@ -9,21 +9,18 @@ import { db } from "@/lib/db";
 import { getCurrentUserContext, isSuperAdmin, buildModuleAccessMap } from "@/lib/permissions/access";
 import { countPendingDownloadRequests } from "@/lib/files/download-access";
 import {
-  MFA_ENROLL_PATH,
-  MFA_ENROLL_REASON,
-  MFA_SIGN_IN_REASON,
+  MFA_VERIFY_PATH,
   PATHNAME_HEADER,
   isMfaSetupPath,
   isMfaTaskPath,
   isPendingSession,
-  isSecondFactorVerified,
 } from "@/lib/auth/mfa";
+import { TOTP_COOKIE, isTotpCookieValid } from "@/lib/auth/totp-cookie";
 
 export default async function PlatformLayout({ children }: { children: React.ReactNode }) {
   await syncClerkUser();
 
-  const clerkUser = await currentUser();
-  const { userId, factorVerificationAge, sessionStatus } = await auth();
+  const { userId, sessionId, sessionStatus } = await auth();
   const pathname = (await headers()).get(PATHNAME_HEADER) ?? "";
 
   // Pending sessions are signed-out (`userId` is null). Send them to the
@@ -48,16 +45,17 @@ export default async function PlatformLayout({ children }: { children: React.Rea
     redirect("/sign-in");
   }
 
-  // Defense in depth: auth.protect() only proves a session. Dashboard and
-  // investment/transaction routes also require TOTP enrollment and a verified
-  // second factor on this session (amr includes otp / fva[1] !== -1).
-  if (!isMfaSetupPath(pathname)) {
-    if (clerkUser?.twoFactorEnabled !== true) {
-      redirect(`${MFA_ENROLL_PATH}?reason=${MFA_ENROLL_REASON}`);
-    }
-    if (!isSecondFactorVerified(factorVerificationAge)) {
-      redirect(`/sign-in?reason=${MFA_SIGN_IN_REASON}`);
-    }
+  // Clerk password is only the first factor. Google Authenticator (app TOTP)
+  // must be verified for this Clerk session before dashboard routes render.
+  let totpOk = false;
+  try {
+    totpOk = isTotpCookieValid((await cookies()).get(TOTP_COOKIE)?.value, userId, sessionId);
+  } catch {
+    totpOk = false;
+  }
+
+  if (!isMfaSetupPath(pathname) && !totpOk) {
+    redirect(MFA_VERIFY_PATH);
   }
 
   const showAdmin = isSuperAdmin(ctx);

@@ -1,6 +1,7 @@
 import { db } from "@/lib/db";
 import {
   PENDING_INVITE_TABLE_CHECK_SQL,
+  TOTP_USER_COLUMNS_SQL,
   USERS_SCHEMA_STATEMENTS,
 } from "@/lib/db/users-schema-statements";
 
@@ -14,14 +15,18 @@ async function pendingInviteTableExists(): Promise<boolean> {
 }
 
 async function applyUsersSchema() {
-  if (await pendingInviteTableExists()) return;
+  if (!(await pendingInviteTableExists())) {
+    for (const statement of USERS_SCHEMA_STATEMENTS) {
+      await db.$executeRawUnsafe(statement);
+    }
 
-  for (const statement of USERS_SCHEMA_STATEMENTS) {
-    await db.$executeRawUnsafe(statement);
+    if (!(await pendingInviteTableExists())) {
+      throw new Error("Users schema sync finished but PendingUserInvite table is still missing.");
+    }
   }
 
-  if (!(await pendingInviteTableExists())) {
-    throw new Error("Users schema sync finished but PendingUserInvite table is still missing.");
+  for (const statement of TOTP_USER_COLUMNS_SQL) {
+    await db.$executeRawUnsafe(statement);
   }
 }
 

@@ -3,6 +3,7 @@ import {
   LAST_ACTIVITY_COOKIE,
   SESSION_BOUNDARY_COOKIE,
   SESSION_MAX_LIFETIME_MS,
+  TOTP_COOKIE,
 } from "@/lib/auth/constants";
 
 export type SessionExpiryReason = "jwt_expired" | "session_expired";
@@ -92,5 +93,5 @@ export function sessionBoundaryCookieOptions() {
 }
 
 export function clearSessionCookies() {
-  return [LAST_ACTIVITY_COOKIE, SESSION_BOUNDARY_COOKIE] as const;
+  return [LAST_ACTIVITY_COOKIE, SESSION_BOUNDARY_COOKIE, TOTP_COOKIE] as const;
 }

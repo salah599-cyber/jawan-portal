@@ -35,5 +35,8 @@ export const SESSION_BOUNDARY_COOKIE = "jawan_session_boundary";
 
 export const SESSION_BOUNDARY_STORAGE_KEY = "jawan_session_boundary";
 
+/** HMAC cookie proving Google Authenticator (TOTP) was verified for this Clerk session. */
+export const TOTP_COOKIE = "jawan_totp_ok";
+
 /** Minimum password length enforced in custom auth forms (Clerk enforces its own policy too). */
 export const MIN_PASSWORD_LENGTH = 12;
