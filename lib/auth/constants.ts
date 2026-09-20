@@ -16,13 +16,24 @@ export function isBootstrapSuperAdminEmail(email: string | null | undefined): bo
   return email.trim().toLowerCase() === SUPER_ADMIN_EMAIL.toLowerCase();
 }
 
-/** Sign out after this many milliseconds without user activity. */
-export const INACTIVITY_LOGOUT_MS = 30 * 60 * 1000;
+/** Access token (JWT) validity window; refreshed on user activity. */
+export const JWT_LIFETIME_MS = 30 * 60 * 1000;
+
+/** Absolute session cap; refresh cannot extend beyond this from session start. */
+export const SESSION_MAX_LIFETIME_MS = 60 * 60 * 1000;
+
+/** @deprecated Use JWT_LIFETIME_MS */
+export const INACTIVITY_LOGOUT_MS = JWT_LIFETIME_MS;
 
 export const LAST_ACTIVITY_STORAGE_KEY = "jawan_last_activity";
 
 /** Cookie mirrored by the client and refreshed on each authenticated request. */
 export const LAST_ACTIVITY_COOKIE = "jawan_last_activity";
+
+/** Binds session start time to the active Clerk session id. */
+export const SESSION_BOUNDARY_COOKIE = "jawan_session_boundary";
+
+export const SESSION_BOUNDARY_STORAGE_KEY = "jawan_session_boundary";
 
 /** Minimum password length enforced in custom auth forms (Clerk enforces its own policy too). */
 export const MIN_PASSWORD_LENGTH = 12;
