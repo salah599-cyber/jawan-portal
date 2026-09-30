@@ -20,10 +20,7 @@ export function assertOwnedPendingProposalDeckUrl(url: string, userId: string) {
     throw new Error("Invalid deck file.");
   }
 
-  if (
-    !parsed.hostname.endsWith(".private.blob.vercel-storage.com") &&
-    !parsed.hostname.endsWith(".blob.vercel-storage.com")
-  ) {
+  if (!parsed.hostname.endsWith(".private.blob.vercel-storage.com")) {
     throw new Error("Invalid deck file.");
   }
 
@@ -43,10 +40,7 @@ export function assertOwnedDocumentVaultUrl(url: string, userId: string) {
     throw new Error("Invalid document file.");
   }
 
-  if (
-    !parsed.hostname.endsWith(".private.blob.vercel-storage.com") &&
-    !parsed.hostname.endsWith(".blob.vercel-storage.com")
-  ) {
+  if (!parsed.hostname.endsWith(".private.blob.vercel-storage.com")) {
     throw new Error("Invalid document file.");
   }
 

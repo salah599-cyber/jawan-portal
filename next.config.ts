@@ -5,6 +5,11 @@ const clerkOrigin =
     ? "https://clerk.jawaninvest.com"
     : "https://*.clerk.accounts.dev";
 
+const accountsOrigin =
+  process.env.NODE_ENV === "production"
+    ? "https://accounts.jawaninvest.com"
+    : "https://*.accounts.dev";
+
 const contentSecurityPolicy = [
   "default-src 'self'",
   `script-src 'self' 'unsafe-inline' 'unsafe-eval' ${clerkOrigin} https://challenges.cloudflare.com`,
@@ -13,11 +18,15 @@ const contentSecurityPolicy = [
   "font-src 'self' data:",
   "connect-src 'self' " +
     clerkOrigin +
+    " " +
+    accountsOrigin +
     " https://*.clerk.services https://*.blob.vercel-storage.com https://vercel.com",
-  `frame-src ${clerkOrigin} https://challenges.cloudflare.com`,
+  `frame-src 'self' ${clerkOrigin} ${accountsOrigin} https://challenges.cloudflare.com`,
   "worker-src 'self' blob:",
   "base-uri 'self'",
   "form-action 'self'",
+  "report-uri /api/csp-report",
+  "report-to csp-endpoint",
 ].join("; ");
 
 const securityHeaders = [
@@ -30,6 +39,7 @@ const securityHeaders = [
     value: "camera=(), microphone=(), geolocation=(), browsing-topics=()",
   },
   { key: "Content-Security-Policy", value: contentSecurityPolicy },
+  { key: "Reporting-Endpoints", value: 'csp-endpoint="/api/csp-report"' },
   { key: "X-DNS-Prefetch-Control", value: "on" },
 ];
 

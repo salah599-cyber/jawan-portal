@@ -33,6 +33,15 @@ describe("assertOwnedPendingProposalDeckUrl", () => {
       ),
     ).toThrow(/invalid deck/i);
   });
+
+  it("rejects public blob store URLs", () => {
+    expect(() =>
+      assertOwnedPendingProposalDeckUrl(
+        `https://store.blob.vercel-storage.com/proposals/pending/${userId}/deck.pdf`,
+        userId,
+      ),
+    ).toThrow(/invalid deck/i);
+  });
 });
 
 describe("assertOwnedDocumentVaultUrl", () => {
@@ -60,6 +69,15 @@ describe("assertOwnedDocumentVaultUrl", () => {
     expect(() =>
       assertOwnedDocumentVaultUrl(
         `https://evil.example.com/documents/${userId}/deck.pdf`,
+        userId,
+      ),
+    ).toThrow(/invalid document/i);
+  });
+
+  it("rejects public blob store URLs", () => {
+    expect(() =>
+      assertOwnedDocumentVaultUrl(
+        `https://store.blob.vercel-storage.com/documents/${userId}/deck.pdf`,
         userId,
       ),
     ).toThrow(/invalid document/i);

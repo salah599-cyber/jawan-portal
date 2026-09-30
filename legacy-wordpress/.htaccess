@@ -1,0 +1,38 @@
+# Paste this block into the WordPress root .htaccess (same directory as
+# xmlrpc.php and wp-config.php). Do not delete the existing WordPress
+# permalink rules. Put the rewrite conditions immediately after the
+# existing RewriteEngine On line, and before the # BEGIN WordPress block.
+#
+# /wp-json/ stays available. ?rest_route= is blocked because it bypasses
+# URI-only WAF rules. Author archives and _envelope=1 are blocked here
+# and again in the must-use plugins.
+
+# BEGIN Jawan Security
+<Files "xmlrpc.php">
+  Require all denied
+</Files>
+
+<IfModule mod_rewrite.c>
+RewriteEngine On
+RewriteCond %{HTTPS} !=on
+RewriteRule ^ https://%{HTTP_HOST}%{REQUEST_URI} [L,R=301]
+
+RewriteCond %{QUERY_STRING} (^|&)author= [NC]
+RewriteRule .* - [F,L]
+
+RewriteCond %{QUERY_STRING} (^|&)_envelope= [NC]
+RewriteRule .* - [F,L]
+
+RewriteCond %{QUERY_STRING} (^|&)rest_route= [NC]
+RewriteRule .* - [F,L]
+</IfModule>
+
+<IfModule mod_headers.c>
+Header always set X-Content-Type-Options "nosniff"
+Header always set X-Frame-Options "SAMEORIGIN"
+Header always set Referrer-Policy "strict-origin-when-cross-origin"
+Header always set Permissions-Policy "camera=(), microphone=(), geolocation=()"
+Header always set Strict-Transport-Security "max-age=63072000; includeSubDomains"
+Header always unset X-Powered-By
+</IfModule>
+# END Jawan Security

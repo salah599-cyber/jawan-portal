@@ -1,0 +1,24 @@
+# Bluehost Zone Editor changes for jawaninvest.com.
+# Nameservers: ns1.bluehost.com / ns2.bluehost.com.
+# Checked against 1.1.1.1 on 2026-09-29. Not applied from this repository.
+
+# DELETE these CNAME records. They alias the Vercel apex (76.76.21.21)
+# and are not attached to a deployment.
+# webmail.jawaninvest.com.  CNAME  jawaninvest.com.
+# cpanel.jawaninvest.com.   CNAME  jawaninvest.com.
+# ftp.jawaninvest.com.      CNAME  jawaninvest.com.
+# After deletion, each name must return NXDOMAIN. Do not point them at Vercel.
+
+# REPLACE the apex SPF TXT. Confirm every legitimate sender is covered
+# before publishing -all. Resend currently sends as jawaninvestments.com,
+# which is a different zone.
+# Old: v=spf1 a mx include:websitewelcome.com ~all
+# New: v=spf1 a mx include:websitewelcome.com -all
+
+# ADD TXT
+# _dmarc.jawaninvest.com.  TXT  "v=DMARC1; p=reject; rua=mailto:security@jawaninvest.com; ruf=mailto:security@jawaninvest.com; fo=1; adkim=s; aspf=s"
+# Create the security@ mailbox first, or aggregate reports will bounce.
+
+# A random name (wildcard probe) already returned NXDOMAIN.
+# In Zone Editor, delete any remaining *.jawaninvest.com A record
+# (previously reported as 10.0.0.243) if it is still listed.

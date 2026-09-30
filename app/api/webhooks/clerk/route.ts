@@ -4,6 +4,7 @@ import { db } from "@/lib/db";
 import { isBootstrapSuperAdminEmail } from "@/lib/auth/constants";
 import { applyPendingInvite } from "@/lib/auth/apply-invite";
 import { hasInviteAccess } from "@/lib/auth/invite-access";
+import { sendSecuritySessionAlert } from "@/lib/auth/security-alert";
 
 function getWebhookSigningSecret() {
   return (
@@ -75,6 +76,24 @@ export async function POST(req: NextRequest) {
         await db.user.updateMany({
           where: { clerkId },
           data: { isActive: false },
+        });
+        break;
+      }
+      case "session.created":
+      case "session.revoked": {
+        const activity = event.data.latest_activity;
+        const email =
+          event.data.user?.email_addresses?.find(
+            (address) => address.id === event.data.user?.primary_email_address_id,
+          )?.email_address ?? event.data.user?.email_addresses?.[0]?.email_address;
+        await sendSecuritySessionAlert({
+          event: event.type,
+          userId: event.data.user_id,
+          email,
+          sessionId: event.data.id,
+          ipAddress: activity?.ip_address,
+          city: activity?.city,
+          country: activity?.country,
         });
         break;
       }
