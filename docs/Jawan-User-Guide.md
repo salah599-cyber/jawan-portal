@@ -172,7 +172,7 @@ Your home view of family-office wealth and reminders.
 
 **Path:** Sidebar → **Assistant**
 
-A private AI assistant for Jawan Investments. Ask questions about portfolio data, holdings, cash, and related records you are permitted to see. Treat answers as decision support — always verify material figures in the source module or a report before acting.
+A private AI assistant for Jawan Investments. Ask questions about portfolio data, holdings, cash, lands, cars, companies, cheques, expenses, proposals, documents, insurance, family, succession, and related records you are permitted to see. Conversations are saved so you can reopen them later. Answers include source links into the platform — treat them as decision support and verify material figures in the source module or a report before acting.
 
 ---
 
