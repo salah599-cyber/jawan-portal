@@ -724,7 +724,7 @@ Review and approve or deny requests to download restricted documents from the Do
 
 **Path:** Sidebar → **Admin → Audit Log** · **Super Admin only**
 
-Filterable event log of create / update / delete activity across modules for governance and troubleshooting.
+Filterable event log of create / update / delete activity across modules for governance and troubleshooting. Assistant chat turns also appear here as **ASSISTANT_CHAT** on resource **AssistantThread** (includes model, duration, and tool names used).
 
 ---
 
