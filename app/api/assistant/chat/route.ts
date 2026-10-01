@@ -9,6 +9,7 @@ import {
 } from "ai";
 import { createGoogle } from "@ai-sdk/google";
 import { NextResponse } from "next/server";
+import { logAssistantChatTurn } from "@/lib/assistant/audit";
 import { ASSISTANT_SYSTEM_PROMPT } from "@/lib/assistant/system-prompt";
 import {
   getAssistantThreadForUser,
@@ -18,6 +19,10 @@ import { createAssistantTools } from "@/lib/assistant/tools";
 import { getCurrentUserContext } from "@/lib/permissions/access";
 
 export const maxDuration = 60;
+
+function getAssistantModelId() {
+  return process.env.GEMINI_MODEL ?? "gemini-flash-latest";
+}
 
 function getAssistantModel() {
   const apiKey =
@@ -29,7 +34,7 @@ function getAssistantModel() {
   }
   // gemini-2.5-flash-lite is unavailable for new API users; flash-latest works on free tier.
   const provider = createGoogle({ apiKey });
-  return provider(process.env.GEMINI_MODEL ?? "gemini-flash-latest");
+  return provider(getAssistantModelId());
 }
 
 export async function POST(request: Request) {
@@ -39,6 +44,7 @@ export async function POST(request: Request) {
   }
 
   const model = getAssistantModel();
+  const modelId = getAssistantModelId();
   if (!model) {
     return NextResponse.json(
       {
@@ -71,8 +77,36 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Thread not found." }, { status: 404 });
   }
 
+  const userId = ctx.id;
+  const activeThreadId = threadId;
   const today = new Date().toISOString().slice(0, 10);
   const tools = createAssistantTools(ctx);
+  const startedAt = Date.now();
+  let audited = false;
+
+  async function auditTurn(options: {
+    messages: UIMessage[];
+    isAborted?: boolean;
+    finishReason?: string;
+    error?: string;
+  }) {
+    if (audited) return;
+    audited = true;
+    try {
+      await logAssistantChatTurn({
+        userId,
+        threadId: activeThreadId,
+        messages: options.messages,
+        model: modelId,
+        durationMs: Date.now() - startedAt,
+        isAborted: options.isAborted,
+        finishReason: options.finishReason,
+        error: options.error,
+      });
+    } catch (error) {
+      console.error("assistant/chat audit error:", error);
+    }
+  }
 
   const result = streamText({
     model,
@@ -82,6 +116,11 @@ export async function POST(request: Request) {
     stopWhen: stepCountIs(5),
     onError: ({ error }) => {
       console.error("assistant/chat stream error:", error);
+      void auditTurn({
+        messages,
+        finishReason: "error",
+        error: error instanceof Error ? error.message : String(error),
+      });
     },
   });
 
@@ -90,17 +129,24 @@ export async function POST(request: Request) {
       stream: result.stream,
       originalMessages: messages,
       generateMessageId: generateId,
-      onFinish: async ({ messages: nextMessages, isAborted }) => {
-        if (isAborted) return;
+      onFinish: async ({ messages: nextMessages, isAborted, finishReason }) => {
         try {
-          await persistAssistantMessages({
-            userId: ctx.id,
-            threadId,
-            messages: nextMessages,
-          });
+          if (!isAborted) {
+            await persistAssistantMessages({
+              userId,
+              threadId: activeThreadId,
+              messages: nextMessages,
+            });
+          }
         } catch (error) {
           console.error("assistant/chat persist error:", error);
         }
+
+        await auditTurn({
+          messages: nextMessages,
+          isAborted,
+          finishReason,
+        });
       },
     }),
   });
