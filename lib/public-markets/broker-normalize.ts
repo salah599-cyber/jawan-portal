@@ -7,6 +7,7 @@ const BROKER_ALIASES: Array<{ canonical: string; patterns: RegExp[] }> = [
   { canonical: "Bank Muscat", patterns: [/\bbank\s+muscat\b/i, /\bbkmb\b/i] },
   { canonical: "National Bank of Oman", patterns: [/\bnational\s+bank\s+of\s+oman\b/i, /\bnbo\b/i] },
   { canonical: "Ahli Bank", patterns: [/\bahli\s+bank\b/i] },
+  { canonical: "U Capital", patterns: [/\bu[\s\-]?capital\b/i, /\bubhar\s+capital\b/i] },
   { canonical: "HSBC", patterns: [/\bhsbc\b/i] },
   { canonical: "Standard Chartered", patterns: [/\bstandard\s+chartered\b/i] },
   { canonical: "Interactive Brokers", patterns: [/\binteractive\s+brokers\b/i, /\bibkr\b/i] },

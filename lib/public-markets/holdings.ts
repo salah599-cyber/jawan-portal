@@ -106,8 +106,12 @@ function cellValue(row: unknown[], index?: number): unknown {
 }
 
 function inferQuantity(row: unknown[], mapping: Partial<Record<keyof ParsedHolding, number>>): number | undefined {
-  const mapped = parseQuantity(cellValue(row, mapping.quantity));
-  if (mapped != null && mapped > 0) return mapped;
+  if (mapping.quantity != null) {
+    const mapped = parseQuantity(cellValue(row, mapping.quantity));
+    // Respect an explicit quantity column: invalid/overflow values must not
+    // fall back to inferring from market value or other numeric cells.
+    return mapped != null && mapped > 0 ? mapped : undefined;
+  }
 
   const usedIndexes = new Set(
     Object.values(mapping).filter((value): value is number => value != null),
@@ -119,9 +123,11 @@ function inferQuantity(row: unknown[], mapping: Partial<Record<keyof ParsedHoldi
     .map(({ cell }) => parseQuantity(cell))
     .filter((value): value is number => value != null && value > 0);
 
+  // Prefer the first integer in row order (typically quantity). Picking the largest
+  // integer often selects market value / totals and can overflow Decimal columns.
   const integers = numericCells.filter((value) => Number.isInteger(value));
   if (integers.length > 0) {
-    return integers.sort((a, b) => b - a)[0];
+    return integers[0];
   }
 
   return numericCells[0];

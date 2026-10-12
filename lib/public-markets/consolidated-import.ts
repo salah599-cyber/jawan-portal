@@ -20,8 +20,11 @@ import type { UserContext } from "@/lib/permissions/types";
 import {
   buildOptionSymbol,
   buildStructuredNoteSymbol,
+  isPersistableHoldingQuantity,
   normalizeAndFormatHoldingValues,
   normalizeOptionHoldingValues,
+  toDecimalString,
+  HOLDING_DECIMAL,
 } from "@/lib/public-markets/valuation";
 import * as XLSX from "xlsx";
 import { importConsolidatedCashBalances } from "@/lib/cash/consolidated-balances-import";
@@ -104,13 +107,17 @@ async function upsertEquityHoldings(
       unrealisedPnl: holding.unrealisedPnl,
     });
 
+    if (!isPersistableHoldingQuantity(decimals) || !decimals.quantity) {
+      continue;
+    }
+
     const data = {
       assetId,
       managedPortfolioId,
       market,
       symbol: holding.symbol,
       name: holding.name,
-      quantity: holding.quantity.toFixed(6),
+      quantity: decimals.quantity,
       costBasis: decimals.costBasis,
       marketPrice: decimals.marketPrice,
       marketValue: decimals.marketValue,
@@ -238,17 +245,24 @@ async function importParsedConsolidatedPortfolio(
         option.expiryDate.toISOString().slice(0, 10),
       );
 
+      const quantityDecimal = toDecimalString(
+        option.contracts,
+        HOLDING_DECIMAL.quantity.scale,
+        HOLDING_DECIMAL.quantity.precision,
+      );
+      if (!quantityDecimal) continue;
+
       const data = {
         assetId: asset.id,
         managedPortfolioId,
         market: "USA" as const,
         symbol,
         name: `${option.underlyingSymbol} ${option.optionType} ${option.strikePrice}`,
-        quantity: option.contracts.toFixed(6),
-        costBasis: normalized.costBasis?.toFixed(2),
-        marketPrice: normalized.marketPrice?.toFixed(4),
-        marketValue: normalized.marketValue?.toFixed(2),
-        unrealisedPnl: normalized.unrealisedPnl?.toFixed(2),
+        quantity: quantityDecimal,
+        costBasis: toDecimalString(normalized.costBasis, HOLDING_DECIMAL.costBasis.scale),
+        marketPrice: toDecimalString(normalized.marketPrice, HOLDING_DECIMAL.marketPrice.scale),
+        marketValue: toDecimalString(normalized.marketValue, HOLDING_DECIMAL.marketValue.scale),
+        unrealisedPnl: toDecimalString(normalized.unrealisedPnl, HOLDING_DECIMAL.unrealisedPnl.scale),
         priceSource: "BROKER",
         broker: option.broker ?? brokerAccount.broker,
         accountNumber: option.accountNumber ?? brokerAccount.accountNumber,

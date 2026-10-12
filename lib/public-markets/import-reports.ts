@@ -8,7 +8,10 @@ import { ensurePublicMarketsSchema } from "@/lib/db/ensure-public-markets-schema
 import { parseMarketReport } from "@/lib/public-markets/parsers/router";
 import type { BrokerReportFile, ImportFileResult } from "@/lib/public-markets/types";
 import type { UserContext } from "@/lib/permissions/types";
-import { normalizeAndFormatHoldingValues } from "@/lib/public-markets/valuation";
+import {
+  isPersistableHoldingQuantity,
+  normalizeAndFormatHoldingValues,
+} from "@/lib/public-markets/valuation";
 import { recordAssetValuation } from "@/lib/portfolio/valuations";
 import { refreshPublicMarketPrices } from "@/lib/public-markets/refresh-prices";
 import { hasAutomaticPriceRefresh } from "@/lib/public-markets/prices/symbols";
@@ -164,7 +167,11 @@ async function importSingleReport(
 
       const existingHoldings = await tx.publicEquityHolding.findMany({ where: scope });
       const existingBySymbol = new Map(existingHoldings.map((holding) => [holding.symbol, holding]));
-      const importedSymbols = resolution.holdings.map((holding) => holding.symbol);
+      const overflowSkipped: string[] = [];
+      const persistedSymbols: string[] = [];
+      // Keep every symbol present in the file out of the replace-delete, even if a
+      // holding was skipped for overflow — otherwise we wipe a prior good row.
+      const fileSymbols = resolution.holdings.map((holding) => holding.symbol);
 
       for (const holding of resolution.holdings) {
         const { decimals } = normalizeAndFormatHoldingValues({
@@ -175,13 +182,18 @@ async function importSingleReport(
           unrealisedPnl: holding.unrealisedPnl,
         });
 
+        if (!isPersistableHoldingQuantity(decimals) || !decimals.quantity) {
+          overflowSkipped.push(holding.symbol);
+          continue;
+        }
+
         const data = {
           assetId,
           managedPortfolioId,
           market,
           symbol: holding.symbol,
           name: holding.name,
-          quantity: holding.quantity.toFixed(6),
+          quantity: decimals.quantity,
           costBasis: decimals.costBasis,
           marketPrice: decimals.marketPrice,
           marketValue: decimals.marketValue,
@@ -211,22 +223,31 @@ async function importSingleReport(
         } else {
           await tx.publicEquityHolding.create({ data });
         }
+        persistedSymbols.push(holding.symbol);
       }
 
-      await tx.publicEquityHolding.deleteMany({
-        where: {
-          ...scope,
-          symbol: { notIn: importedSymbols },
-        },
-      });
+      if (fileSymbols.length > 0) {
+        await tx.publicEquityHolding.deleteMany({
+          where: {
+            ...scope,
+            symbol: { notIn: fileSymbols },
+          },
+        });
+      }
 
-      return resolution.holdings.length;
+      return { count: persistedSymbols.length, overflowSkipped };
     });
+
+    const overflowWarning =
+      holdingsImported.overflowSkipped.length > 0
+        ? `Skipped ${holdingsImported.overflowSkipped.length} holding(s) with values too large to store (${holdingsImported.overflowSkipped.slice(0, 8).join(", ")}${holdingsImported.overflowSkipped.length > 8 ? ", …" : ""}). Check the report parsing or enter them manually.`
+        : null;
 
     const resolutionWarnings = [
       formatOverlapResolutionSummary(overlapResolution, resolution.skippedSymbols),
       formatOverlapResolutionSummary("replace_manual", resolution.replacedSymbols),
       formatOverlapResolutionSummary("merge", resolution.mergedSymbols),
+      overflowWarning,
     ].filter((warning): warning is string => Boolean(warning));
 
     return {
@@ -236,7 +257,7 @@ async function importSingleReport(
       brokerAccountId: account.brokerAccountId,
       isManaged: account.isManaged,
       asOfDate: parsed.asOfDate?.toISOString(),
-      holdingsImported,
+      holdingsImported: holdingsImported.count,
       warnings: [...parsed.warnings, ...resolutionWarnings],
       parserId: parsed.parserId,
     };

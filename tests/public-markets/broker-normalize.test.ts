@@ -13,6 +13,8 @@ describe("normalizeBrokerName", () => {
     expect(normalizeBrokerName("Charles Schwab & Co.")).toBe("Charles Schwab");
     expect(normalizeBrokerName("IBKR")).toBe("Interactive Brokers");
     expect(normalizeBrokerName("jp morgan securities")).toBe("JPMorgan");
+    expect(normalizeBrokerName("U-Capital DPM")).toBe("U Capital");
+    expect(normalizeBrokerName("Ubhar Capital")).toBe("U Capital");
   });
 
   it("trims and collapses whitespace for unknown brokers", () => {
