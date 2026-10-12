@@ -16,8 +16,11 @@ import {
   buildCryptoSymbol,
   buildOptionSymbol,
   buildStructuredNoteSymbol,
+  isPersistableHoldingQuantity,
   normalizeAndFormatHoldingValues,
   normalizeOptionHoldingValues,
+  toDecimalString,
+  HOLDING_DECIMAL,
 } from "@/lib/public-markets/valuation";
 import { canWrite, requireModuleAccess } from "@/lib/permissions/access";
 import { encodeExcelDownload, recordsToExcelBuffer } from "@/lib/spreadsheet/excel-export";
@@ -316,13 +319,17 @@ export async function addManualHolding(formData: FormData) {
     { costBasisIsTotal: true },
   );
 
+  if (!isPersistableHoldingQuantity(decimals) || !decimals.quantity) {
+    throw new Error("Quantity is too large to store. Use a value under 1 trillion shares.");
+  }
+
   const holding = await db.publicEquityHolding.create({
     data: {
       assetId: asset.id,
       market,
       symbol: input.symbol,
       name: input.name,
-      quantity: input.quantity.toFixed(6),
+      quantity: decimals.quantity,
       costBasis: decimals.costBasis,
       marketPrice: decimals.marketPrice,
       marketValue: decimals.marketValue,
@@ -411,17 +418,26 @@ export async function addManualOption(formData: FormData) {
     input.expiryDate,
   );
 
+  const quantityDecimal = toDecimalString(
+    input.contracts,
+    HOLDING_DECIMAL.quantity.scale,
+    HOLDING_DECIMAL.quantity.precision,
+  );
+  if (!quantityDecimal) {
+    throw new Error("Contracts value is too large to store.");
+  }
+
   const holding = await db.publicEquityHolding.create({
     data: {
       assetId: asset.id,
       market,
       symbol,
       name: `${input.underlyingSymbol} ${input.optionType} ${input.strikePrice}`,
-      quantity: input.contracts.toFixed(6),
-      costBasis: normalized.costBasis?.toFixed(2),
-      marketPrice: normalized.marketPrice?.toFixed(4),
-      marketValue: normalized.marketValue?.toFixed(2),
-      unrealisedPnl: normalized.unrealisedPnl?.toFixed(2),
+      quantity: quantityDecimal,
+      costBasis: toDecimalString(normalized.costBasis, HOLDING_DECIMAL.costBasis.scale),
+      marketPrice: toDecimalString(normalized.marketPrice, HOLDING_DECIMAL.marketPrice.scale),
+      marketValue: toDecimalString(normalized.marketValue, HOLDING_DECIMAL.marketValue.scale),
+      unrealisedPnl: toDecimalString(normalized.unrealisedPnl, HOLDING_DECIMAL.unrealisedPnl.scale),
       priceSource: input.marketPrice != null ? "MANUAL" : undefined,
       broker: input.broker ?? "Manual Entry",
       accountNumber: input.accountNumber,
@@ -590,13 +606,17 @@ export async function addManualCrypto(formData: FormData) {
     { costBasisIsTotal: true },
   );
 
+  if (!isPersistableHoldingQuantity(decimals) || !decimals.quantity) {
+    throw new Error("Quantity is too large to store. Use a smaller quantity.");
+  }
+
   const holding = await db.publicEquityHolding.create({
     data: {
       assetId: asset.id,
       market,
       symbol,
       name: input.name ?? symbol,
-      quantity: input.quantity.toFixed(6),
+      quantity: decimals.quantity,
       costBasis: decimals.costBasis,
       marketPrice: decimals.marketPrice,
       marketValue: decimals.marketValue,
@@ -691,6 +711,10 @@ export async function updatePublicHolding(holdingId: string, input: UpdatePublic
       { costBasisIsTotal: true },
     );
 
+    if (!isPersistableHoldingQuantity(decimals) || !decimals.quantity) {
+      throw new Error("Quantity is too large to store. Use a value under 1 trillion shares.");
+    }
+
     const priceSource = input.marketPrice != null ? "MANUAL" : existing.priceSource;
 
     await db.publicEquityHolding.update({
@@ -698,7 +722,7 @@ export async function updatePublicHolding(holdingId: string, input: UpdatePublic
       data: {
         symbol,
         name,
-        quantity: quantity.toFixed(6),
+        quantity: decimals.quantity,
         costBasis: decimals.costBasis,
         marketPrice: decimals.marketPrice,
         marketValue: decimals.marketValue,
@@ -752,17 +776,25 @@ export async function updatePublicHolding(holdingId: string, input: UpdatePublic
     });
 
     const priceSource = input.marketPrice != null ? "MANUAL" : existing.priceSource;
+    const quantityDecimal = toDecimalString(
+      quantity,
+      HOLDING_DECIMAL.quantity.scale,
+      HOLDING_DECIMAL.quantity.precision,
+    );
+    if (!quantityDecimal) {
+      throw new Error("Contracts value is too large to store.");
+    }
 
     await db.publicEquityHolding.update({
       where: { id: holdingId },
       data: {
         symbol,
         name,
-        quantity: quantity.toFixed(6),
-        costBasis: normalized.costBasis?.toFixed(2),
-        marketPrice: normalized.marketPrice?.toFixed(4),
-        marketValue: normalized.marketValue?.toFixed(2),
-        unrealisedPnl: normalized.unrealisedPnl?.toFixed(2),
+        quantity: quantityDecimal,
+        costBasis: toDecimalString(normalized.costBasis, HOLDING_DECIMAL.costBasis.scale),
+        marketPrice: toDecimalString(normalized.marketPrice, HOLDING_DECIMAL.marketPrice.scale),
+        marketValue: toDecimalString(normalized.marketValue, HOLDING_DECIMAL.marketValue.scale),
+        unrealisedPnl: toDecimalString(normalized.unrealisedPnl, HOLDING_DECIMAL.unrealisedPnl.scale),
         broker: input.broker !== undefined ? input.broker || null : existing.broker,
         accountNumber:
           input.accountNumber !== undefined ? input.accountNumber || null : existing.accountNumber,
@@ -776,7 +808,7 @@ export async function updatePublicHolding(holdingId: string, input: UpdatePublic
             strikePrice: strikePrice.toFixed(4),
             expiryDate: new Date(expiryDate),
             contractMultiplier: normalized.contractMultiplier,
-            premiumPaid: normalized.costBasis?.toFixed(2),
+            premiumPaid: toDecimalString(normalized.costBasis, HOLDING_DECIMAL.costBasis.scale),
           },
         },
       },
@@ -889,6 +921,10 @@ export async function updatePublicHolding(holdingId: string, input: UpdatePublic
       { costBasisIsTotal: true },
     );
 
+    if (!isPersistableHoldingQuantity(decimals) || !decimals.quantity) {
+      throw new Error("Quantity is too large to store. Use a smaller quantity.");
+    }
+
     const priceSource = input.marketPrice != null ? "MANUAL" : existing.priceSource;
 
     await db.publicEquityHolding.update({
@@ -896,7 +932,7 @@ export async function updatePublicHolding(holdingId: string, input: UpdatePublic
       data: {
         symbol,
         name,
-        quantity: quantity.toFixed(6),
+        quantity: decimals.quantity,
         costBasis: decimals.costBasis,
         marketPrice: decimals.marketPrice,
         marketValue: decimals.marketValue,

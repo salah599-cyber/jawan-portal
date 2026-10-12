@@ -1,3 +1,5 @@
+import { fitsHoldingDecimal } from "@/lib/public-markets/valuation";
+
 export function parseNumeric(value: unknown): number | undefined {
   if (value == null || value === "") return undefined;
   if (typeof value === "number") {
@@ -22,5 +24,9 @@ export function parseNumeric(value: unknown): number | undefined {
 export function parseQuantity(value: unknown): number | undefined {
   const num = parseNumeric(value);
   if (num == null) return undefined;
-  return Math.abs(num);
+  const quantity = Math.abs(num);
+  // Reject values that cannot be stored on PublicEquityHolding.quantity Decimal(18, 6).
+  // PDF/Excel mis-parses often glue columns into huge integers that overflow Postgres.
+  if (!fitsHoldingDecimal(quantity, "quantity")) return undefined;
+  return quantity;
 }

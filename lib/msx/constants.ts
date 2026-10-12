@@ -19,6 +19,7 @@ export const BROKER_SIGNATURES: Array<{ broker: string; patterns: RegExp[] }> = 
   { broker: "National Bank of Oman", patterns: [/national\s*bank\s*of\s*oman/i, /\bnbo\s*securities/i] },
   { broker: "Ahli Bank", patterns: [/ahli\s*bank/i, /\bahlibank/i] },
   { broker: "Muscat Capital", patterns: [/muscat\s*capital/i] },
+  { broker: "U Capital", patterns: [/u[\s\-]?capital/i, /\bubhar\s*capital/i] },
   { broker: "Ominvest", patterns: [/\bominvest\b/i] },
   { broker: "United Securities", patterns: [/united\s*securities/i] },
   { broker: "Gulf Securities", patterns: [/gulf\s*securities/i] },

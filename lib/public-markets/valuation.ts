@@ -18,14 +18,54 @@ export type NormalizeHoldingOptions = {
   costBasisIsTotal?: boolean;
 };
 
+/** Matches PublicEquityHolding @db.Decimal definitions in prisma/schema.prisma. */
+export const HOLDING_DECIMAL = {
+  quantity: { precision: 18, scale: 6 },
+  marketPrice: { precision: 18, scale: 4 },
+  marketValue: { precision: 18, scale: 2 },
+  costBasis: { precision: 18, scale: 2 },
+  unrealisedPnl: { precision: 18, scale: 2 },
+} as const;
+
+export type HoldingDecimalField = keyof typeof HOLDING_DECIMAL;
+
 function finiteOrNull(value: number | null | undefined): number | null {
-  if (value == null || Number.isNaN(value)) return null;
+  if (value == null || !Number.isFinite(value)) return null;
   return value;
 }
 
 function relativeError(actual: number, expected: number): number {
   const denominator = Math.max(Math.abs(expected), 1);
   return Math.abs(actual - expected) / denominator;
+}
+
+/**
+ * Returns whether `value` fits PostgreSQL NUMERIC(precision, scale) after formatting.
+ * Prevents Prisma "numeric field overflow" on PublicEquityHolding writes.
+ */
+export function fitsDecimal(
+  value: number,
+  precision: number,
+  scale: number,
+): boolean {
+  if (!Number.isFinite(value)) return false;
+  const formatted = value.toFixed(scale);
+  if (!/^-?\d+(\.\d+)?$/.test(formatted)) return false;
+  const [whole] = formatted.replace(/^-/, "").split(".");
+  return whole.length <= precision - scale;
+}
+
+export function fitsHoldingDecimal(value: number, field: HoldingDecimalField): boolean {
+  const { precision, scale } = HOLDING_DECIMAL[field];
+  return fitsDecimal(value, precision, scale);
+}
+
+function clampToDecimalOrNull(
+  value: number | null,
+  field: Exclude<HoldingDecimalField, "quantity">,
+): number | null {
+  if (value == null) return null;
+  return fitsHoldingDecimal(value, field) ? value : null;
 }
 
 /**
@@ -43,15 +83,19 @@ export function normalizeCostBasisToTotal(
   if (quantity <= 1) return costBasis;
 
   const totalIfPerShare = costBasis * quantity;
+  const perShareFits =
+    Number.isFinite(totalIfPerShare) && fitsHoldingDecimal(totalIfPerShare, "costBasis");
 
   if (brokerUnrealisedPnl != null && marketValue != null) {
     const impliedTotalCost = marketValue - brokerUnrealisedPnl;
-    if (impliedTotalCost >= 0) {
+    if (impliedTotalCost >= 0 && fitsHoldingDecimal(impliedTotalCost, "costBasis")) {
       const errAsTotal = relativeError(costBasis, impliedTotalCost);
-      const errAsPerShare = relativeError(totalIfPerShare, impliedTotalCost);
+      const errAsPerShare = perShareFits
+        ? relativeError(totalIfPerShare, impliedTotalCost)
+        : Number.POSITIVE_INFINITY;
       const tolerance = 0.05;
 
-      if (errAsPerShare <= tolerance && errAsPerShare < errAsTotal) {
+      if (perShareFits && errAsPerShare <= tolerance && errAsPerShare < errAsTotal) {
         return totalIfPerShare;
       }
       if (errAsTotal <= tolerance) {
@@ -78,14 +122,19 @@ export function normalizeHoldingValues(
   let marketValue = finiteOrNull(input.marketValue);
 
   if (marketValue == null && marketPrice != null && quantity > 0) {
-    marketValue = marketPrice * quantity;
+    const computed = marketPrice * quantity;
+    marketValue = Number.isFinite(computed) ? computed : null;
   }
 
   if (marketPrice == null && marketValue != null && quantity > 0) {
-    marketPrice = marketValue / quantity;
+    const computed = marketValue / quantity;
+    marketPrice = Number.isFinite(computed) ? computed : null;
   }
 
-  const costBasis =
+  marketPrice = clampToDecimalOrNull(marketPrice, "marketPrice");
+  marketValue = clampToDecimalOrNull(marketValue, "marketValue");
+
+  let costBasis =
     rawCostBasis != null
       ? options.costBasisIsTotal
         ? rawCostBasis
@@ -97,6 +146,7 @@ export function normalizeHoldingValues(
             brokerUnrealisedPnl,
           )
       : null;
+  costBasis = clampToDecimalOrNull(costBasis, "costBasis");
 
   let unrealisedPnl: number | null = null;
   if (marketValue != null && costBasis != null) {
@@ -106,6 +156,7 @@ export function normalizeHoldingValues(
   } else if (brokerUnrealisedPnl != null && !options.costBasisIsTotal) {
     unrealisedPnl = brokerUnrealisedPnl;
   }
+  unrealisedPnl = clampToDecimalOrNull(unrealisedPnl, "unrealisedPnl");
 
   return {
     marketPrice,
@@ -115,28 +166,69 @@ export function normalizeHoldingValues(
   };
 }
 
+/**
+ * Format a number for Prisma Decimal columns. Returns undefined when null/NaN
+ * or when the formatted value would overflow NUMERIC(precision, scale).
+ */
 export function toDecimalString(
   value: number | null | undefined,
   fractionDigits: number,
+  precision = 18,
 ): string | undefined {
-  if (value == null || Number.isNaN(value)) return undefined;
+  if (value == null || !Number.isFinite(value)) return undefined;
+  if (!fitsDecimal(value, precision, fractionDigits)) return undefined;
   return value.toFixed(fractionDigits);
 }
+
+export type FormattedHoldingDecimals = {
+  quantity: string | undefined;
+  marketPrice: string | undefined;
+  marketValue: string | undefined;
+  costBasis: string | undefined;
+  unrealisedPnl: string | undefined;
+};
 
 export function normalizeAndFormatHoldingValues(
   input: HoldingValueInput,
   options: NormalizeHoldingOptions = {},
 ) {
   const normalized = normalizeHoldingValues(input, options);
+  const quantity = input.quantity > 0 ? input.quantity : 0;
   return {
     normalized,
     decimals: {
-      marketPrice: toDecimalString(normalized.marketPrice, 4),
-      marketValue: toDecimalString(normalized.marketValue, 2),
-      costBasis: toDecimalString(normalized.costBasis, 2),
-      unrealisedPnl: toDecimalString(normalized.unrealisedPnl, 2),
-    },
+      quantity: toDecimalString(
+        quantity,
+        HOLDING_DECIMAL.quantity.scale,
+        HOLDING_DECIMAL.quantity.precision,
+      ),
+      marketPrice: toDecimalString(
+        normalized.marketPrice,
+        HOLDING_DECIMAL.marketPrice.scale,
+        HOLDING_DECIMAL.marketPrice.precision,
+      ),
+      marketValue: toDecimalString(
+        normalized.marketValue,
+        HOLDING_DECIMAL.marketValue.scale,
+        HOLDING_DECIMAL.marketValue.precision,
+      ),
+      costBasis: toDecimalString(
+        normalized.costBasis,
+        HOLDING_DECIMAL.costBasis.scale,
+        HOLDING_DECIMAL.costBasis.precision,
+      ),
+      unrealisedPnl: toDecimalString(
+        normalized.unrealisedPnl,
+        HOLDING_DECIMAL.unrealisedPnl.scale,
+        HOLDING_DECIMAL.unrealisedPnl.precision,
+      ),
+    } satisfies FormattedHoldingDecimals,
   };
+}
+
+/** Quantity is required on PublicEquityHolding; money fields may be omitted. */
+export function isPersistableHoldingQuantity(decimals: FormattedHoldingDecimals): boolean {
+  return typeof decimals.quantity === "string";
 }
 
 export function normalizeOptionHoldingValues(input: {
