@@ -1,6 +1,7 @@
 import type { ParseReportResult } from "./types";
 import { detectBroker, extractAccountNumber, extractAsOfDate } from "./detect-broker";
 import { dedupeHoldings, parsePdfTableText, parseTextLines, rowsToHoldings } from "./holdings";
+import { isUCapitalReport, parseUCapitalReport } from "./parse-ucapital";
 import { loadPdfRuntime } from "./pdf-runtime";
 
 async function extractPdfContent(buffer: Buffer): Promise<{ text: string; tableRows: unknown[][] }> {
@@ -62,13 +63,20 @@ export async function parsePdfReport(buffer: Buffer, fileName: string): Promise<
     };
   }
 
+  if (isUCapitalReport(fileName, text)) {
+    return parseUCapitalReport(text, tableRows, fileName);
+  }
+
   const broker = detectBroker(fileName, text);
   const accountNumber = extractAccountNumber(text);
   const asOfDate = extractAsOfDate(text);
 
   const tableHoldings = tableRows.length > 0 ? rowsToHoldings(tableRows) : [];
   const textHoldings = dedupeHoldings([...parseTextLines(text), ...parsePdfTableText(text)]);
-  const holdings = dedupeHoldings([...tableHoldings, ...textHoldings]);
+  // Prefer structured table rows; only fall back to text heuristics when tables
+  // yield nothing. Merging both previously let noisy PDF text overwrite good values.
+  const holdings =
+    tableHoldings.length > 0 ? tableHoldings : textHoldings;
 
   if (holdings.length === 0) {
     warnings.push("No MSX holdings were detected in this PDF. The report format may not be supported yet.");

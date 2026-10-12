@@ -33,9 +33,36 @@ export function extractAccountNumber(content: string): string | undefined {
   return undefined;
 }
 
+function parseFlexibleDate(raw: string): Date | undefined {
+  const trimmed = raw.trim();
+
+  // DD/MM/YYYY or DD-MM-YYYY (common on Oman broker statements)
+  const dmy = trimmed.match(/^(\d{1,2})[/-](\d{1,2})[/-](\d{2,4})$/);
+  if (dmy) {
+    const day = Number(dmy[1]);
+    const month = Number(dmy[2]);
+    let year = Number(dmy[3]);
+    if (year < 100) year += 2000;
+    const date = new Date(Date.UTC(year, month - 1, day));
+    if (
+      !Number.isNaN(date.getTime()) &&
+      date.getUTCFullYear() === year &&
+      date.getUTCMonth() === month - 1 &&
+      date.getUTCDate() === day
+    ) {
+      return date;
+    }
+  }
+
+  const date = new Date(trimmed);
+  if (!Number.isNaN(date.getTime())) return date;
+  return undefined;
+}
+
 export function extractAsOfDate(content: string): Date | undefined {
   const patterns = [
     /as\s*of\s*[:\-]?\s*(\d{1,2}[/-]\d{1,2}[/-]\d{2,4})/i,
+    /as\s*on\s*[:\-]?\s*(\d{1,2}[/-]\d{1,2}[/-]\d{2,4})/i,
     /statement\s*date\s*[:\-]?\s*(\d{1,2}[/-]\d{1,2}[/-]\d{2,4})/i,
     /report\s*date\s*[:\-]?\s*(\d{1,2}[/-]\d{1,2}[/-]\d{2,4})/i,
     /(\d{1,2}\s+(?:jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*\s+\d{4})/i,
@@ -44,8 +71,8 @@ export function extractAsOfDate(content: string): Date | undefined {
   for (const pattern of patterns) {
     const match = content.match(pattern);
     if (match?.[1]) {
-      const date = new Date(match[1]);
-      if (!Number.isNaN(date.getTime())) return date;
+      const date = parseFlexibleDate(match[1]);
+      if (date) return date;
     }
   }
 

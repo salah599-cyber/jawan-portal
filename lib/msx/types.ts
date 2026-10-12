@@ -7,6 +7,7 @@ export type ParsedHolding = {
   marketValue?: number;
   unrealisedPnl?: number;
   currency?: string;
+  isin?: string;
 };
 
 export type ParseReportResult = {
