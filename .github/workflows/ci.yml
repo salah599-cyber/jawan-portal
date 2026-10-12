@@ -49,4 +49,6 @@ jobs:
         run: npm test
 
       - name: Dependency audit (high/critical only)
-        run: npm audit --audit-level=high
+        # Omit devDependencies: braces<=3.0.3 has no patched release yet and is
+        # only pulled in via eslint/shadcn tooling, not the production app.
+        run: npm audit --omit=dev --audit-level=high
