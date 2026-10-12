@@ -26,7 +26,8 @@ export const BROKER_SIGNATURES: Array<{ broker: string; patterns: RegExp[] }> = 
   { broker: "Bank Dhofar", patterns: [/bank\s*dhofar/i, /\bdhofar\s*securities/i] },
   { broker: "MCD", patterns: [/muscat\s*clearing/i, /\bmcd\b/i, /muscat\s*depository/i] },
   { broker: "Sohar International", patterns: [/sohar\s*international/i] },
-  { broker: "Sultan Securities", patterns: [/sultan\s*securities/i, /\bsultan\b/i] },
+  // Avoid bare "sultan" — client names like "Murtadha Ahmed Sultan" false-match.
+  { broker: "Sultan Securities", patterns: [/sultan\s*securities/i] },
 ];
 
 export const MSX_PORTFOLIO_ASSET_NAME = "MSX Portfolio";
