@@ -204,9 +204,9 @@ export function parseUCapitalReport(
     );
   } else {
     const known = holdings.filter((holding) => KNOWN_MSX_SYMBOLS.has(holding.symbol)).length;
-    if (known < holdings.length) {
+    if (known === 0) {
       warnings.push(
-        `Parsed ${holdings.length} U-Capital holdings (${known} matched known MSX tickers). Verify symbols against the statement.`,
+        `Parsed ${holdings.length} U-Capital holdings but none matched known MSX tickers. Verify symbols against the statement.`,
       );
     }
   }
