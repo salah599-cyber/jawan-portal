@@ -299,11 +299,8 @@ export function parseUCapitalReport(
       "U-Capital statement detected but no holdings rows were parsed. Verify the PDF is a Statement of Holdings export.",
     );
   } else {
-    if (tableHoldings.length === 0) {
-      warnings.push(
-        "Holdings were inferred from U-Capital PDF text because table extraction failed. Verify quantities and values against your statement.",
-      );
-    }
+    // Text-line parsing is a first-class path for some U-Capital exports where
+    // pdf-parse getTable() crashes; do not surface that as a user-facing error.
     const known = holdings.filter((holding) => KNOWN_MSX_SYMBOLS.has(holding.symbol)).length;
     if (known === 0) {
       warnings.push(
