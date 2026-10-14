@@ -334,8 +334,21 @@ export async function importBrokerReportsForEntity(
 
   await refreshAssetValue(asset.id);
 
-  await snapshotManagedPortfolioValuation(entityId, managedPortfolioId, "import");
-  await snapshotManagedPortfolioValuation(entityId, null, "import");
+  const statementDates = results
+    .map((result) => (result.asOfDate ? new Date(result.asOfDate) : null))
+    .filter((date): date is Date => date != null && !Number.isNaN(date.getTime()));
+  const statementValuedAt =
+    statementDates.length > 0
+      ? new Date(Math.max(...statementDates.map((date) => date.getTime())))
+      : new Date();
+
+  await snapshotManagedPortfolioValuation(
+    entityId,
+    managedPortfolioId,
+    "import",
+    statementValuedAt,
+  );
+  await snapshotManagedPortfolioValuation(entityId, null, "import", statementValuedAt);
 
   // Preserve broker statement marks after import. MSX/UAE exchange EOD refresh
   // would overwrite BROKER prices/market values and diverge from the PDF totals.

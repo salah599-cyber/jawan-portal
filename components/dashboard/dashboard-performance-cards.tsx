@@ -17,7 +17,7 @@ import {
   PERFORMANCE_PERIODS,
   type PerformancePeriod,
 } from "@/lib/portfolio/performance-period";
-import { formatOmr } from "@/lib/format";
+import { formatDateUtc, formatOmr } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
 type DashboardPerformanceCardsProps = {
@@ -148,19 +148,41 @@ export function DashboardPerformanceCards({
               : "Performance tracking starts as values are updated."}
           </p>
         ) : (
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
             <PerformanceMetric
-              label={`Return (${periodShortLabel})`}
+              label={`Return (${periodShortLabel}) · Live prices`}
               value={formatReturnPct(performance.periodReturnPct)}
               detail={
                 performance.periodReturnOmr != null
                   ? formatOmr(performance.periodReturnOmr)
-                  : null
+                  : "Updated from market prices and valuations"
               }
               tone={returnTone(performance.periodReturnPct)}
             />
             <PerformanceMetric
-              label="Return YTD"
+              label={`Return (${periodShortLabel}) · Statement`}
+              value={
+                performance.statementReturn.awaitingPeriodStatement
+                  ? "—"
+                  : formatReturnPct(performance.statementReturn.periodReturnPct)
+              }
+              detail={
+                performance.statementReturn.awaitingPeriodStatement
+                  ? "Upload the period-end broker report"
+                  : performance.statementReturn.periodReturnOmr != null
+                    ? formatOmr(performance.statementReturn.periodReturnOmr)
+                    : performance.statementReturn.lastStatementDate
+                      ? `Last report ${formatDateUtc(performance.statementReturn.lastStatementDate)}`
+                      : "From imported broker statements"
+              }
+              tone={
+                performance.statementReturn.awaitingPeriodStatement
+                  ? undefined
+                  : returnTone(performance.statementReturn.periodReturnPct)
+              }
+            />
+            <PerformanceMetric
+              label="Return YTD · Live prices"
               value={formatReturnPct(performance.ytdReturnPct)}
               detail={
                 performance.ytdReturnOmr != null ? formatOmr(performance.ytdReturnOmr) : null
@@ -183,9 +205,10 @@ export function DashboardPerformanceCards({
       {hasPortfolio && performance.hasSufficientData ? (
         <CardFooter>
           <p className="text-xs text-muted-foreground">
-            {periodLabel} returns use recorded valuations; public-market holdings share their
-            portfolio baseline when earlier history is unavailable. Asset links open the module
-            where each holding is managed.
+            Live returns use refreshed market prices and recorded valuations until you upload a new
+            report. Statement returns compare imported broker statement totals (period opening vs
+            closing report). Public-market holdings share their portfolio baseline when earlier
+            history is unavailable.
           </p>
         </CardFooter>
       ) : null}

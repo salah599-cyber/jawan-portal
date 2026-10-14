@@ -13,6 +13,10 @@ import {
   backfillAssetValuations,
   getPerformanceBaselineAtDate,
 } from "@/lib/portfolio/valuations";
+import {
+  computeStatementReturnMetrics,
+  type StatementReturnMetrics,
+} from "@/lib/portfolio/statement-performance";
 import { assetEntityFilter } from "@/lib/permissions/scoped-queries";
 import type { UserContext } from "@/lib/permissions/types";
 import { convertToOmr, entityWhere } from "@/lib/reports/helpers";
@@ -39,10 +43,13 @@ export type AssetPerformanceRow = {
 
 export type PortfolioPerformance = {
   period: PerformancePeriod;
+  /** Live marks: refreshed prices and recorded asset valuations. */
   periodReturnOmr: number | null;
   periodReturnPct: number | null;
   ytdReturnOmr: number | null;
   ytdReturnPct: number | null;
+  /** Broker statement snapshots from imports (public markets); other assets use valuations. */
+  statementReturn: StatementReturnMetrics;
   bestPerformer: AssetPerformer | null;
   worstPerformer: AssetPerformer | null;
   hasSufficientData: boolean;
@@ -344,12 +351,22 @@ export async function computePortfolioPerformance(
 ): Promise<PortfolioPerformance> {
   const period = options.period ?? "month";
 
+  const emptyStatementReturn: StatementReturnMetrics = {
+    periodReturnOmr: null,
+    periodReturnPct: null,
+    ytdReturnOmr: null,
+    ytdReturnPct: null,
+    lastStatementDate: null,
+    awaitingPeriodStatement: false,
+  };
+
   const empty: PortfolioPerformance = {
     period,
     periodReturnOmr: null,
     periodReturnPct: null,
     ytdReturnOmr: null,
     ytdReturnPct: null,
+    statementReturn: emptyStatementReturn,
     bestPerformer: null,
     worstPerformer: null,
     hasSufficientData: false,
@@ -389,6 +406,9 @@ export async function computePortfolioPerformance(
   let currentTotalOmr = 0;
   let periodBaselineTotalOmr = 0;
   let ytdBaselineTotalOmr = 0;
+  let nonPublicCurrentOmr = 0;
+  let nonPublicPeriodBaselineOmr = 0;
+  let nonPublicYtdBaselineOmr = 0;
 
   const periodPerformers: AssetPerformer[] = [];
   const assetRows: AssetPerformanceRow[] = [];
@@ -405,6 +425,12 @@ export async function computePortfolioPerformance(
     currentTotalOmr += currentOmr;
     periodBaselineTotalOmr += periodBaselineOmr;
     ytdBaselineTotalOmr += ytdBaselineOmr;
+
+    if (asset.category !== "PUBLIC_EQUITY") {
+      nonPublicCurrentOmr += currentOmr;
+      nonPublicPeriodBaselineOmr += periodBaselineOmr;
+      nonPublicYtdBaselineOmr += ytdBaselineOmr;
+    }
 
     const periodReturnPct =
       periodBaselineOmr > 0 ? ((currentOmr - periodBaselineOmr) / periodBaselineOmr) * 100 : null;
@@ -432,13 +458,13 @@ export async function computePortfolioPerformance(
     }
   }
 
-  periodPerformers.push(
-    ...(await collectPublicEquityHoldingPerformers(publicEquityAssets, periodStart)),
-  );
-
   const entityIds = options.entityId
     ? [options.entityId]
     : [...new Set(assets.map((asset) => asset.entityId))];
+
+  periodPerformers.push(
+    ...(await collectPublicEquityHoldingPerformers(publicEquityAssets, periodStart)),
+  );
 
   if (publicEquityAssets.length > 0 && entityIds.length > 0) {
     periodPerformers.push(
@@ -448,6 +474,17 @@ export async function computePortfolioPerformance(
 
   const periodReturn = computePortfolioReturn(currentTotalOmr, periodBaselineTotalOmr);
   const ytdReturn = computePortfolioReturn(currentTotalOmr, ytdBaselineTotalOmr);
+
+  const statementReturn = await computeStatementReturnMetrics(
+    entityIds,
+    periodStart,
+    yearStart,
+    {
+      currentOmr: nonPublicCurrentOmr,
+      periodBaselineOmr: nonPublicPeriodBaselineOmr,
+      ytdBaselineOmr: nonPublicYtdBaselineOmr,
+    },
+  );
 
   const sortedPerformers = [...periodPerformers].sort((a, b) => b.returnPct - a.returnPct);
   const bestPerformer = sortedPerformers[0] ?? null;
@@ -462,6 +499,7 @@ export async function computePortfolioPerformance(
     periodReturnPct: periodReturn?.returnPct ?? null,
     ytdReturnOmr: ytdReturn?.returnOmr ?? null,
     ytdReturnPct: ytdReturn?.returnPct ?? null,
+    statementReturn,
     bestPerformer,
     worstPerformer:
       worstPerformer && bestPerformer && worstPerformer.href !== bestPerformer.href
