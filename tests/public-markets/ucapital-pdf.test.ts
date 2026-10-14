@@ -110,7 +110,7 @@ describe("U-Capital statement parsing", () => {
     expect(sumMv).toBeCloseTo(13429702.573, 2);
   });
 
-  it("falls back to text lines when U-Capital table extraction fails (Jawahar)", async () => {
+  it("parses Jawahar statement even when one PDF page crashes table extraction", async () => {
     const buffer = fs.readFileSync(JAWAHAR_FIXTURE);
     const result = await parsePdfReport(
       buffer,
@@ -121,7 +121,7 @@ describe("U-Capital statement parsing", () => {
     expect(result.accountNumber).toBe("10619");
     expect(result.asOfDate?.toISOString().slice(0, 10)).toBe("2026-09-30");
     expect(result.holdings.length).toBeGreaterThan(20);
-    expect(result.warnings.some((warning) => /text/i.test(warning))).toBe(true);
+    expect(result.warnings).toEqual([]);
 
     const bySymbol = new Map(result.holdings.map((holding) => [holding.symbol, holding]));
     expect(bySymbol.get("BKMB")).toMatchObject({

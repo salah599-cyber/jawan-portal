@@ -4,28 +4,53 @@ import { dedupeHoldings, parsePdfTableText, parseTextLines, rowsToHoldings } fro
 import { isUCapitalReport, parseUCapitalReport } from "./parse-ucapital";
 import { loadPdfRuntime } from "./pdf-runtime";
 
+function collectTableRows(tableResult: {
+  pages?: Array<{ tables?: unknown[][][] }>;
+} | null | undefined): unknown[][] {
+  const tableRows: unknown[][] = [];
+  for (const page of tableResult?.pages ?? []) {
+    for (const table of page.tables ?? []) {
+      for (const row of table) {
+        tableRows.push(row);
+      }
+    }
+  }
+  return tableRows;
+}
+
+async function extractPdfTables(
+  parser: InstanceType<typeof import("pdf-parse").PDFParse>,
+  pageCount: number,
+): Promise<unknown[][]> {
+  try {
+    return collectTableRows(await parser.getTable());
+  } catch {
+    // Some U-Capital pages crash pdf-parse's geometry Table.toData(). Isolate
+    // per page so one bad page does not discard the rest of the statement.
+  }
+
+  const tableRows: unknown[][] = [];
+  for (let page = 1; page <= pageCount; page += 1) {
+    try {
+      tableRows.push(...collectTableRows(await parser.getTable({ partial: [page] })));
+    } catch {
+      // Skip the failing page; text-line fallback still covers missing rows.
+    }
+  }
+  return tableRows;
+}
+
 async function extractPdfContent(buffer: Buffer): Promise<{ text: string; tableRows: unknown[][] }> {
   const { PDFParse, CanvasFactory } = await loadPdfRuntime();
   const parser = new PDFParse({ data: buffer, CanvasFactory });
 
   try {
     const textResult = await parser.getText();
-    let tableRows: unknown[][] = [];
-
-    try {
-      const tableResult = await parser.getTable();
-      if (tableResult?.pages) {
-        for (const page of tableResult.pages) {
-          for (const table of page.tables ?? []) {
-            for (const row of table) {
-              tableRows.push(row);
-            }
-          }
-        }
-      }
-    } catch {
-      tableRows = [];
-    }
+    const pageCount =
+      typeof textResult.total === "number" && textResult.total > 0
+        ? textResult.total
+        : Math.max(1, textResult.pages?.length ?? 1);
+    const tableRows = await extractPdfTables(parser, pageCount);
 
     return { text: textResult.text ?? "", tableRows };
   } finally {
