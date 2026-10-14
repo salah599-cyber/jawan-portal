@@ -6,13 +6,18 @@ import { parsePdfReport } from "@/lib/msx/parse-pdf";
 import {
   isUCapitalReport,
   parseUCapitalHoldingRow,
+  parseUCapitalTextLines,
   resolveUCapitalSymbol,
 } from "@/lib/msx/parse-ucapital";
 import { planImportSymbolSync } from "@/lib/public-markets/import-scope";
 
-const FIXTURE = path.join(
+const MURTADHA_FIXTURE = path.join(
   process.cwd(),
   "tests/fixtures/public-markets/ucapital-murtadha-30-sep-2026.pdf",
+);
+const JAWAHAR_FIXTURE = path.join(
+  process.cwd(),
+  "tests/fixtures/public-markets/ucapital-jawahar-30-sep-2026.pdf",
 );
 
 describe("U-Capital statement parsing", () => {
@@ -61,7 +66,7 @@ describe("U-Capital statement parsing", () => {
   });
 
   it("parses the attached monthly statement with statement figures", async () => {
-    const buffer = fs.readFileSync(FIXTURE);
+    const buffer = fs.readFileSync(MURTADHA_FIXTURE);
     const result = await parsePdfReport(
       buffer,
       "Monthly Report - Murtadha Ahmed Sultan 30 SEP 2026.pdf",
@@ -99,6 +104,67 @@ describe("U-Capital statement parsing", () => {
       quantity: 1220702,
       marketPrice: 0.492,
       marketValue: 600585.384,
+    });
+
+    const sumMv = result.holdings.reduce((sum, holding) => sum + (holding.marketValue ?? 0), 0);
+    expect(sumMv).toBeCloseTo(13429702.573, 2);
+  });
+
+  it("falls back to text lines when U-Capital table extraction fails (Jawahar)", async () => {
+    const buffer = fs.readFileSync(JAWAHAR_FIXTURE);
+    const result = await parsePdfReport(
+      buffer,
+      "Monthly Report - Jawahar Ali Sultan Oman - 30 SEP 2026.pdf",
+    );
+
+    expect(result.broker).toBe("U Capital");
+    expect(result.accountNumber).toBe("10619");
+    expect(result.asOfDate?.toISOString().slice(0, 10)).toBe("2026-09-30");
+    expect(result.holdings.length).toBeGreaterThan(20);
+    expect(result.warnings.some((warning) => /text/i.test(warning))).toBe(true);
+
+    const bySymbol = new Map(result.holdings.map((holding) => [holding.symbol, holding]));
+    expect(bySymbol.get("BKMB")).toMatchObject({
+      quantity: 559270,
+      marketPrice: 0.424,
+      marketValue: 237130.48,
+    });
+    expect(bySymbol.get("SOHR")).toMatchObject({
+      quantity: 1051763,
+      marketPrice: 0.189,
+      marketValue: 198783.207,
+    });
+    expect(bySymbol.get("OTEL")).toMatchObject({
+      quantity: 137657,
+      marketPrice: 1.369,
+      marketValue: 188452.433,
+    });
+    expect(bySymbol.get("AJSS")).toMatchObject({
+      quantity: 20000,
+      marketPrice: 0.931,
+      marketValue: 18620,
+    });
+
+    const sumMv = result.holdings.reduce((sum, holding) => sum + (holding.marketValue ?? 0), 0);
+    expect(sumMv).toBeCloseTo(2008493.331, 2);
+  });
+
+  it("parses wrapped U-Capital text rows that split security name and ISIN", () => {
+    const holdings = parseUCapitalTextLines(
+      [
+        "20,000 0.938 18,768.723\t0.931 18,620.000\tOMR\tAL JAZEERA STEEL PRODUCTS (OM0000002176) -",
+        "217",
+        "0.931 (148.723) 0.000 651.277\t800.000 0.92%\tOM0000002176",
+      ].join("\n"),
+    );
+    expect(holdings).toHaveLength(1);
+    expect(holdings[0]).toMatchObject({
+      symbol: "AJSS",
+      quantity: 20000,
+      marketPrice: 0.931,
+      marketValue: 18620,
+      costBasis: 18768.723,
+      unrealisedPnl: -148.723,
     });
   });
 

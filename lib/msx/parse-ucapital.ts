@@ -190,12 +190,108 @@ export function parseUCapitalTableRows(tableRows: unknown[][]): ParsedHolding[] 
   return dedupeHoldings(holdings);
 }
 
+/** Parentheses must stay paired so losses like (148.723) keep their sign. */
+const UCAPITAL_NUM = String.raw`(?:\(-?[\d,]+(?:\.\d+)?\)|-?[\d,]+(?:\.\d+)?)`;
+/**
+ * Text layout from U-Capital Statement of Holdings PDFs (tabs flattened):
+ * qty costPrice wdvCost mktPrice mktValue OMR <security…> <isin>
+ * Some rows wrap the security name / trailing columns onto the next line.
+ */
+const UCAPITAL_TEXT_ROW_RE = new RegExp(
+  String.raw`^(${UCAPITAL_NUM})\s+(${UCAPITAL_NUM})\s+(${UCAPITAL_NUM})\s+(${UCAPITAL_NUM})\s+(${UCAPITAL_NUM})\s+OMR\s+(.+?)\s+(OM[0-9A-Z]{10})\s*$`,
+  "i",
+);
+
+function coalesceUCapitalTextLines(text: string): string[] {
+  const normalized = text
+    .split(/\r?\n/)
+    .map((line) => line.replace(/\t/g, " ").replace(/\s+/g, " ").trim())
+    .filter(Boolean);
+
+  const lines: string[] = [];
+  for (let i = 0; i < normalized.length; i += 1) {
+    let line = normalized[i]!;
+    const looksLikeStart = /^\d[\d,]*\s+/.test(line) && /\bOMR\b/i.test(line);
+    // U-Capital often wraps long security names across 2–3 lines before the ISIN.
+    if (looksLikeStart && !/OM[0-9A-Z]{10}\s*$/i.test(line)) {
+      while (i + 1 < normalized.length && !/OM[0-9A-Z]{10}\s*$/i.test(line)) {
+        const next = normalized[i + 1]!;
+        const nextIsNewRow = /^\d[\d,]*\s+/.test(next) && /\bOMR\b/i.test(next);
+        if (nextIsNewRow) break;
+        line = `${line} ${next}`;
+        i += 1;
+      }
+    }
+    lines.push(line);
+  }
+  return lines;
+}
+
+function extractUCapitalSecurityName(raw: string): string {
+  const withCode = raw.match(/^(.+?\s-\s*\d+)\b/);
+  if (withCode?.[1]) return withCode[1].trim();
+  return raw
+    .replace(/(?:\s+\(?-?[\d,]+(?:\.\d+)?\)?)+$/g, "")
+    .replace(/\s+\d+\.\d+%\s*$/g, "")
+    .trim();
+}
+
+function parseUCapitalTextLine(line: string): ParsedHolding | null {
+  const match = line.match(UCAPITAL_TEXT_ROW_RE);
+  if (!match) return null;
+
+  const quantity = parseQuantity(match[1]);
+  if (quantity == null || quantity <= 0) return null;
+
+  const costPrice = parseNumeric(match[2]);
+  const costBasis = parseNumeric(match[3]);
+  const marketPrice = parseNumeric(match[4]);
+  const marketValue = parseNumeric(match[5]);
+  const securityRaw = match[6] ?? "";
+  const isin = (match[7] ?? "").toUpperCase();
+  const security = extractUCapitalSecurityName(securityRaw);
+  if (!security) return null;
+
+  const symbol = resolveUCapitalSymbol(security, isin);
+  if (!symbol) return null;
+
+  const afterName = securityRaw.slice(security.length).trim();
+  const trailing = afterName.match(
+    new RegExp(String.raw`^${UCAPITAL_NUM}\s+(${UCAPITAL_NUM})(?:\s|$)`),
+  );
+  const unrealisedPnl = trailing ? parseNumeric(trailing[1]) : undefined;
+
+  return {
+    symbol,
+    name: cleanSecurityName(security),
+    quantity,
+    costBasis: costBasis ?? (costPrice != null ? costPrice * quantity : undefined),
+    marketPrice: marketPrice ?? undefined,
+    marketValue: marketValue ?? undefined,
+    unrealisedPnl: unrealisedPnl ?? undefined,
+    currency: "OMR",
+    isin,
+  };
+}
+
+/** Fallback when PDF table extraction fails (common on some U-Capital exports). */
+export function parseUCapitalTextLines(text: string): ParsedHolding[] {
+  const holdings: ParsedHolding[] = [];
+  for (const line of coalesceUCapitalTextLines(text)) {
+    const holding = parseUCapitalTextLine(line);
+    if (holding) holdings.push(holding);
+  }
+  return dedupeHoldings(holdings);
+}
+
 export function parseUCapitalReport(
   text: string,
   tableRows: unknown[][],
   fileName: string,
 ): ParseReportResult {
-  const holdings = parseUCapitalTableRows(tableRows);
+  const tableHoldings = parseUCapitalTableRows(tableRows);
+  const textHoldings = tableHoldings.length === 0 ? parseUCapitalTextLines(text) : [];
+  const holdings = tableHoldings.length > 0 ? tableHoldings : textHoldings;
   const warnings: string[] = [];
 
   if (holdings.length === 0) {
@@ -203,6 +299,11 @@ export function parseUCapitalReport(
       "U-Capital statement detected but no holdings rows were parsed. Verify the PDF is a Statement of Holdings export.",
     );
   } else {
+    if (tableHoldings.length === 0) {
+      warnings.push(
+        "Holdings were inferred from U-Capital PDF text because table extraction failed. Verify quantities and values against your statement.",
+      );
+    }
     const known = holdings.filter((holding) => KNOWN_MSX_SYMBOLS.has(holding.symbol)).length;
     if (known === 0) {
       warnings.push(
