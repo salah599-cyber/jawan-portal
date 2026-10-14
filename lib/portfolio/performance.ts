@@ -3,7 +3,7 @@ import { getAssetLinkedModule } from "@/lib/assets/linked-module";
 import { MARKET_CONFIG, PUBLIC_MARKETS_PATH, PRIVATE_PORTFOLIO_SLUG } from "@/lib/public-markets/constants";
 import {
   computePortfolioTotalsOmr,
-  getManagedPortfolioValueAtDate,
+  getManagedPortfolioPerformanceBaselineAtDate,
 } from "@/lib/portfolio/managed-portfolio-valuations";
 import {
   getPerformancePeriodStart,
@@ -56,6 +56,7 @@ export type PortfolioPerformanceOptions = {
 
 type PerformanceAsset = {
   id: string;
+  entityId: string;
   name: string;
   category: string;
   currentValue: { toString(): string } | null;
@@ -210,8 +211,72 @@ async function collectPublicEquityHoldingPerformers(
   return performers;
 }
 
+function parseOwnershipPct(ownershipPct: { toString(): string }): number {
+  const pct = parseFloat(ownershipPct.toString());
+  return Number.isNaN(pct) ? 0 : pct;
+}
+
+async function getEntityPublicEquityPerformanceContext(
+  publicEquityAssets: PerformanceAsset[],
+  entityId: string,
+  periodStart: Date,
+): Promise<{ parentCurrentOmr: number; parentBaselineOmr: number; ownershipPct: number }> {
+  const entityAssets = publicEquityAssets.filter((asset) => asset.entityId === entityId);
+  if (entityAssets.length === 0) {
+    return { parentCurrentOmr: 0, parentBaselineOmr: 0, ownershipPct: 0 };
+  }
+
+  let parentCurrentOmr = 0;
+  let parentBaselineOmr = 0;
+  let ownershipPct = 0;
+
+  for (const asset of entityAssets) {
+    parentCurrentOmr += await convertToOmr(
+      weightedValue(asset.currentValue, asset.ownershipPct),
+      asset.currency,
+    );
+    parentBaselineOmr += await getWeightedBaselineOmrAtDate(asset, periodStart);
+    ownershipPct = Math.max(ownershipPct, parseOwnershipPct(asset.ownershipPct));
+  }
+
+  return { parentCurrentOmr, parentBaselineOmr, ownershipPct };
+}
+
+async function managedPortfolioPeriodReturnPct(
+  entityId: string,
+  managedPortfolioId: string | null,
+  periodStart: Date,
+  parentCurrentOmr: number,
+  parentBaselineOmr: number,
+  ownershipPct: number,
+): Promise<number | null> {
+  const totals = await computePortfolioTotalsOmr(entityId, managedPortfolioId);
+  if (totals.valueOmr <= 0) return null;
+
+  const sliceCurrentOmr = (totals.valueOmr * ownershipPct) / 100;
+  if (sliceCurrentOmr <= 0) return null;
+
+  let periodBaselineOmr = 0;
+  if (parentCurrentOmr > 0 && parentBaselineOmr > 0) {
+    periodBaselineOmr = (sliceCurrentOmr / parentCurrentOmr) * parentBaselineOmr;
+  }
+
+  if (periodBaselineOmr <= 0) {
+    const snapshotBaseline = await getManagedPortfolioPerformanceBaselineAtDate(
+      entityId,
+      managedPortfolioId,
+      periodStart,
+    );
+    if (snapshotBaseline == null || snapshotBaseline <= 0) return null;
+    periodBaselineOmr = (snapshotBaseline * ownershipPct) / 100;
+  }
+
+  return ((sliceCurrentOmr - periodBaselineOmr) / periodBaselineOmr) * 100;
+}
+
 async function collectManagedPortfolioPerformers(
   entityIds: string[],
+  publicEquityAssets: PerformanceAsset[],
   periodStart: Date,
 ): Promise<AssetPerformer[]> {
   if (entityIds.length === 0) return [];
@@ -220,16 +285,23 @@ async function collectManagedPortfolioPerformers(
   const uniqueEntityIds = [...new Set(entityIds)];
 
   for (const entityId of uniqueEntityIds) {
-    const privateTotals = await computePortfolioTotalsOmr(entityId, null);
-    if (privateTotals.valueOmr > 0) {
-      const privateBaseline = await getManagedPortfolioValueAtDate(entityId, null, periodStart);
-      if (privateBaseline != null && privateBaseline > 0) {
-        performers.push({
-          name: "Private holdings",
-          returnPct: ((privateTotals.valueOmr - privateBaseline) / privateBaseline) * 100,
-          href: `${PUBLIC_MARKETS_PATH}?entity=${entityId}&portfolio=${PRIVATE_PORTFOLIO_SLUG}`,
-        });
-      }
+    const { parentCurrentOmr, parentBaselineOmr, ownershipPct } =
+      await getEntityPublicEquityPerformanceContext(publicEquityAssets, entityId, periodStart);
+
+    const privateReturnPct = await managedPortfolioPeriodReturnPct(
+      entityId,
+      null,
+      periodStart,
+      parentCurrentOmr,
+      parentBaselineOmr,
+      ownershipPct,
+    );
+    if (privateReturnPct != null) {
+      performers.push({
+        name: "Private holdings",
+        returnPct: privateReturnPct,
+        href: `${PUBLIC_MARKETS_PATH}?entity=${entityId}&portfolio=${PRIVATE_PORTFOLIO_SLUG}`,
+      });
     }
 
     const portfolios = await db.managedPortfolio.findMany({
@@ -245,15 +317,19 @@ async function collectManagedPortfolioPerformers(
     });
 
     for (const portfolio of portfolios) {
-      const totals = await computePortfolioTotalsOmr(entityId, portfolio.id);
-      if (totals.valueOmr <= 0) continue;
-
-      const baseline = await getManagedPortfolioValueAtDate(entityId, portfolio.id, periodStart);
-      if (baseline == null || baseline <= 0) continue;
+      const returnPct = await managedPortfolioPeriodReturnPct(
+        entityId,
+        portfolio.id,
+        periodStart,
+        parentCurrentOmr,
+        parentBaselineOmr,
+        ownershipPct,
+      );
+      if (returnPct == null) continue;
 
       performers.push({
         name: `${portfolio.managerName} — ${portfolio.name}`,
-        returnPct: ((totals.valueOmr - baseline) / baseline) * 100,
+        returnPct,
         href: `${PUBLIC_MARKETS_PATH}?entity=${entityId}&portfolio=${portfolio.id}`,
       });
     }
@@ -365,7 +441,9 @@ export async function computePortfolioPerformance(
     : [...new Set(assets.map((asset) => asset.entityId))];
 
   if (publicEquityAssets.length > 0 && entityIds.length > 0) {
-    periodPerformers.push(...(await collectManagedPortfolioPerformers(entityIds, periodStart)));
+    periodPerformers.push(
+      ...(await collectManagedPortfolioPerformers(entityIds, publicEquityAssets, periodStart)),
+    );
   }
 
   const periodReturn = computePortfolioReturn(currentTotalOmr, periodBaselineTotalOmr);

@@ -3,7 +3,10 @@ import type { PublicMarket } from "@/lib/generated/prisma/client";
 import { ensurePublicMarketsSchema } from "@/lib/db/ensure-public-markets-schema";
 import { convertToOmr } from "@/lib/public-markets/fx";
 import { normalizeHoldingValues } from "@/lib/public-markets/valuation";
-import { getManagedPortfolioValueAtDate } from "@/lib/portfolio/managed-portfolio-valuations";
+import {
+  getManagedPortfolioPerformanceBaselineAtDate,
+} from "@/lib/portfolio/managed-portfolio-valuations";
+import { startOfMonth } from "@/lib/calendar/date-ranges";
 import { PRIVATE_PORTFOLIO_SLUG } from "@/lib/public-markets/constants";
 import { assetEntityFilter } from "@/lib/permissions/scoped-queries";
 import type { UserContext } from "@/lib/permissions/types";
@@ -226,12 +229,10 @@ async function enrichSummaryMetrics(
       ? (summary.totalUnrealisedPnlOmr / summary.totalCostBasisOmr) * 100
       : null;
 
-  const monthAgo = new Date();
-  monthAgo.setMonth(monthAgo.getMonth() - 1);
-  const baseline = await getManagedPortfolioValueAtDate(
+  const baseline = await getManagedPortfolioPerformanceBaselineAtDate(
     entityId,
     summary.id,
-    monthAgo,
+    startOfMonth(new Date()),
   );
   const periodReturnPct =
     baseline != null && baseline > 0

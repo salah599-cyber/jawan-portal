@@ -116,6 +116,48 @@ export async function getManagedPortfolioValueAtDate(
   return Number.isNaN(value) || value <= 0 ? null : value;
 }
 
+/**
+ * Period baseline for managed portfolio returns. Mirrors {@link getPerformanceBaselineAtDate}
+ * for assets: latest snapshot before the period, else first snapshot in the period, else
+ * current holdings cost basis.
+ */
+export async function getManagedPortfolioPerformanceBaselineAtDate(
+  entityId: string,
+  managedPortfolioId: string | null,
+  periodStart: Date,
+): Promise<number | null> {
+  const valuationBeforePeriod = await db.managedPortfolioValuation.findFirst({
+    where: {
+      entityId,
+      managedPortfolioId,
+      valuedAt: { lt: periodStart },
+    },
+    orderBy: { valuedAt: "desc" },
+  });
+
+  if (valuationBeforePeriod) {
+    const value = parseFloat(valuationBeforePeriod.valueOmr.toString());
+    if (!Number.isNaN(value) && value > 0) return value;
+  }
+
+  const firstValuationInPeriod = await db.managedPortfolioValuation.findFirst({
+    where: {
+      entityId,
+      managedPortfolioId,
+      valuedAt: { gte: periodStart },
+    },
+    orderBy: { valuedAt: "asc" },
+  });
+
+  if (firstValuationInPeriod) {
+    const value = parseFloat(firstValuationInPeriod.valueOmr.toString());
+    if (!Number.isNaN(value) && value > 0) return value;
+  }
+
+  const totals = await computePortfolioTotalsOmr(entityId, managedPortfolioId);
+  return totals.costBasisOmr > 0 ? totals.costBasisOmr : null;
+}
+
 export async function snapshotManagedPortfolioValuation(
   entityId: string,
   managedPortfolioId: string | null,
