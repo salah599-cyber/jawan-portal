@@ -254,6 +254,8 @@ export function createAssistantTools(ctx: UserContext) {
           period: performance.period,
           periodReturnPct: performance.periodReturnPct,
           periodReturnOmr: performance.periodReturnOmr,
+          statementPeriodReturnPct: performance.statementReturn.periodReturnPct,
+          statementAwaitingUpload: performance.statementReturn.awaitingPeriodStatement,
           ytdReturnPct: performance.ytdReturnPct,
           ytdReturnOmr: performance.ytdReturnOmr,
           bestPerformer: performance.bestPerformer,
