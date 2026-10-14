@@ -14,7 +14,7 @@ import {
 } from "@/lib/public-markets/valuation";
 import { recordAssetValuation } from "@/lib/portfolio/valuations";
 import { refreshPublicMarketPrices } from "@/lib/public-markets/refresh-prices";
-import { hasAutomaticPriceRefresh } from "@/lib/public-markets/prices/symbols";
+import { isYahooPriceSupported } from "@/lib/public-markets/prices/symbols";
 import { formatOverlapResolutionSummary } from "@/lib/public-markets/import-warnings";
 import { getManualEquityHoldings } from "@/lib/public-markets/import-preview";
 import {
@@ -337,7 +337,10 @@ export async function importBrokerReportsForEntity(
   await snapshotManagedPortfolioValuation(entityId, managedPortfolioId, "import");
   await snapshotManagedPortfolioValuation(entityId, null, "import");
 
-  if (hasAutomaticPriceRefresh(market)) {
+  // Preserve broker statement marks after import. MSX/UAE exchange EOD refresh
+  // would overwrite BROKER prices/market values and diverge from the PDF totals.
+  // Yahoo-backed markets still refresh when live quotes are available.
+  if (isYahooPriceSupported(market)) {
     try {
       await refreshPublicMarketPrices({ entityId, market });
     } catch {
