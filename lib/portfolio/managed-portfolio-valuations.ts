@@ -116,10 +116,53 @@ export async function getManagedPortfolioValueAtDate(
   return Number.isNaN(value) || value <= 0 ? null : value;
 }
 
+/**
+ * Period baseline for managed portfolio returns. Mirrors {@link getPerformanceBaselineAtDate}
+ * for assets: latest snapshot before the period, else first snapshot in the period, else
+ * current holdings cost basis.
+ */
+export async function getManagedPortfolioPerformanceBaselineAtDate(
+  entityId: string,
+  managedPortfolioId: string | null,
+  periodStart: Date,
+): Promise<number | null> {
+  const valuationBeforePeriod = await db.managedPortfolioValuation.findFirst({
+    where: {
+      entityId,
+      managedPortfolioId,
+      valuedAt: { lt: periodStart },
+    },
+    orderBy: { valuedAt: "desc" },
+  });
+
+  if (valuationBeforePeriod) {
+    const value = parseFloat(valuationBeforePeriod.valueOmr.toString());
+    if (!Number.isNaN(value) && value > 0) return value;
+  }
+
+  const firstValuationInPeriod = await db.managedPortfolioValuation.findFirst({
+    where: {
+      entityId,
+      managedPortfolioId,
+      valuedAt: { gte: periodStart },
+    },
+    orderBy: { valuedAt: "asc" },
+  });
+
+  if (firstValuationInPeriod) {
+    const value = parseFloat(firstValuationInPeriod.valueOmr.toString());
+    if (!Number.isNaN(value) && value > 0) return value;
+  }
+
+  const totals = await computePortfolioTotalsOmr(entityId, managedPortfolioId);
+  return totals.costBasisOmr > 0 ? totals.costBasisOmr : null;
+}
+
 export async function snapshotManagedPortfolioValuation(
   entityId: string,
   managedPortfolioId: string | null,
   notes?: string,
+  valuedAt?: Date,
 ): Promise<void> {
   const totals = await computePortfolioTotalsOmr(entityId, managedPortfolioId);
   await recordManagedPortfolioValuation({
@@ -127,8 +170,47 @@ export async function snapshotManagedPortfolioValuation(
     managedPortfolioId,
     valueOmr: totals.valueOmr,
     costBasisOmr: totals.costBasisOmr,
+    valuedAt,
     notes,
   });
+}
+
+export type ImportNavLookup = {
+  before?: Date;
+  onOrAfter?: Date;
+};
+
+/** Latest broker-import snapshot for a portfolio slice (notes = "import"). */
+export async function getManagedPortfolioImportNav(
+  entityId: string,
+  managedPortfolioId: string | null,
+  lookup: ImportNavLookup,
+): Promise<{ valueOmr: number; valuedAt: Date } | null> {
+  const valuedAtFilter =
+    lookup.before != null && lookup.onOrAfter != null
+      ? { gte: lookup.onOrAfter, lt: lookup.before }
+      : lookup.before != null
+        ? { lt: lookup.before }
+        : lookup.onOrAfter != null
+          ? { gte: lookup.onOrAfter }
+          : undefined;
+
+  if (!valuedAtFilter) return null;
+
+  const valuation = await db.managedPortfolioValuation.findFirst({
+    where: {
+      entityId,
+      managedPortfolioId,
+      notes: "import",
+      valuedAt: valuedAtFilter,
+    },
+    orderBy: { valuedAt: "desc" },
+  });
+
+  if (!valuation) return null;
+  const value = parseFloat(valuation.valueOmr.toString());
+  if (Number.isNaN(value) || value <= 0) return null;
+  return { valueOmr: value, valuedAt: valuation.valuedAt };
 }
 
 export async function snapshotAllManagedPortfoliosForEntity(
