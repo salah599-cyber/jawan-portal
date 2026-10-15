@@ -17,6 +17,11 @@ import {
   computeStatementReturnMetrics,
   type StatementReturnMetrics,
 } from "@/lib/portfolio/statement-performance";
+import {
+  computeReturn,
+  holdingReturnPct,
+  pickBestWorstPerformers,
+} from "@/lib/portfolio/return-math";
 import { assetEntityFilter } from "@/lib/permissions/scoped-queries";
 import type { UserContext } from "@/lib/permissions/types";
 import { convertToOmr, entityWhere } from "@/lib/reports/helpers";
@@ -94,18 +99,6 @@ function startOfYear(date: Date): Date {
   return new Date(date.getFullYear(), 0, 1);
 }
 
-function computePortfolioReturn(
-  currentTotalOmr: number,
-  baselineTotalOmr: number,
-): { returnOmr: number; returnPct: number } | null {
-  if (baselineTotalOmr <= 0) return null;
-  const returnOmr = currentTotalOmr - baselineTotalOmr;
-  return {
-    returnOmr,
-    returnPct: (returnOmr / baselineTotalOmr) * 100,
-  };
-}
-
 function publicMarketHref(market: PublicMarket): string {
   return market === "MSX" ? "/portfolio/msx" : "/portfolio/public-markets";
 }
@@ -136,73 +129,46 @@ async function getWeightedBaselineOmrAtDate(
   return convertToOmr(weighted, snapshot.currency);
 }
 
+/**
+ * Rank individual public-equity holdings by unrealized return versus their own
+ * total cost basis. Parent-portfolio proportional allocation is intentionally
+ * avoided: it assigns every holding the same percentage and surfaces absurd
+ * figures when the parent baseline is weak.
+ */
 async function collectPublicEquityHoldingPerformers(
   publicEquityAssets: PerformanceAsset[],
-  periodStart: Date,
 ): Promise<AssetPerformer[]> {
   if (publicEquityAssets.length === 0) return [];
 
   const holdings = await db.publicEquityHolding.findMany({
-    where: { assetId: { in: publicEquityAssets.map((asset) => asset.id) } },
+    where: {
+      assetId: { in: publicEquityAssets.map((asset) => asset.id) },
+      instrumentType: "EQUITY",
+    },
     select: {
       symbol: true,
       name: true,
       market: true,
+      quantity: true,
+      costBasis: true,
       marketValue: true,
-      currency: true,
-      asset: {
-        select: {
-          id: true,
-          ownershipPct: true,
-        },
-      },
     },
   });
-
-  const parentBaselines = new Map(
-    await Promise.all(
-      publicEquityAssets.map(async (asset) => [
-        asset.id,
-        await getWeightedBaselineOmrAtDate(asset, periodStart),
-      ] as const),
-    ),
-  );
-
-  const parentCurrentTotals = new Map(
-    await Promise.all(
-      publicEquityAssets.map(async (asset) => [
-        asset.id,
-        await convertToOmr(weightedValue(asset.currentValue, asset.ownershipPct), asset.currency),
-      ] as const),
-    ),
-  );
 
   const performers: AssetPerformer[] = [];
 
   for (const holding of holdings) {
-    const marketValue = holding.marketValue ? parseFloat(holding.marketValue.toString()) : 0;
-    if (Number.isNaN(marketValue) || marketValue <= 0) continue;
+    const quantity = holding.quantity ? parseFloat(holding.quantity.toString()) : 0;
+    const costBasis = holding.costBasis ? parseFloat(holding.costBasis.toString()) : null;
+    const marketValue = holding.marketValue ? parseFloat(holding.marketValue.toString()) : null;
 
-    const ownershipPct = parseFloat(holding.asset.ownershipPct.toString());
-    if (Number.isNaN(ownershipPct)) continue;
+    const returnPct = holdingReturnPct({
+      quantity: Number.isFinite(quantity) ? quantity : 0,
+      costBasis: costBasis != null && !Number.isNaN(costBasis) ? costBasis : null,
+      marketValue: marketValue != null && !Number.isNaN(marketValue) ? marketValue : null,
+    });
+    if (returnPct == null) continue;
 
-    const currentOmr = await convertToOmr(
-      (marketValue * ownershipPct) / 100,
-      holding.currency,
-    );
-    if (currentOmr <= 0) continue;
-
-    const parentCurrent = parentCurrentTotals.get(holding.asset.id) ?? 0;
-    const parentBaseline = parentBaselines.get(holding.asset.id) ?? 0;
-
-    let periodBaselineOmr = 0;
-    if (parentCurrent > 0 && parentBaseline > 0) {
-      periodBaselineOmr = (currentOmr / parentCurrent) * parentBaseline;
-    }
-
-    if (periodBaselineOmr <= 0) continue;
-
-    const periodReturnPct = ((currentOmr - periodBaselineOmr) / periodBaselineOmr) * 100;
     const label = holding.name?.trim()
       ? `${holding.symbol} — ${holding.name}`
       : holding.symbol;
@@ -210,7 +176,7 @@ async function collectPublicEquityHoldingPerformers(
 
     performers.push({
       name: `${label} (${marketLabel})`,
-      returnPct: periodReturnPct,
+      returnPct,
       href: publicMarketHref(holding.market),
     });
   }
@@ -223,38 +189,14 @@ function parseOwnershipPct(ownershipPct: { toString(): string }): number {
   return Number.isNaN(pct) ? 0 : pct;
 }
 
-async function getEntityPublicEquityPerformanceContext(
-  publicEquityAssets: PerformanceAsset[],
-  entityId: string,
-  periodStart: Date,
-): Promise<{ parentCurrentOmr: number; parentBaselineOmr: number; ownershipPct: number }> {
-  const entityAssets = publicEquityAssets.filter((asset) => asset.entityId === entityId);
-  if (entityAssets.length === 0) {
-    return { parentCurrentOmr: 0, parentBaselineOmr: 0, ownershipPct: 0 };
-  }
-
-  let parentCurrentOmr = 0;
-  let parentBaselineOmr = 0;
-  let ownershipPct = 0;
-
-  for (const asset of entityAssets) {
-    parentCurrentOmr += await convertToOmr(
-      weightedValue(asset.currentValue, asset.ownershipPct),
-      asset.currency,
-    );
-    parentBaselineOmr += await getWeightedBaselineOmrAtDate(asset, periodStart);
-    ownershipPct = Math.max(ownershipPct, parseOwnershipPct(asset.ownershipPct));
-  }
-
-  return { parentCurrentOmr, parentBaselineOmr, ownershipPct };
-}
-
+/**
+ * Per-slice managed portfolio return using that slice's own valuation/cost
+ * baseline — not a share of the parent public-equity asset return.
+ */
 async function managedPortfolioPeriodReturnPct(
   entityId: string,
   managedPortfolioId: string | null,
   periodStart: Date,
-  parentCurrentOmr: number,
-  parentBaselineOmr: number,
   ownershipPct: number,
 ): Promise<number | null> {
   const totals = await computePortfolioTotalsOmr(entityId, managedPortfolioId);
@@ -263,20 +205,15 @@ async function managedPortfolioPeriodReturnPct(
   const sliceCurrentOmr = (totals.valueOmr * ownershipPct) / 100;
   if (sliceCurrentOmr <= 0) return null;
 
-  let periodBaselineOmr = 0;
-  if (parentCurrentOmr > 0 && parentBaselineOmr > 0) {
-    periodBaselineOmr = (sliceCurrentOmr / parentCurrentOmr) * parentBaselineOmr;
-  }
+  const snapshotBaseline = await getManagedPortfolioPerformanceBaselineAtDate(
+    entityId,
+    managedPortfolioId,
+    periodStart,
+  );
+  if (snapshotBaseline == null || snapshotBaseline <= 0) return null;
 
-  if (periodBaselineOmr <= 0) {
-    const snapshotBaseline = await getManagedPortfolioPerformanceBaselineAtDate(
-      entityId,
-      managedPortfolioId,
-      periodStart,
-    );
-    if (snapshotBaseline == null || snapshotBaseline <= 0) return null;
-    periodBaselineOmr = (snapshotBaseline * ownershipPct) / 100;
-  }
+  const periodBaselineOmr = (snapshotBaseline * ownershipPct) / 100;
+  if (periodBaselineOmr <= 0) return null;
 
   return ((sliceCurrentOmr - periodBaselineOmr) / periodBaselineOmr) * 100;
 }
@@ -292,15 +229,17 @@ async function collectManagedPortfolioPerformers(
   const uniqueEntityIds = [...new Set(entityIds)];
 
   for (const entityId of uniqueEntityIds) {
-    const { parentCurrentOmr, parentBaselineOmr, ownershipPct } =
-      await getEntityPublicEquityPerformanceContext(publicEquityAssets, entityId, periodStart);
+    const entityAssets = publicEquityAssets.filter((asset) => asset.entityId === entityId);
+    const ownershipPct = entityAssets.reduce(
+      (max, asset) => Math.max(max, parseOwnershipPct(asset.ownershipPct)),
+      0,
+    );
+    if (ownershipPct <= 0) continue;
 
     const privateReturnPct = await managedPortfolioPeriodReturnPct(
       entityId,
       null,
       periodStart,
-      parentCurrentOmr,
-      parentBaselineOmr,
       ownershipPct,
     );
     if (privateReturnPct != null) {
@@ -328,8 +267,6 @@ async function collectManagedPortfolioPerformers(
         entityId,
         portfolio.id,
         periodStart,
-        parentCurrentOmr,
-        parentBaselineOmr,
         ownershipPct,
       );
       if (returnPct == null) continue;
@@ -403,11 +340,13 @@ export async function computePortfolioPerformance(
   const periodStart = getPerformancePeriodStart(period, now);
   const yearStart = startOfYear(now);
 
-  let currentTotalOmr = 0;
+  let periodCurrentTotalOmr = 0;
   let periodBaselineTotalOmr = 0;
+  let ytdCurrentTotalOmr = 0;
   let ytdBaselineTotalOmr = 0;
-  let nonPublicCurrentOmr = 0;
+  let nonPublicPeriodCurrentOmr = 0;
   let nonPublicPeriodBaselineOmr = 0;
+  let nonPublicYtdCurrentOmr = 0;
   let nonPublicYtdBaselineOmr = 0;
 
   const periodPerformers: AssetPerformer[] = [];
@@ -422,14 +361,23 @@ export async function computePortfolioPerformance(
     const periodBaselineOmr = await getWeightedBaselineOmrAtDate(asset, periodStart);
     const ytdBaselineOmr = await getWeightedBaselineOmrAtDate(asset, yearStart);
 
-    currentTotalOmr += currentOmr;
-    periodBaselineTotalOmr += periodBaselineOmr;
-    ytdBaselineTotalOmr += ytdBaselineOmr;
+    // Pair current with baseline: including current without a baseline inflates returns.
+    if (periodBaselineOmr > 0) {
+      periodCurrentTotalOmr += currentOmr;
+      periodBaselineTotalOmr += periodBaselineOmr;
+      if (asset.category !== "PUBLIC_EQUITY") {
+        nonPublicPeriodCurrentOmr += currentOmr;
+        nonPublicPeriodBaselineOmr += periodBaselineOmr;
+      }
+    }
 
-    if (asset.category !== "PUBLIC_EQUITY") {
-      nonPublicCurrentOmr += currentOmr;
-      nonPublicPeriodBaselineOmr += periodBaselineOmr;
-      nonPublicYtdBaselineOmr += ytdBaselineOmr;
+    if (ytdBaselineOmr > 0) {
+      ytdCurrentTotalOmr += currentOmr;
+      ytdBaselineTotalOmr += ytdBaselineOmr;
+      if (asset.category !== "PUBLIC_EQUITY") {
+        nonPublicYtdCurrentOmr += currentOmr;
+        nonPublicYtdBaselineOmr += ytdBaselineOmr;
+      }
     }
 
     const periodReturnPct =
@@ -462,9 +410,7 @@ export async function computePortfolioPerformance(
     ? [options.entityId]
     : [...new Set(assets.map((asset) => asset.entityId))];
 
-  periodPerformers.push(
-    ...(await collectPublicEquityHoldingPerformers(publicEquityAssets, periodStart)),
-  );
+  periodPerformers.push(...(await collectPublicEquityHoldingPerformers(publicEquityAssets)));
 
   if (publicEquityAssets.length > 0 && entityIds.length > 0) {
     periodPerformers.push(
@@ -472,24 +418,23 @@ export async function computePortfolioPerformance(
     );
   }
 
-  const periodReturn = computePortfolioReturn(currentTotalOmr, periodBaselineTotalOmr);
-  const ytdReturn = computePortfolioReturn(currentTotalOmr, ytdBaselineTotalOmr);
+  const periodReturn = computeReturn(periodCurrentTotalOmr, periodBaselineTotalOmr);
+  const ytdReturn = computeReturn(ytdCurrentTotalOmr, ytdBaselineTotalOmr);
 
   const statementReturn = await computeStatementReturnMetrics(
     entityIds,
     periodStart,
     yearStart,
     {
-      currentOmr: nonPublicCurrentOmr,
+      currentOmr: nonPublicPeriodCurrentOmr,
       periodBaselineOmr: nonPublicPeriodBaselineOmr,
+      ytdCurrentOmr: nonPublicYtdCurrentOmr,
       ytdBaselineOmr: nonPublicYtdBaselineOmr,
     },
   );
 
-  const sortedPerformers = [...periodPerformers].sort((a, b) => b.returnPct - a.returnPct);
-  const bestPerformer = sortedPerformers[0] ?? null;
-  const worstPerformer =
-    sortedPerformers.length > 1 ? sortedPerformers[sortedPerformers.length - 1] : null;
+  const { best: bestPerformer, worst: worstPerformer } =
+    pickBestWorstPerformers(periodPerformers);
 
   assetRows.sort((a, b) => (b.periodReturnPct ?? -Infinity) - (a.periodReturnPct ?? -Infinity));
 
@@ -501,10 +446,7 @@ export async function computePortfolioPerformance(
     ytdReturnPct: ytdReturn?.returnPct ?? null,
     statementReturn,
     bestPerformer,
-    worstPerformer:
-      worstPerformer && bestPerformer && worstPerformer.href !== bestPerformer.href
-        ? worstPerformer
-        : null,
+    worstPerformer,
     hasSufficientData: periodBaselineTotalOmr > 0 || ytdBaselineTotalOmr > 0,
     assetRows,
   };

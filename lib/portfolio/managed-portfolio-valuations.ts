@@ -1,4 +1,5 @@
 import { db } from "@/lib/db";
+import { selectReliableBaseline } from "@/lib/portfolio/return-math";
 import { convertToOmr } from "@/lib/public-markets/fx";
 import { normalizeHoldingValues } from "@/lib/public-markets/valuation";
 
@@ -119,43 +120,47 @@ export async function getManagedPortfolioValueAtDate(
 /**
  * Period baseline for managed portfolio returns. Mirrors {@link getPerformanceBaselineAtDate}
  * for assets: latest snapshot before the period, else first snapshot in the period, else
- * current holdings cost basis.
+ * current holdings cost basis. Tiny/stale snapshots that imply absurd returns lose to cost.
  */
 export async function getManagedPortfolioPerformanceBaselineAtDate(
   entityId: string,
   managedPortfolioId: string | null,
   periodStart: Date,
 ): Promise<number | null> {
-  const valuationBeforePeriod = await db.managedPortfolioValuation.findFirst({
-    where: {
-      entityId,
-      managedPortfolioId,
-      valuedAt: { lt: periodStart },
-    },
-    orderBy: { valuedAt: "desc" },
+  const [valuationBeforePeriod, firstValuationInPeriod, totals] = await Promise.all([
+    db.managedPortfolioValuation.findFirst({
+      where: {
+        entityId,
+        managedPortfolioId,
+        valuedAt: { lt: periodStart },
+      },
+      orderBy: { valuedAt: "desc" },
+    }),
+    db.managedPortfolioValuation.findFirst({
+      where: {
+        entityId,
+        managedPortfolioId,
+        valuedAt: { gte: periodStart },
+      },
+      orderBy: { valuedAt: "asc" },
+    }),
+    computePortfolioTotalsOmr(entityId, managedPortfolioId),
+  ]);
+
+  const beforeValue = valuationBeforePeriod
+    ? parseFloat(valuationBeforePeriod.valueOmr.toString())
+    : NaN;
+  const firstInPeriodValue = firstValuationInPeriod
+    ? parseFloat(firstValuationInPeriod.valueOmr.toString())
+    : NaN;
+
+  return selectReliableBaseline({
+    beforePeriod: !Number.isNaN(beforeValue) && beforeValue > 0 ? beforeValue : null,
+    firstInPeriod:
+      !Number.isNaN(firstInPeriodValue) && firstInPeriodValue > 0 ? firstInPeriodValue : null,
+    costBasis: totals.costBasisOmr > 0 ? totals.costBasisOmr : null,
+    currentValue: totals.valueOmr > 0 ? totals.valueOmr : null,
   });
-
-  if (valuationBeforePeriod) {
-    const value = parseFloat(valuationBeforePeriod.valueOmr.toString());
-    if (!Number.isNaN(value) && value > 0) return value;
-  }
-
-  const firstValuationInPeriod = await db.managedPortfolioValuation.findFirst({
-    where: {
-      entityId,
-      managedPortfolioId,
-      valuedAt: { gte: periodStart },
-    },
-    orderBy: { valuedAt: "asc" },
-  });
-
-  if (firstValuationInPeriod) {
-    const value = parseFloat(firstValuationInPeriod.valueOmr.toString());
-    if (!Number.isNaN(value) && value > 0) return value;
-  }
-
-  const totals = await computePortfolioTotalsOmr(entityId, managedPortfolioId);
-  return totals.costBasisOmr > 0 ? totals.costBasisOmr : null;
 }
 
 export async function snapshotManagedPortfolioValuation(

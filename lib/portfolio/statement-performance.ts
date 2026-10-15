@@ -1,5 +1,6 @@
 import { db } from "@/lib/db";
 import { getManagedPortfolioImportNav } from "@/lib/portfolio/managed-portfolio-valuations";
+import { computeReturn } from "@/lib/portfolio/return-math";
 
 export type StatementReturnMetrics = {
   periodReturnOmr: number | null;
@@ -9,18 +10,6 @@ export type StatementReturnMetrics = {
   lastStatementDate: Date | null;
   awaitingPeriodStatement: boolean;
 };
-
-function computeReturn(
-  currentTotalOmr: number,
-  baselineTotalOmr: number,
-): { returnOmr: number; returnPct: number } | null {
-  if (baselineTotalOmr <= 0) return null;
-  const returnOmr = currentTotalOmr - baselineTotalOmr;
-  return {
-    returnOmr,
-    returnPct: (returnOmr / baselineTotalOmr) * 100,
-  };
-}
 
 async function listPortfolioSlices(entityIds: string[]): Promise<
   { entityId: string; managedPortfolioId: string | null }[]
@@ -68,9 +57,12 @@ export async function computeStatementReturnMetrics(
   nonPublicEquity: {
     currentOmr: number;
     periodBaselineOmr: number;
+    ytdCurrentOmr?: number;
     ytdBaselineOmr: number;
   },
 ): Promise<StatementReturnMetrics> {
+  const nonPublicYtdCurrentOmr = nonPublicEquity.ytdCurrentOmr ?? nonPublicEquity.currentOmr;
+
   if (entityIds.length === 0) {
     return {
       periodReturnOmr: null,
@@ -86,7 +78,7 @@ export async function computeStatementReturnMetrics(
   let periodBaselineOmr = nonPublicEquity.periodBaselineOmr;
   let periodCurrentOmr = nonPublicEquity.currentOmr;
   let ytdBaselineOmr = nonPublicEquity.ytdBaselineOmr;
-  let ytdCurrentOmr = nonPublicEquity.currentOmr;
+  let ytdCurrentOmr = nonPublicYtdCurrentOmr;
   let lastStatementDate: Date | null = null;
   let awaitingPeriodStatement = false;
   let trackedPublicSlice = false;
@@ -113,36 +105,40 @@ export async function computeStatementReturnMetrics(
     });
 
     if (!periodBaseline && !periodCurrent) {
-      continue;
-    }
-
-    if (periodBaseline) {
+      // Still allow YTD pairing below when import history exists for the year.
+    } else if (periodBaseline && periodCurrent) {
+      // Only pair complete opening/closing statement marks for the period.
       periodBaselineOmr += periodBaseline.valueOmr;
-    }
-
-    if (periodCurrent) {
       periodCurrentOmr += periodCurrent.valueOmr;
       if (!lastStatementDate || periodCurrent.valuedAt > lastStatementDate) {
         lastStatementDate = periodCurrent.valuedAt;
       }
-    } else if (periodBaseline) {
+    } else if (periodBaseline && !periodCurrent) {
       awaitingPeriodStatement = true;
+    } else if (!periodBaseline && periodCurrent) {
+      // Closing mark without an opening statement cannot form a period return.
+      if (!lastStatementDate || periodCurrent.valuedAt > lastStatementDate) {
+        lastStatementDate = periodCurrent.valuedAt;
+      }
     }
 
-    if (ytdBaseline) {
+    if (ytdBaseline && ytdCurrent) {
       ytdBaselineOmr += ytdBaseline.valueOmr;
-    }
-    if (ytdCurrent) {
       ytdCurrentOmr += ytdCurrent.valueOmr;
       if (!lastStatementDate || ytdCurrent.valuedAt > lastStatementDate) {
         lastStatementDate = ytdCurrent.valuedAt;
       }
+    } else if (ytdCurrent && (!lastStatementDate || ytdCurrent.valuedAt > lastStatementDate)) {
+      lastStatementDate = ytdCurrent.valuedAt;
     }
   }
 
   if (!trackedPublicSlice) {
-    const periodReturn = computeReturn(nonPublicEquity.currentOmr, nonPublicEquity.periodBaselineOmr);
-    const ytdReturn = computeReturn(nonPublicEquity.currentOmr, nonPublicEquity.ytdBaselineOmr);
+    const periodReturn = computeReturn(
+      nonPublicEquity.currentOmr,
+      nonPublicEquity.periodBaselineOmr,
+    );
+    const ytdReturn = computeReturn(nonPublicYtdCurrentOmr, nonPublicEquity.ytdBaselineOmr);
     return {
       periodReturnOmr: periodReturn?.returnOmr ?? null,
       periodReturnPct: periodReturn?.returnPct ?? null,

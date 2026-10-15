@@ -148,7 +148,13 @@ export function DashboardPerformanceCards({
               : "Performance tracking starts as values are updated."}
           </p>
         ) : (
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
+          <div
+            className={
+              period === "year"
+                ? "grid gap-4 sm:grid-cols-2 lg:grid-cols-4"
+                : "grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5"
+            }
+          >
             <PerformanceMetric
               label={`Return (${periodShortLabel}) · Live prices`}
               value={formatReturnPct(performance.periodReturnPct)}
@@ -181,21 +187,23 @@ export function DashboardPerformanceCards({
                   : returnTone(performance.statementReturn.periodReturnPct)
               }
             />
-            <PerformanceMetric
-              label="Return YTD · Live prices"
-              value={formatReturnPct(performance.ytdReturnPct)}
-              detail={
-                performance.ytdReturnOmr != null ? formatOmr(performance.ytdReturnOmr) : null
-              }
-              tone={returnTone(performance.ytdReturnPct)}
-            />
+            {period !== "year" ? (
+              <PerformanceMetric
+                label="Return YTD · Live prices"
+                value={formatReturnPct(performance.ytdReturnPct)}
+                detail={
+                  performance.ytdReturnOmr != null ? formatOmr(performance.ytdReturnOmr) : null
+                }
+                tone={returnTone(performance.ytdReturnPct)}
+              />
+            ) : null}
             <AssetPerformerMetric
-              label={`Best performer (${periodShortLabel})`}
+              label="Best performer"
               performer={performance.bestPerformer}
               positive
             />
             <AssetPerformerMetric
-              label={`Worst performer (${periodShortLabel})`}
+              label="Worst performer"
               performer={performance.worstPerformer}
               positive={false}
             />
@@ -207,8 +215,8 @@ export function DashboardPerformanceCards({
           <p className="text-xs text-muted-foreground">
             Live returns use refreshed market prices and recorded valuations until you upload a new
             report. Statement returns compare imported broker statement totals (period opening vs
-            closing report). Public-market holdings share their portfolio baseline when earlier
-            history is unavailable.
+            closing report). Best and worst public-market movers use each holding&apos;s return
+            versus its own cost basis; other assets use valuation change over the selected period.
           </p>
         </CardFooter>
       ) : null}

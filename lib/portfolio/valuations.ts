@@ -1,6 +1,10 @@
 import { db } from "@/lib/db";
 import { assetEntityFilter } from "@/lib/permissions/scoped-queries";
 import type { UserContext } from "@/lib/permissions/types";
+import {
+  resolveTotalCostBasis,
+  selectReliableBaseline,
+} from "@/lib/portfolio/return-math";
 import { convertToOmr } from "@/lib/reports/helpers";
 
 const COUNTABLE_ASSET_STATUSES = ["ACTIVE", "MONITOR"] as const;
@@ -101,67 +105,95 @@ type PerformanceBaselineAsset = {
   acquisitionDate: Date | null;
 };
 
+async function sumPublicEquityCostBasisOmr(
+  assetId: string,
+  assetCurrency: string,
+): Promise<number> {
+  const holdings = await db.publicEquityHolding.findMany({
+    where: { assetId, instrumentType: "EQUITY" },
+    select: {
+      quantity: true,
+      costBasis: true,
+      marketValue: true,
+      currency: true,
+    },
+  });
+
+  let costTotalOmr = 0;
+  for (const holding of holdings) {
+    const quantity = holding.quantity ? parseFloat(holding.quantity.toString()) : 0;
+    const rawCost = holding.costBasis ? parseFloat(holding.costBasis.toString()) : null;
+    const marketValue = holding.marketValue
+      ? parseFloat(holding.marketValue.toString())
+      : null;
+    const totalCost = resolveTotalCostBasis({
+      quantity: Number.isFinite(quantity) ? quantity : 0,
+      costBasis: rawCost != null && !Number.isNaN(rawCost) ? rawCost : null,
+      marketValue: marketValue != null && !Number.isNaN(marketValue) ? marketValue : null,
+    });
+    if (totalCost == null || totalCost <= 0) continue;
+    costTotalOmr += await convertToOmr(totalCost, holding.currency || assetCurrency);
+  }
+
+  return costTotalOmr;
+}
+
+async function parsePositiveValuation(
+  row: { value: { toString(): string }; currency: string } | null,
+): Promise<{ valueOmr: number } | null> {
+  if (!row) return null;
+  const value = parseFloat(row.value.toString());
+  if (Number.isNaN(value) || value <= 0) return null;
+  const valueOmr = row.currency === "OMR" ? value : await convertToOmr(value, row.currency);
+  if (!(valueOmr > 0)) return null;
+  return { valueOmr };
+}
+
 /**
  * Baseline value for period returns (month / YTD). Unlike {@link getAssetValueAtDate},
  * this avoids using a years-old acquisition cost as a faux month-start value when
  * valuation history exists only from the current period.
+ *
+ * Tiny/stale valuation snapshots that imply absurd period returns are discarded in
+ * favour of a more reliable cost-basis baseline when available.
  */
 export async function getPerformanceBaselineAtDate(
   asset: PerformanceBaselineAsset,
   periodStart: Date,
 ): Promise<{ value: number; currency: string } | null> {
-  const valuationBeforePeriod = await db.assetValuation.findFirst({
-    where: {
-      assetId: asset.id,
-      valuedAt: { lt: periodStart },
-    },
-    orderBy: { valuedAt: "desc" },
-  });
+  const [valuationBeforePeriod, firstValuationInPeriod] = await Promise.all([
+    db.assetValuation.findFirst({
+      where: { assetId: asset.id, valuedAt: { lt: periodStart } },
+      orderBy: { valuedAt: "desc" },
+    }),
+    db.assetValuation.findFirst({
+      where: { assetId: asset.id, valuedAt: { gte: periodStart } },
+      orderBy: { valuedAt: "asc" },
+    }),
+  ]);
 
-  if (valuationBeforePeriod) {
-    const value = parseFloat(valuationBeforePeriod.value.toString());
-    if (!Number.isNaN(value) && value > 0) {
-      return { value, currency: valuationBeforePeriod.currency };
-    }
-  }
+  const before = await parsePositiveValuation(valuationBeforePeriod);
+  const firstInPeriod = await parsePositiveValuation(firstValuationInPeriod);
 
-  const firstValuationInPeriod = await db.assetValuation.findFirst({
-    where: {
-      assetId: asset.id,
-      valuedAt: { gte: periodStart },
-    },
-    orderBy: { valuedAt: "asc" },
-  });
-
-  if (firstValuationInPeriod) {
-    const value = parseFloat(firstValuationInPeriod.value.toString());
-    if (!Number.isNaN(value) && value > 0) {
-      return { value, currency: firstValuationInPeriod.currency };
-    }
-  }
-
+  let costBasisOmr: number | null = null;
   if (asset.category === "PUBLIC_EQUITY") {
-    const holdings = await db.publicEquityHolding.findMany({
-      where: { assetId: asset.id },
-      select: { costBasis: true, currency: true },
-    });
-
-    let costTotalOmr = 0;
-    for (const holding of holdings) {
-      if (!holding.costBasis) continue;
-      const cost = parseFloat(holding.costBasis.toString());
-      if (Number.isNaN(cost) || cost <= 0) continue;
-      costTotalOmr += await convertToOmr(cost, holding.currency || asset.currency);
-    }
-
-    if (costTotalOmr > 0) {
-      return { value: costTotalOmr, currency: "OMR" };
-    }
-
-    return null;
+    const total = await sumPublicEquityCostBasisOmr(asset.id, asset.currency);
+    costBasisOmr = total > 0 ? total : null;
   }
 
+  const selectedOmr = selectReliableBaseline({
+    beforePeriod: before?.valueOmr ?? null,
+    firstInPeriod: firstInPeriod?.valueOmr ?? null,
+    costBasis: costBasisOmr,
+  });
+
+  if (selectedOmr != null) {
+    return { value: selectedOmr, currency: "OMR" };
+  }
+
+  // Non-public assets acquired during the period: acquisition cost is a valid opening mark.
   if (
+    asset.category !== "PUBLIC_EQUITY" &&
     asset.acquisitionCost &&
     asset.acquisitionDate &&
     asset.acquisitionDate >= periodStart
